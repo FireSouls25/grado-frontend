@@ -1,18 +1,28 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { session } from './session';
+  import { me } from '../teacher/api';
   import { push } from 'svelte-spa-router';
 
   let subject = '';
   let error = '';
+  let busy = false;
 
-  function submit() {
+  async function submit() {
     error = '';
     if (!session.login(subject)) {
       error = $t.login.missingId;
       return;
     }
-    push('/hoy');
+    busy = true;
+    try {
+      const profile = await me();
+      push(profile.home || '/hoy');
+    } catch {
+      push('/hoy');
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
@@ -36,7 +46,9 @@
     {#if error}
       <p class="error" role="alert">{error}</p>
     {/if}
-    <button class="primary" type="submit">{$t.login.submit}</button>
+    <button class="primary" type="submit" disabled={busy}>
+      {busy ? '…' : $t.login.submit}
+    </button>
   </form>
 </div>
 

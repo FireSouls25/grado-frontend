@@ -30,7 +30,9 @@ src/
   domains/
     auth/                  # Login, session (subject id persistido)
     teacher/               # Home, ClassDetail, ScheduleTab, ClassCard, api.ts
-    admin/                 # fase siguiente
+    admin/                 # Overview, Teachers, TeacherDetail, Students,
+                           # ScheduleBoard, api.ts (lazy: echarts fuera del
+                           # bundle docente)
 ```
 
 Reglas: los dominios no se importan entre sí; lo compartido vive en
@@ -54,7 +56,9 @@ suave a vacíos y se encienden solos cuando el backend los exponga.
 2. ✅ Fundación: tokens, tema, i18n, API, iconos, login, shell
 3. ✅ Dominio docente: home (hoy/próxima/vacío), detalle de clase
    (lista alfabética, marcas, llamado multiselección), tab horario
-4. ➡️ Dominio admin: docentes (ficha, materias, salones), estudiantes
-   por año/salón, horario general editable estilo `reference/`, home con
-   ECharts (inasistencias, llamados, estado general)
-5. ➡️ Endpoints backend pendientes + login real por roles
+4. ✅ Dominio admin (drafts honestos): Resumen con ECharts (donut +
+   barras, overlay vacío), Docentes + ficha (materias, salones, asignar),
+   Estudiantes por año/salón, tablero semanal estilo `reference/` con
+   overlay de edición. Login enruta por rol (`/v1/me` → home).
+5. ➡️ Endpoints backend pendientes + login real por roles (ver
+   `docs/api-client.md`)
