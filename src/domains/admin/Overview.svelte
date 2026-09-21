@@ -6,6 +6,8 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Chart from '$lib/ui/Chart.svelte';
   import Icon from '$lib/ui/Icon.svelte';
+  import { cssVar } from '$lib/ui/cssvar';
+  import { theme, type Theme } from '$lib/theme/theme';
   import { push } from 'svelte-spa-router';
 
   // Draft phase: no group/year selected yet (selectors land with the
@@ -13,27 +15,44 @@
   const emptyMarks = { presences: 0, absences: 0, evasions: 0, lates: 0 };
   const hasData = false;
 
-  $: donut = {
-    series: [
-      {
-        type: 'pie',
-        radius: ['58%', '80%'],
-        label: { show: false },
-        data: [
-          { value: emptyMarks.presences, name: 'Presentes', itemStyle: { color: '#1c7a4d' } },
-          { value: emptyMarks.absences, name: 'Inasistencias', itemStyle: { color: '#c22e5c' } },
-          { value: emptyMarks.evasions, name: 'Evasiones', itemStyle: { color: '#8a6d1a' } },
-          { value: emptyMarks.lates, name: 'Atrasos', itemStyle: { color: '#1f5fc4' } }
-        ]
-      }
-    ]
-  };
+  // Rebuilt on theme change: canvas needs resolved colors, not var().
+  $: donut = makeDonut($theme);
 
-  $: bars = {
-    xAxis: { type: 'category', data: ['Leve', 'Medio', 'Grave'] },
-    yAxis: { type: 'value' },
-    series: [{ type: 'bar', data: [0, 0, 0], itemStyle: { borderRadius: [8, 8, 0, 0] } }]
-  };
+  function makeDonut(_theme: Theme) {
+    return {
+      series: [
+        {
+          type: 'pie',
+          radius: ['58%', '80%'],
+          label: { show: false },
+          data: hasData
+            ? [
+                { value: emptyMarks.presences, name: 'Presentes', itemStyle: { color: cssVar('--chip-green-ink') } },
+                { value: emptyMarks.absences, name: 'Inasistencias', itemStyle: { color: cssVar('--chip-pink-ink') } },
+                { value: emptyMarks.evasions, name: 'Evasiones', itemStyle: { color: cssVar('--chip-yellow-ink') } },
+                { value: emptyMarks.lates, name: 'Atrasos', itemStyle: { color: cssVar('--chip-sky-ink') } }
+              ]
+            : []
+        }
+      ]
+    };
+  }
+
+  $: bars = makeBars($theme);
+
+  function makeBars(_theme: Theme) {
+    return {
+      xAxis: { type: 'category', data: ['Leve', 'Medio', 'Grave'] },
+      yAxis: { type: 'value' },
+      series: [
+        {
+          type: 'bar',
+          data: [0, 0, 0],
+          itemStyle: { borderRadius: [8, 8, 0, 0], color: cssVar('--accent', '#2f6bff') }
+        }
+      ]
+    };
+  }
 
   const cards = [
     { icon: 'users', value: '—', label: 'Estudiantes' },
@@ -58,12 +77,24 @@
 
   <section class="panel">
     <h2>Asistencia general</h2>
-    <Chart option={donut} empty={!hasData} height={220} />
+    {#if hasData}
+      <Chart option={donut} empty={false} height={220} />
+    {:else}
+      <div class="chart-empty" role="img" aria-label="Sin datos todavía">
+        <span>Sin datos todavía</span>
+      </div>
+    {/if}
   </section>
 
   <section class="panel">
     <h2>Llamados por gravedad</h2>
-    <Chart option={bars} empty={!hasData} height={220} />
+    {#if hasData}
+      <Chart option={bars} empty={false} height={220} />
+    {:else}
+      <div class="chart-empty" role="img" aria-label="Sin datos todavía">
+        <span>Sin datos todavía</span>
+      </div>
+    {/if}
   </section>
 
   <EmptyState
@@ -136,6 +167,24 @@
   .panel h2 {
     font-size: 1rem;
     margin-bottom: 8px;
+  }
+  .chart-empty {
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-2);
+    border: 1px dashed var(--line);
+    border-radius: var(--radius-chip);
+  }
+  .chart-empty span {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
   }
   @keyframes rise {
     from {

@@ -11,6 +11,7 @@
   import { CanvasRenderer } from 'echarts/renderers';
   import type { EChartsCoreOption } from 'echarts/core';
   import { theme } from '$lib/theme/theme';
+  import { cssVar } from './cssvar';
 
   echarts.use([
     BarChart,
@@ -32,13 +33,13 @@
   let observer: ResizeObserver | null = null;
 
   function palette() {
-    const dark =
-      document.documentElement.dataset.theme === 'dark' ||
-      (document.documentElement.dataset.theme !== 'light' &&
-        window.matchMedia('(prefers-color-scheme: dark)').matches);
-    return dark
-      ? { text: '#eef1f7', muted: '#9aa3c0', line: '#26304d' }
-      : { text: '#1b2340', muted: '#68738f', line: '#e2e8f3' };
+    // Resolved live from theme tokens: canvas cannot read var() directly,
+    // and render() already re-runs on theme change (see onMount).
+    return {
+      text: cssVar('--ink', '#1b2340'),
+      muted: cssVar('--muted', '#68738f'),
+      line: cssVar('--line', '#e2e8f3')
+    };
   }
 
   function render() {

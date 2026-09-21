@@ -5,6 +5,10 @@
 ## Reglas
 
 - Base `VITE_API_URL`; secretos y entorno solo en `.env` (gitignoreado).
+- Desarrollo en navegador: el backend debe permitir el origen dev
+  (`ALLOWED_ORIGINS=http://127.0.0.1:1420,http://localhost:1420`), o los
+  fetch con `X-Subject-ID` mueren en preflight y todo se ve como error de
+  red. En Tauri el origen será el del webview (`tauri.localhost`).
 - Identidad: header `X-Subject-ID` desde la sesión (login la guarda,
   `VITE_DEV_SUBJECT_ID` solo para desarrollo).
 - `ApiError { code, status }`: `code` es la clave estable del backend
