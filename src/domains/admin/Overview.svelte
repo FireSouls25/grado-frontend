@@ -2,13 +2,12 @@
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import Tabs from '$lib/ui/Tabs.svelte';
+  import AdminTabs from './AdminTabs.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Chart from '$lib/ui/Chart.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import { cssVar } from '$lib/ui/cssvar';
   import { theme, type Theme } from '$lib/theme/theme';
-  import { push } from 'svelte-spa-router';
 
   // Draft phase: no group/year selected yet (selectors land with the
   // classes endpoint). Charts render their axes + honest empty overlay.
@@ -27,10 +26,10 @@
           label: { show: false },
           data: hasData
             ? [
-                { value: emptyMarks.presences, name: 'Presentes', itemStyle: { color: cssVar('--chip-green-ink') } },
-                { value: emptyMarks.absences, name: 'Inasistencias', itemStyle: { color: cssVar('--chip-pink-ink') } },
-                { value: emptyMarks.evasions, name: 'Evasiones', itemStyle: { color: cssVar('--chip-yellow-ink') } },
-                { value: emptyMarks.lates, name: 'Atrasos', itemStyle: { color: cssVar('--chip-sky-ink') } }
+                { value: emptyMarks.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--chip-green-ink') } },
+                { value: emptyMarks.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--chip-pink-ink') } },
+                { value: emptyMarks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--chip-yellow-ink') } },
+                { value: emptyMarks.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--chip-sky-ink') } }
               ]
             : []
         }
@@ -42,7 +41,7 @@
 
   function makeBars(_theme: Theme) {
     return {
-      xAxis: { type: 'category', data: ['Leve', 'Medio', 'Grave'] },
+      xAxis: { type: 'category', data: [$t.roster.warnGravityMild, $t.roster.warnGravityModerate, $t.roster.warnGravitySevere] },
       yAxis: { type: 'value' },
       series: [
         {
@@ -55,15 +54,15 @@
   }
 
   const cards = [
-    { icon: 'users', value: '—', label: 'Estudiantes' },
-    { icon: 'book', value: '—', label: 'Docentes' },
-    { icon: 'list', value: '—', label: 'Salones' },
-    { icon: 'warn', value: '—', label: 'Llamados' }
+    { icon: 'users', value: '—', label: $t.admin.statsStudents },
+    { icon: 'book', value: '—', label: $t.admin.statsTeachers },
+    { icon: 'list', value: '—', label: $t.admin.statsGroups },
+    { icon: 'warn', value: '—', label: $t.admin.statsWarnings }
   ] as const;
 </script>
 
 <div class="page">
-  <TopBar title="Panel"><TopActions /></TopBar>
+  <TopBar title={$t.admin.overviewTitle}><TopActions /></TopBar>
 
   <div class="grid">
     {#each cards as card}
@@ -76,7 +75,7 @@
   </div>
 
   <section class="panel">
-    <h2>Asistencia general</h2>
+    <h2>{$t.admin.attendanceTitle}</h2>
     {#if hasData}
       <Chart option={donut} empty={false} height={220} />
     {:else}
@@ -87,7 +86,7 @@
   </section>
 
   <section class="panel">
-    <h2>Llamados por gravedad</h2>
+    <h2>{$t.admin.warningsTitle}</h2>
     {#if hasData}
       <Chart option={bars} empty={false} height={220} />
     {:else}
@@ -99,20 +98,12 @@
 
   <EmptyState
     icon="calendar"
-    title="Elige un año y un salón"
-    body="Los gráficos se llenan al seleccionar el salón; los selectores llegan con el endpoint de salones."
+    title={$t.admin.chooseYearGroupTitle}
+    body={$t.admin.chooseYearGroupBody}
   />
 </div>
 
-<Tabs
-  tabs={[
-    { href: '/admin', icon: 'book', label: 'Resumen', active: true },
-    { href: '/admin/docentes', icon: 'users', label: 'Docentes', active: false },
-    { href: '/admin/estudiantes', icon: 'list', label: 'Estudiantes', active: false },
-    { href: '/admin/horario', icon: 'calendar', label: 'Horario', active: false }
-  ]}
-  onNavigate={(href) => push(href)}
-/>
+<AdminTabs active="resumen" />
 
 <style>
   .grid {

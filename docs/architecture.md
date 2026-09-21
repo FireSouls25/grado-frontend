@@ -24,11 +24,12 @@ src/
     theme/                 # store light/dark/auto + <meta theme-color>
     i18n/                  # es.ts central + store t (listo para más locales)
     api/                   # client.ts (fetch), types.ts (formas del backend)
-    ui/                    # Icon, TopBar, TopActions, Tabs, Sheet, EmptyState, Skeleton, palette
-    shell/                 # SettingsPanel, HelpPanel
+    ui/                    # Icon, TopBar, TopActions, Tabs, Sheet (portal),
+                           # EmptyState, Skeleton, palette, cssvar
+    shell/                 # SettingsPanel, HelpPanel (+ Pages)
     nav.ts                 # path reactivo, guarded(), backOrHome()
   domains/
-    auth/                  # Login, session (subject id persistido)
+    auth/                  # Login, Recover (mockup), session, accounts (dev)
     teacher/               # Home, ClassDetail, ScheduleTab, ClassCard, api.ts
     admin/                 # Overview, Teachers, TeacherDetail, Students,
                            # ScheduleBoard, api.ts (lazy: echarts fuera del
@@ -54,11 +55,25 @@ suave a vacíos y se encienden solos cuando el backend los exponga.
 
 1. ✅ Entorno, deps, Tauri, `.env`, `.gitignore` (incluye `reference/`)
 2. ✅ Fundación: tokens, tema, i18n, API, iconos, login, shell
+3. ✅ Login profesional (Observador Estudiantil): correo o usuario
+   (`nombre.apellido`, creado por admins; colisiones con letras del
+   segundo apellido), contraseña con mostrar/ocultar, mockup de
+   recuperación, layout dividido en escritorio. Cuentas dev en
+   `accounts.ts`; el rol lo determina `/v1/me` → home
 3. ✅ Dominio docente: home (hoy/próxima/vacío), detalle de clase
    (lista alfabética, marcas, llamado multiselección), tab horario
 4. ✅ Dominio admin (drafts honestos): Resumen con ECharts (donut +
    barras, overlay vacío), Docentes + ficha (materias, salones, asignar),
    Estudiantes por año/salón, tablero semanal estilo `reference/` con
    overlay de edición. Login enruta por rol (`/v1/me` → home).
-5. ➡️ Endpoints backend pendientes + login real por roles (ver
+5. ✅ Login profesional (Observador Estudiantil): correo o usuario
+   (`nombre.apellido`, creado por admins), contraseña con mostrar/ocultar,
+   mockup de recuperación, layout dividido en escritorio. Cuentas dev en
+   `accounts.ts`; el rol lo determina `/v1/me` → home.
+6. ✅ Ajustes y Ayuda como páginas (`/ajustes`, `/ayuda`); `Sheet` usa
+   portal al `body` (inmune a ancestros que rompen `position:fixed`) con
+   scroll interno contenido. Login endurecido: borrador persistido (solo
+   identificador), espacio de error reservado, `100svh` estable ante el
+   teclado móvil, centrado vertical.
+7. ➡️ Endpoints backend pendientes + login real por roles (ver
    `docs/api-client.md`)

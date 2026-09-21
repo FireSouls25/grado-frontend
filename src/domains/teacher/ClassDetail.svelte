@@ -156,9 +156,9 @@
   }
 
   const gravities = [
-    { value: 'mild', label: 'Leve' },
-    { value: 'moderate', label: 'Medio' },
-    { value: 'severe', label: 'Grave' }
+    { value: 'mild', label: $t.roster.warnGravityMild },
+    { value: 'moderate', label: $t.roster.warnGravityModerate },
+    { value: 'severe', label: $t.roster.warnGravitySevere }
   ] as const;
 </script>
 
@@ -262,10 +262,10 @@
 <Sheet open={warnOpen} title={$t.roster.warnTitle} on:close={() => (warnOpen = false)}>
   {#if state.kind === 'ready'}
     <div class="warn-form">
-      <p class="count">{selected.size} estudiantes</p>
-      <label for="warn-title">Título</label>
+      <p class="count">{$t.roster.warnStudents(selected.size)}</p>
+      <label for="warn-title">{$t.roster.warnSubjectLabel}</label>
       <input id="warn-title" bind:value={warnTitle} maxlength={120} />
-      <div class="segment" role="group" aria-label="Gravedad">
+      <div class="segment" role="group" aria-label={$t.roster.warnGravityLabel}>
         {#each gravities as g}
           <button
             type="button"
@@ -277,7 +277,7 @@
           </button>
         {/each}
       </div>
-      <label for="warn-desc">Descripción</label>
+      <label for="warn-desc">{$t.roster.warnDescLabel}</label>
       <textarea id="warn-desc" rows={4} bind:value={warnDescription} placeholder={$t.roster.warnPlaceholder}
       ></textarea>
       {#if warnFeedback}

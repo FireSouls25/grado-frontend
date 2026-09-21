@@ -1,4 +1,7 @@
 import Login from './domains/auth/Login.svelte';
+import Recover from './domains/auth/Recover.svelte';
+import SettingsPage from './domains/shell/SettingsPage.svelte';
+import HelpPage from './domains/shell/HelpPage.svelte';
 import Home from './domains/teacher/Home.svelte';
 import ClassDetail from './domains/teacher/ClassDetail.svelte';
 import ScheduleTab from './domains/teacher/ScheduleTab.svelte';
@@ -16,6 +19,9 @@ const admin = (loader: () => Promise<{ default: Component }>) =>
 export const routes = {
   '/': Login,
   '/login': Login,
+  '/recuperar': Recover,
+  '/ajustes': SettingsPage,
+  '/ayuda': HelpPage,
   '/hoy': Home,
   '/horario': ScheduleTab,
   '/clase/:groupID': ClassDetail,

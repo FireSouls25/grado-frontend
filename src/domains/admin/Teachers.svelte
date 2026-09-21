@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
+  import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import Tabs from '$lib/ui/Tabs.svelte';
+  import AdminTabs from './AdminTabs.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Icon from '$lib/ui/Icon.svelte';
@@ -33,22 +34,22 @@
 </script>
 
 <div class="page">
-  <TopBar title="Docentes" showBack onBack={() => push('/admin')}><TopActions /></TopBar>
+  <TopBar title={$t.admin.teachersTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
 
   {#if state === 'loading'}
     <Skeleton rows={4} />
   {:else if state === 'error'}
     <EmptyState
       icon="warn"
-      title="No se pudo cargar. Revisa tu conexión e intenta de nuevo."
-      actionLabel="Reintentar"
+      title={$t.common.loadError}
+      actionLabel={$t.common.retry}
       onAction={load}
     />
   {:else if list.length === 0}
     <EmptyState
       icon="users"
-      title="Aún no hay docentes"
-      body="Las cuentas las crean los administradores. Cuando existan, aquí verás su ficha, sus materias y sus salones."
+      title={$t.admin.noTeachersTitle}
+      body={$t.admin.noTeachersBody}
     />
   {:else}
     <ul class="roster">
@@ -63,8 +64,8 @@
               <span class="name">{teacher.surnames} {teacher.names}</span>
               <span class="sub">
                 {teacher.documentID}
-                {#if teacher.homeroomClassID}· Dirige {teacher.homeroomClassID}{/if}
-                {#if !teacher.active}· Inactivo{/if}
+                {#if teacher.homeroomClassID}· {$t.admin.directs(teacher.homeroomClassID)}{/if}
+                {#if !teacher.active}· {$t.admin.inactive}{/if}
               </span>
             </span>
             <span class="go" aria-hidden="true"><Icon name="next" /></span>
@@ -75,15 +76,7 @@
   {/if}
 </div>
 
-<Tabs
-  tabs={[
-    { href: '/admin', icon: 'book', label: 'Resumen', active: false },
-    { href: '/admin/docentes', icon: 'users', label: 'Docentes', active: true },
-    { href: '/admin/estudiantes', icon: 'list', label: 'Estudiantes', active: false },
-    { href: '/admin/horario', icon: 'calendar', label: 'Horario', active: false }
-  ]}
-  onNavigate={(href) => push(href)}
-/>
+<AdminTabs active="docentes" />
 
 <style>
   .roster {

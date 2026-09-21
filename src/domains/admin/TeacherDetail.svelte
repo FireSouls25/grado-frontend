@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
+  import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -64,7 +65,7 @@
 </script>
 
 <div class="page">
-  <TopBar title="Docente" showBack onBack={() => push('/admin/docentes')}>
+  <TopBar title={$t.admin.teacherDetailTitle} showBack onBack={() => push('/admin/docentes')}>
     <TopActions />
   </TopBar>
 
@@ -73,30 +74,29 @@
   {:else if state === 'error' || !detail}
     <EmptyState
       icon="warn"
-      title="No se pudo cargar. Revisa tu conexión e intenta de nuevo."
-      body=""
-      actionLabel="Reintentar"
+      title={$t.common.loadError}
+      actionLabel={$t.common.retry}
       onAction={load}
     />
   {:else}
-    <section class="card profile">
+    <section class="card profile" aria-label={$t.admin.teacherDetailTitle}>
       <h2>{detail.surnames} {detail.names}</h2>
       <p>{detail.documentID}</p>
       {#if detail.email}<p>{detail.email}</p>{/if}
       {#if detail.phone}<p>{detail.phone}</p>{/if}
       {#if detail.homeroomClassID}
-        <span class="chip chip-sky">Dirige {detail.homeroomClassID}</span>
+        <span class="chip chip-sky">{$t.admin.directs(detail.homeroomClassID)}</span>
       {/if}
-      {#if !detail.active}<span class="chip chip-pink">Inactivo</span>{/if}
+      {#if !detail.active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
     </section>
 
-    <section class="card">
+    <section class="card" aria-label={$t.admin.subjectsTitle}>
       <div class="row-head">
-        <h2>Materias</h2>
-        <button type="button" class="mini" on:click={openAssign}>Asignar</button>
+        <h2>{$t.admin.subjectsTitle}</h2>
+        <button type="button" class="mini" on:click={openAssign}>{$t.admin.assignSubject}</button>
       </div>
       {#if detail.subjects.length === 0}
-        <p class="muted">Sin materias asignadas.</p>
+        <p class="muted">{$t.admin.noSubjects}</p>
       {:else}
         <div class="chips">
           {#each detail.subjects as s (s.subjectID)}
@@ -106,10 +106,10 @@
       {/if}
     </section>
 
-    <section class="card">
-      <h2>Salones</h2>
+    <section class="card" aria-label={$t.admin.groupsTitle}>
+      <h2>{$t.admin.groupsTitle}</h2>
       {#if detail.groups.length === 0}
-        <p class="muted">Sin salones en el horario.</p>
+        <p class="muted">{$t.admin.noGroups}</p>
       {:else}
         <ul class="groups">
           {#each detail.groups as g (g.groupID + g.subjectName)}
@@ -124,10 +124,10 @@
   {/if}
 </div>
 
-<Sheet open={assignOpen} title="Asignar materia" on:close={() => (assignOpen = false)}>
+<Sheet open={assignOpen} title={$t.admin.assignSubjectTitle} on:close={() => (assignOpen = false)}>
   {#if feedback}<p class="flash" role="alert">{feedback}</p>{/if}
   {#if catalog.length === 0}
-    <p class="muted">No hay materias creadas todavía.</p>
+    <p class="muted">{$t.admin.noCatalog}</p>
   {:else}
     <ul class="catalog">
       {#each catalog as s (s.id)}

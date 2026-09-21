@@ -162,7 +162,8 @@ input {
 }
 
 #app {
-  min-height: 100dvh;
+  min-height: 100vh;
+  min-height: 100svh;
 }
 
 /* Subject color chips. Components pick a palette via paletteFor(); the

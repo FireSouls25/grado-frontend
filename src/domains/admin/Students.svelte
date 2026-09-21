@@ -1,8 +1,9 @@
 <script lang="ts">
   import { push } from 'svelte-spa-router';
+  import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import Tabs from '$lib/ui/Tabs.svelte';
+  import AdminTabs from './AdminTabs.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import { groupsByYear, type YearGroup } from './api';
@@ -46,14 +47,14 @@
 </script>
 
 <div class="page">
-  <TopBar title="Estudiantes" showBack onBack={() => push('/admin')}><TopActions /></TopBar>
+  <TopBar title={$t.admin.studentsTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
 
   <div class="yearbar">
-    <button type="button" class="icon-btn" on:click={() => changeYear(-1)} aria-label="Año anterior">
+    <button type="button" class="icon-btn" on:click={() => changeYear(-1)} aria-label={$t.a11y.prevYear}>
       <Icon name="back" />
     </button>
     <strong>{year}</strong>
-    <button type="button" class="icon-btn" on:click={() => changeYear(1)} aria-label="Año siguiente">
+    <button type="button" class="icon-btn" on:click={() => changeYear(1)} aria-label={$t.a11y.nextYear}>
       <Icon name="next" />
     </button>
   </div>
@@ -61,17 +62,17 @@
   {#if failed}
     <EmptyState
       icon="warn"
-      title="No se pudo cargar. Revisa tu conexión e intenta de nuevo."
-      actionLabel="Reintentar"
+      title={$t.common.loadError}
+      actionLabel={$t.common.retry}
       onAction={load}
     />
   {:else if !loaded}
-    <EmptyState icon="list" title="Cargando salones…" body="" />
+    <EmptyState icon="list" title={$t.admin.loadingGroups} />
   {:else if groups.length === 0}
     <EmptyState
       icon="users"
-      title={`Sin salones en ${year}`}
-      body="Cuando existan salones con estudiantes matriculados aparecerán aquí, organizados por grado y grupo."
+      title={$t.admin.noGroupsYear(year)}
+      body={$t.admin.noGroupsYearBody}
     />
   {:else}
     <div class="chips">
@@ -84,30 +85,22 @@
           on:click={() => (picked = picked?.groupID === g.groupID ? null : g)}
         >
           <strong>{g.classLabel}</strong>
-          <span>{g.studentCount} estudiantes</span>
+          <span>{$t.admin.groupStudents(g.studentCount)}</span>
         </button>
       {/each}
     </div>
     {#if picked}
       <section class="card">
         <h2>
-          Salón {picked.classLabel} · {picked.schoolYear}
+          {$t.admin.groupDetailTitle(picked.classLabel, picked.schoolYear)}
         </h2>
-        <p>La nómina detallada llega con el endpoint de matrícula por salón.</p>
+        <p>{$t.admin.rosterHint}</p>
       </section>
     {/if}
   {/if}
 </div>
 
-<Tabs
-  tabs={[
-    { href: '/admin', icon: 'book', label: 'Resumen', active: false },
-    { href: '/admin/docentes', icon: 'users', label: 'Docentes', active: false },
-    { href: '/admin/estudiantes', icon: 'list', label: 'Estudiantes', active: true },
-    { href: '/admin/horario', icon: 'calendar', label: 'Horario', active: false }
-  ]}
-  onNavigate={(href) => push(href)}
-/>
+<AdminTabs active="estudiantes" />
 
 <style>
   .yearbar {

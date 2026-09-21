@@ -11,6 +11,8 @@
   import { CanvasRenderer } from 'echarts/renderers';
   import type { EChartsCoreOption } from 'echarts/core';
   import { theme } from '$lib/theme/theme';
+  import { t } from '$lib/i18n';
+
   import { cssVar } from './cssvar';
 
   echarts.use([
@@ -24,7 +26,7 @@
   ]);
 
   export let option: EChartsCoreOption;
-  export let emptyLabel = 'Sin datos todavía';
+  export let emptyLabel = '';
   export let empty = true;
   export let height = 240;
 
@@ -73,9 +75,9 @@
 </script>
 
 <div class="wrap" style={`height: ${height}px`}>
-  <div class="chart" bind:this={el} role="img" aria-label={emptyLabel}></div>
+  <div class="chart" bind:this={el} role="img" aria-label={emptyLabel || $t.charts.noData}></div>
   {#if empty}
-    <div class="overlay"><span>{emptyLabel}</span></div>
+    <div class="overlay"><span>{emptyLabel || $t.charts.noData}</span></div>
   {/if}
 </div>
 

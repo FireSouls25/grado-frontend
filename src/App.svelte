@@ -5,9 +5,10 @@
   import { path } from '$lib/nav';
   import { onMount } from 'svelte';
 
-  // Gate: logged-out visits outside login land on login.
+  // Gate: logged-out visits outside public pages land on login.
+  const publicPaths = ['/', '/login', '/recuperar'];
   onMount(() => {
-    if (!$session && $path !== '/login' && $path !== '/') {
+    if (!$session && !publicPaths.includes($path)) {
       push('/login');
     }
   });

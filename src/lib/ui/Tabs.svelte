@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { t } from '$lib/i18n';
 
   interface Tab {
     href: string;
@@ -12,7 +13,7 @@
   export let onNavigate: (href: string) => void;
 </script>
 
-<nav class="tabs" aria-label="Secciones">
+<nav class="tabs" aria-label={$t.a11y.sections}>
   {#each tabs as tab}
     <button
       type="button"

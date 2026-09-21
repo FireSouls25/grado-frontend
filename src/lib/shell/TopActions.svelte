@@ -1,12 +1,11 @@
 <script lang="ts">
+  import { push } from 'svelte-spa-router';
   import Icon from '$lib/ui/Icon.svelte';
-  import Sheet from '$lib/ui/Sheet.svelte';
-  import SettingsPanel from '$lib/shell/SettingsPanel.svelte';
-  import HelpPanel from '$lib/shell/HelpPanel.svelte';
   import { t } from '$lib/i18n';
   import { theme } from '$lib/theme/theme';
 
-  let open: 'settings' | 'help' | null = null;
+  export let settings = true;
+  export let help = true;
 
   const order = ['light', 'dark', 'auto'] as const;
   function cycleTheme() {
@@ -17,36 +16,33 @@
   const themeIcon = () => ($theme === 'light' ? 'sun' : $theme === 'dark' ? 'moon' : 'auto');
 </script>
 
-<div class="actions" role="group" aria-label="Acciones">
-  <button class="icon-btn" type="button" on:click={cycleTheme} aria-label="Tema" title="Tema">
+<div class="actions" role="group" aria-label={$t.a11y.actions}>
+  <button class="icon-btn" type="button" on:click={cycleTheme} aria-label={$t.a11y.theme} title={$t.a11y.theme}>
     <Icon name={themeIcon()} />
   </button>
-  <button
-    class="icon-btn"
-    type="button"
-    on:click={() => (open = 'settings')}
-    aria-label={$t.settings.title}
-    title={$t.settings.title}
-  >
-    <Icon name="settings" />
-  </button>
-  <button
-    class="icon-btn"
-    type="button"
-    on:click={() => (open = 'help')}
-    aria-label={$t.help.title}
-    title={$t.help.title}
-  >
-    <Icon name="help" />
-  </button>
+  {#if settings}
+    <button
+      class="icon-btn"
+      type="button"
+      on:click={() => push('/ajustes')}
+      aria-label={$t.settings.title}
+      title={$t.settings.title}
+    >
+      <Icon name="settings" />
+    </button>
+  {/if}
+  {#if help}
+    <button
+      class="icon-btn"
+      type="button"
+      on:click={() => push('/ayuda')}
+      aria-label={$t.help.title}
+      title={$t.help.title}
+    >
+      <Icon name="help" />
+    </button>
+  {/if}
 </div>
-
-<Sheet open={open === 'settings'} title={$t.settings.title} on:close={() => (open = null)}>
-  <SettingsPanel />
-</Sheet>
-<Sheet open={open === 'help'} title={$t.help.title} on:close={() => (open = null)}>
-  <HelpPanel />
-</Sheet>
 
 <style>
   .actions {

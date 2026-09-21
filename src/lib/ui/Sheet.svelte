@@ -1,10 +1,12 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import Icon from './Icon.svelte';
+  import { t } from '$lib/i18n';
+  import { portal } from './portal';
 
   export let open = false;
   export let title: string;
-  export let closeLabel = 'Cerrar';
+  export let closeLabel = '';
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -16,22 +18,24 @@
 <svelte:window on:keydown={onKey} />
 
 {#if open}
-  <div class="scrim" on:click={() => dispatch('close')} aria-hidden="true"></div>
-  <div class="sheet" role="dialog" aria-modal="true" aria-label={title}>
-    <div class="grab" aria-hidden="true"></div>
-    <div class="head">
-      <h2>{title}</h2>
-      <button
-        class="icon-btn"
-        type="button"
-        on:click={() => dispatch('close')}
-        aria-label={closeLabel}
-      >
-        <Icon name="close" />
-      </button>
-    </div>
-    <div class="body">
-      <slot />
+  <div use:portal>
+    <div class="scrim" on:click={() => dispatch('close')} aria-hidden="true"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label={title}>
+      <div class="grab" aria-hidden="true"></div>
+      <div class="head">
+        <h2>{title}</h2>
+        <button
+          class="icon-btn"
+          type="button"
+          on:click={() => dispatch('close')}
+          aria-label={closeLabel || $t.a11y.close}
+        >
+          <Icon name="close" />
+        </button>
+      </div>
+      <div class="body">
+        <slot />
+      </div>
     </div>
   </div>
 {/if}
@@ -56,6 +60,7 @@
     max-height: 85dvh;
     display: flex;
     flex-direction: column;
+    overscroll-behavior: contain;
     animation: up 0.25s cubic-bezier(0.2, 0.9, 0.3, 1) both;
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -82,6 +87,8 @@
   }
   .body {
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding: 4px 20px 20px;
   }
   .icon-btn {

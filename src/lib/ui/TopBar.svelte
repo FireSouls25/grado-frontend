@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { t } from '$lib/i18n';
 
   export let title: string;
   export let showBack = false;
@@ -9,7 +10,7 @@
 <header class="topbar">
   <div class="left">
     {#if showBack}
-      <button class="icon-btn" type="button" on:click={onBack} aria-label="Atrás">
+      <button class="icon-btn" type="button" on:click={onBack} aria-label={$t.a11y.back}>
         <Icon name="back" />
       </button>
     {/if}
