@@ -10,34 +10,34 @@ export async function me(): Promise<Me> {
 // Same honesty rule as the teacher domain: any error means "no data yet".
 
 export interface TeacherSummary {
-  id: string;
-  names: string;
-  surnames: string;
-  documentID: string;
-  active: boolean;
-  homeroomClassID: string;
+  ID: string;
+  Names: string;
+  Surnames: string;
+  DocumentID: string;
+  Active: boolean;
+  HomeroomClassID: string;
 }
 
 export interface Subject {
-  id: string;
-  name: string;
-  active: boolean;
+  ID: string;
+  Name: string;
+  Active: boolean;
 }
 
 export interface TeacherDetail extends TeacherSummary {
-  phone: string;
-  email: string;
-  subjects: { subjectID: string; subjectName: string; from: string }[];
-  groups: { groupID: string; classLabel: string; subjectName: string }[];
+  Phone: string;
+  Email: string;
+  Subjects: { SubjectID: string; SubjectName: string; From: string }[];
+  Groups: { GroupID: string; ClassLabel: string; SubjectName: string }[];
 }
 
 export interface YearGroup {
-  groupID: string;
-  grade: number;
-  groupNo: number;
-  classLabel: string;
-  schoolYear: number;
-  studentCount: number;
+  GroupID: string;
+  Grade: number;
+  GroupNo: number;
+  ClassLabel: string;
+  SchoolYear: number;
+  StudentCount: number;
 }
 
 export async function teachers(): Promise<TeacherSummary[]> {
@@ -56,24 +56,58 @@ export async function assignSubject(teacherID: string, subjectID: string): Promi
   return api.post('/v1/assignments', { teacherID, subjectID });
 }
 
+export interface NewStudent {
+  Names: string;
+  Surnames: string;
+  ClassID: string;
+  DocumentID: string;
+  Birthdate: string;
+  Caregiver: { Names: string; Phone: string };
+}
+
+export interface NewTeacher {
+  Names: string;
+  Surnames: string;
+  DocumentID: string;
+  Phone: string;
+  Email: string;
+}
+
+export async function createStudent(input: NewStudent): Promise<{ ID: string }> {
+  // <input type="date"> yields YYYY-MM-DD; the API reads RFC 3339.
+  // Empty means unknown: Go zero time, accepted by validation.
+  const birthdate = input.Birthdate
+    ? `${input.Birthdate}T00:00:00Z`
+    : '0001-01-01T00:00:00Z';
+  return api.post<{ ID: string }>('/v1/students', { ...input, Birthdate: birthdate });
+}
+
+export async function createTeacher(input: NewTeacher): Promise<{ ID: string }> {
+  return api.post<{ ID: string }>('/v1/teachers', input);
+}
+
+export async function grantRole(subjectID: string, role: string): Promise<unknown> {
+  return api.post('/v1/roles', { subjectID, role });
+}
+
 export async function groupsByYear(year: number): Promise<YearGroup[]> {
   return api.get<YearGroup[]>(`/v1/classes?year=${year}`);
 }
 
 export interface ClassReport {
-  classGroupID: string;
-  sessions: number;
-  students: {
-    studentID: string;
-    names: string;
-    surnames: string;
-    sessions: number;
-    presences: number;
-    absences: number;
-    evasions: number;
-    lates: number;
+  ClassGroupID: string;
+  Sessions: number;
+  Students: {
+    StudentID: string;
+    Names: string;
+    Surnames: string;
+    Sessions: number;
+    Presences: number;
+    Absences: number;
+    Evasions: number;
+    Lates: number;
   }[];
-  totals: { sessions: number; presences: number; absences: number; evasions: number; lates: number };
+  Totals: { Sessions: number; Presences: number; Absences: number; Evasions: number; Lates: number };
 }
 
 export async function classReport(groupID: string): Promise<ClassReport> {

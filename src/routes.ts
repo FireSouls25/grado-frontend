@@ -5,6 +5,7 @@ import HelpPage from './domains/shell/HelpPage.svelte';
 import Home from './domains/teacher/Home.svelte';
 import ClassDetail from './domains/teacher/ClassDetail.svelte';
 import ScheduleTab from './domains/teacher/ScheduleTab.svelte';
+import StudentHome from './domains/student/Home.svelte';
 import wrap from 'svelte-spa-router/wrap';
 import type { Component } from 'svelte';
 
@@ -23,7 +24,9 @@ export const routes = {
   '/ajustes': SettingsPage,
   '/ayuda': HelpPage,
   '/hoy': Home,
+  '/docente': Home,
   '/horario': ScheduleTab,
+  '/estudiante': StudentHome,
   '/clase/:groupID': ClassDetail,
   '/admin': admin(() => import('./domains/admin/Overview.svelte')),
   '/admin/docentes': admin(() => import('./domains/admin/Teachers.svelte')),

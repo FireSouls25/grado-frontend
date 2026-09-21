@@ -68,6 +68,10 @@ export const es = {
     teachers: 'Docentes',
     students: 'Estudiantes'
   },
+  studentHome: {
+    title: 'Mi historial',
+    body: 'Aquí verás tus asistencias, llamados y faltas. Esta vista estará disponible próximamente.'
+  },
   teacher: {
     greeting: 'Hola',
     todayTitle: 'Clases de hoy',
@@ -163,7 +167,28 @@ export const es = {
       `Sin bloques para ${salon} · ${year}. Toca una celda vacía para asignar docente y materia.`,
     scheduleManualTitle: 'Edición manual, como en secretaría',
     scheduleManualBody:
-      'El horario no se genera solo: cada bloque lo coloca el administrador eligiendo docente y materia.'
+      'El horario no se genera solo: cada bloque lo coloca el administrador eligiendo docente y materia.',
+    newStudent: 'Nuevo estudiante',
+    newTeacher: 'Nuevo docente',
+    formNames: 'Nombres',
+    formSurnames: 'Apellidos',
+    formDocument: 'Documento',
+    formDocumentPlaceholder: 'CC o TI',
+    formClass: 'Curso',
+    formClassPlaceholder: '9-1',
+    formBirthdate: 'Fecha de nacimiento',
+    formCaregiverName: 'Nombre del acudiente',
+    formCaregiverPhone: 'Teléfono del acudiente',
+    formPhone: 'Teléfono',
+    formEmail: 'Correo',
+    formAccessID: 'ID de acceso (opcional)',
+    formAccessHint:
+      'UUID con el que entrará el docente. Provisional hasta el sistema de usuarios.',
+    formCreate: 'Crear',
+    createdStudent: 'Estudiante creado.',
+    createdTeacher: 'Docente creado.',
+    roleGranted: 'Rol de docente otorgado.',
+    createAnother: 'Crear otro'
   },
   charts: {
     noData: 'Sin datos todavía'

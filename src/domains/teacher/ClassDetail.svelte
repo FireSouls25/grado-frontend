@@ -61,15 +61,15 @@
   }
 
   function bySurname(a: RosterEntry, b: RosterEntry): number {
-    const x = `${a.surnames} ${a.names}`.toLowerCase();
-    const y = `${b.surnames} ${b.names}`.toLowerCase();
+    const x = `${a.Surnames} ${a.Names}`.toLowerCase();
+    const y = `${b.Surnames} ${b.Names}`.toLowerCase();
     return x < y ? -1 : x > y ? 1 : 0;
   }
 
   onMount(load);
 
   function initials(e: RosterEntry): string {
-    return `${e.surnames.charAt(0)}${e.names.charAt(0)}`.toUpperCase();
+    return `${e.Surnames.charAt(0)}${e.Names.charAt(0)}`.toUpperCase();
   }
 
   function markLabel(m: Mark): string {
@@ -83,8 +83,8 @@
     if (sessionID) return true;
     try {
       const detail = await openSession(groupID);
-      sessionID = detail.session.id;
-      marks = { ...detail.marks };
+      sessionID = detail.Session.ID;
+      marks = { ...detail.Marks };
       sessionError = '';
       return true;
     } catch (err) {
@@ -121,11 +121,11 @@
   function snapshots(roster: RosterEntry[]): Record<string, WarningSnapshot> {
     const out: Record<string, WarningSnapshot> = {};
     for (const e of roster) {
-      if (!selected.has(e.studentID)) continue;
-      out[e.studentID] = {
-        names: e.names,
-        surnames: e.surnames,
-        documentID: e.documentID,
+      if (!selected.has(e.StudentID)) continue;
+      out[e.StudentID] = {
+        names: e.Names,
+        surnames: e.Surnames,
+        documentID: e.DocumentID,
         classID: groupID
       };
     }
@@ -181,26 +181,26 @@
       <p class="flash error" role="alert">{sessionError}</p>
     {/if}
     <ul class="roster">
-      {#each state.roster as entry (entry.studentID)}
+      {#each state.roster as entry (entry.StudentID)}
         <li>
           <button
             type="button"
             class="row"
-            class:selected={selected.has(entry.studentID)}
-            on:click={() => (selecting ? toggleSelect(entry.studentID) : (picked = entry.studentID))}
+            class:selected={selected.has(entry.StudentID)}
+            on:click={() => (selecting ? toggleSelect(entry.StudentID) : (picked = entry.StudentID))}
           >
-            <span class={`avatar chip-${paletteFor(entry.studentID)}`} aria-hidden="true">
+            <span class={`avatar chip-${paletteFor(entry.StudentID)}`} aria-hidden="true">
               {initials(entry)}
             </span>
             <span class="who">
-              <span class="name">{entry.surnames} {entry.names}</span>
-              {#if marks[entry.studentID]}
-                <span class="mark">{markLabel(marks[entry.studentID])}</span>
+              <span class="name">{entry.Surnames} {entry.Names}</span>
+              {#if marks[entry.StudentID]}
+                <span class="mark">{markLabel(marks[entry.StudentID])}</span>
               {/if}
             </span>
             {#if selecting}
               <span class="check" aria-hidden="true">
-                {#if selected.has(entry.studentID)}<Icon name="check" />{/if}
+                {#if selected.has(entry.StudentID)}<Icon name="check" />{/if}
               </span>
             {/if}
           </button>
@@ -236,7 +236,7 @@
 <Sheet
   open={picked !== null}
   title={state.kind === 'ready'
-    ? (state.roster.find((e) => e.studentID === picked)?.surnames ?? '')
+    ? (state.roster.find((e) => e.StudentID === picked)?.Surnames ?? '')
     : ''}
   on:close={() => (picked = null)}
 >

@@ -5,8 +5,9 @@
   import TopActions from '$lib/shell/TopActions.svelte';
   import AdminTabs from './AdminTabs.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
-  import { groupsByYear, type YearGroup } from './api';
+  import { groupsByYear, createStudent, type YearGroup } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -18,12 +19,29 @@
   let failed = false;
   let picked: YearGroup | null = null;
 
+  let creating = false;
+  let saving = false;
+  let feedback = '';
+  let form = freshForm();
+
+  function freshForm() {
+    return {
+      Names: '',
+      Surnames: '',
+      ClassID: '',
+      DocumentID: '',
+      Birthdate: '',
+      CaregiverName: '',
+      CaregiverPhone: ''
+    };
+  }
+
   async function load() {
     failed = false;
     try {
       const data = await guarded(() => groupsByYear(year));
       if (data === null) return;
-      groups = [...data].sort((a, b) => a.grade - b.grade || a.groupNo - b.groupNo);
+      groups = [...data].sort((a, b) => a.Grade - b.Grade || a.GroupNo - b.GroupNo);
       picked = null;
       loaded = true;
     } catch (err) {
@@ -42,6 +60,27 @@
     load();
   }
 
+  async function save() {
+    feedback = '';
+    saving = true;
+    try {
+      await createStudent({
+        Names: form.Names.trim(),
+        Surnames: form.Surnames.trim(),
+        ClassID: form.ClassID.trim(),
+        DocumentID: form.DocumentID.trim(),
+        Birthdate: form.Birthdate,
+        Caregiver: { Names: form.CaregiverName.trim(), Phone: form.CaregiverPhone.trim() }
+      });
+      feedback = $t.admin.createdStudent;
+      form = freshForm();
+    } catch (err) {
+      feedback = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      saving = false;
+    }
+  }
+
   import { onMount } from 'svelte';
   onMount(load);
 </script>
@@ -56,6 +95,9 @@
     <strong>{year}</strong>
     <button type="button" class="icon-btn" on:click={() => changeYear(1)} aria-label={$t.a11y.nextYear}>
       <Icon name="next" />
+    </button>
+    <button type="button" class="new" on:click={() => { creating = true; feedback = ''; }}>
+      {$t.admin.newStudent}
     </button>
   </div>
 
@@ -76,23 +118,23 @@
     />
   {:else}
     <div class="chips">
-      {#each groups as g (g.groupID)}
+      {#each groups as g (g.GroupID)}
         <button
           type="button"
           class="salon"
-          class:selected={picked?.groupID === g.groupID}
-          aria-pressed={picked?.groupID === g.groupID}
-          on:click={() => (picked = picked?.groupID === g.groupID ? null : g)}
+          class:selected={picked?.GroupID === g.GroupID}
+          aria-pressed={picked?.GroupID === g.GroupID}
+          on:click={() => (picked = picked?.GroupID === g.GroupID ? null : g)}
         >
-          <strong>{g.classLabel}</strong>
-          <span>{$t.admin.groupStudents(g.studentCount)}</span>
+          <strong>{g.ClassLabel}</strong>
+          <span>{$t.admin.groupStudents(g.StudentCount)}</span>
         </button>
       {/each}
     </div>
     {#if picked}
       <section class="card">
         <h2>
-          {$t.admin.groupDetailTitle(picked.classLabel, picked.schoolYear)}
+          {$t.admin.groupDetailTitle(picked.ClassLabel, picked.SchoolYear)}
         </h2>
         <p>{$t.admin.rosterHint}</p>
       </section>
@@ -101,6 +143,28 @@
 </div>
 
 <AdminTabs active="estudiantes" />
+
+<Sheet open={creating} title={$t.admin.newStudent} on:close={() => (creating = false)}>
+  <form class="form" on:submit|preventDefault={save}>
+    <div class="row2">
+      <label>{$t.admin.formNames}<input bind:value={form.Names} autocomplete="off" /></label>
+      <label>{$t.admin.formSurnames}<input bind:value={form.Surnames} autocomplete="off" /></label>
+    </div>
+    <div class="row2">
+      <label>{$t.admin.formDocument}<input bind:value={form.DocumentID} placeholder={$t.admin.formDocumentPlaceholder} autocomplete="off" /></label>
+      <label>{$t.admin.formClass}<input bind:value={form.ClassID} placeholder={$t.admin.formClassPlaceholder} autocomplete="off" /></label>
+    </div>
+    <label>{$t.admin.formBirthdate}<input type="date" bind:value={form.Birthdate} /></label>
+    <div class="row2">
+      <label>{$t.admin.formCaregiverName}<input bind:value={form.CaregiverName} autocomplete="off" /></label>
+      <label>{$t.admin.formCaregiverPhone}<input bind:value={form.CaregiverPhone} inputmode="tel" autocomplete="off" /></label>
+    </div>
+    {#if feedback}<p class="flash" role="status">{feedback}</p>{/if}
+    <button class="primary" type="submit" disabled={saving}>
+      {saving ? '…' : $t.admin.formCreate}
+    </button>
+  </form>
+</Sheet>
 
 <style>
   .yearbar {
@@ -128,6 +192,68 @@
   }
   .icon-btn:active {
     transform: scale(0.92);
+  }
+  .new {
+    margin-left: auto;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
+  }
+  .new:active {
+    transform: scale(0.97);
+  }
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .form input {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 12px 14px;
+    min-height: 52px;
+    width: 100%;
+  }
+  .form input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .flash {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: var(--radius-chip);
+    padding: 10px 14px;
+  }
+  .primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+    min-height: 54px;
+    border-radius: var(--radius-pill);
+    margin-top: 4px;
+  }
+  .primary:disabled {
+    opacity: 0.7;
   }
   .chips {
     display: grid;

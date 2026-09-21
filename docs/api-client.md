@@ -5,6 +5,10 @@
 ## Reglas
 
 - Base `VITE_API_URL`; secretos y entorno solo en `.env` (gitignoreado).
+- El backend serializa con los nombres de campos de Go, capitalizados
+  (`Names`, `DocumentID`, `StudentID`…). Los tipos TS deben usar las
+  mismas mayúsculas: un `names` en minúscula compila pero llega
+  `undefined` en runtime.
 - Desarrollo en navegador: el backend debe permitir el origen dev
   (`ALLOWED_ORIGINS=http://127.0.0.1:1420,http://localhost:1420`), o los
   fetch con `X-Subject-ID` mueren en preflight y todo se ve como error de

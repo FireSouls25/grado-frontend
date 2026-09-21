@@ -1,5 +1,6 @@
-// Shared API types. Shapes mirror the backend domain objects; the client
-// never invents fields the API does not return.
+// Shared API types. Field names mirror Go's default JSON encoding
+// (capitalized struct fields, no tags): they must stay capitalized to
+// match what the backend actually sends.
 
 export interface ApiErrorBody {
   code: string;
@@ -25,60 +26,60 @@ export interface Me {
 }
 
 export interface Student {
-  id: string;
-  names: string;
-  surnames: string;
-  classID: string;
-  documentID: string;
+  ID: string;
+  Names: string;
+  Surnames: string;
+  ClassID: string;
+  DocumentID: string;
 }
 
 export type Mark = '' | 'absence' | 'evasion' | 'late';
 
 export interface Revision {
-  id: string;
-  sessionID: string;
-  number: number;
-  studentID: string;
-  from: Mark;
-  to: Mark;
-  changedBy: string;
-  changedAt: string;
-  note: string;
+  ID: string;
+  SessionID: string;
+  Number: number;
+  StudentID: string;
+  From: Mark;
+  To: Mark;
+  ChangedBy: string;
+  ChangedAt: string;
+  Note: string;
 }
 
 export interface RosterEntry {
-  studentID: string;
-  names: string;
-  surnames: string;
-  documentID: string;
+  StudentID: string;
+  Names: string;
+  Surnames: string;
+  DocumentID: string;
 }
 
 export interface Session {
-  id: string;
-  classGroupID: string;
-  classLabel: string;
-  schoolYear: number;
-  teacherID: string;
-  subjectID: string;
-  date: string;
-  period: number;
-  roster: RosterEntry[];
+  ID: string;
+  ClassGroupID: string;
+  ClassLabel: string;
+  SchoolYear: number;
+  TeacherID: string;
+  SubjectID: string;
+  Date: string;
+  Period: number;
+  Roster: RosterEntry[];
 }
 
 export interface SessionDetail {
-  session: Session;
-  marks: Record<string, Mark>;
-  revisions: Revision[];
+  Session: Session;
+  Marks: Record<string, Mark>;
+  Revisions: Revision[];
 }
 
 export interface Warning {
-  id: string;
-  studentID: string;
-  classID: string;
-  teacherID: string;
-  happenedAt: string;
-  gravity: 'mild' | 'moderate' | 'severe';
-  title: string;
-  description: string;
-  groupID: string;
+  ID: string;
+  StudentID: string;
+  ClassID: string;
+  TeacherID: string;
+  HappenedAt: string;
+  Gravity: 'mild' | 'moderate' | 'severe';
+  Title: string;
+  Description: string;
+  GroupID: string;
 }

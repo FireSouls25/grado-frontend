@@ -43,7 +43,7 @@
       if (detail) {
         detail = {
           ...detail,
-          subjects: [...detail.subjects, { subjectID, subjectName, from: '' }]
+          Subjects: [...detail.Subjects, { SubjectID: subjectID, SubjectName: subjectName, From: '' }]
         };
       }
       assignOpen = false;
@@ -52,7 +52,7 @@
     }
   }
 
-  let catalog: { id: string; name: string }[] = [];
+  let catalog: { ID: string; Name: string }[] = [];
   async function openAssign() {
     feedback = '';
     try {
@@ -80,14 +80,14 @@
     />
   {:else}
     <section class="card profile" aria-label={$t.admin.teacherDetailTitle}>
-      <h2>{detail.surnames} {detail.names}</h2>
-      <p>{detail.documentID}</p>
-      {#if detail.email}<p>{detail.email}</p>{/if}
-      {#if detail.phone}<p>{detail.phone}</p>{/if}
-      {#if detail.homeroomClassID}
-        <span class="chip chip-sky">{$t.admin.directs(detail.homeroomClassID)}</span>
+      <h2>{detail.Surnames} {detail.Names}</h2>
+      <p>{detail.DocumentID}</p>
+      {#if detail.Email}<p>{detail.Email}</p>{/if}
+      {#if detail.Phone}<p>{detail.Phone}</p>{/if}
+      {#if detail.HomeroomClassID}
+        <span class="chip chip-sky">{$t.admin.directs(detail.HomeroomClassID)}</span>
       {/if}
-      {#if !detail.active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
+      {#if !detail.Active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
     </section>
 
     <section class="card" aria-label={$t.admin.subjectsTitle}>
@@ -95,12 +95,12 @@
         <h2>{$t.admin.subjectsTitle}</h2>
         <button type="button" class="mini" on:click={openAssign}>{$t.admin.assignSubject}</button>
       </div>
-      {#if detail.subjects.length === 0}
+      {#if detail.Subjects.length === 0}
         <p class="muted">{$t.admin.noSubjects}</p>
       {:else}
         <div class="chips">
-          {#each detail.subjects as s (s.subjectID)}
-            <span class={`chip chip-${paletteFor(s.subjectID)}`}>{s.subjectName}</span>
+          {#each detail.Subjects as s (s.SubjectID)}
+            <span class={`chip chip-${paletteFor(s.SubjectID)}`}>{s.SubjectName}</span>
           {/each}
         </div>
       {/if}
@@ -108,14 +108,14 @@
 
     <section class="card" aria-label={$t.admin.groupsTitle}>
       <h2>{$t.admin.groupsTitle}</h2>
-      {#if detail.groups.length === 0}
+      {#if detail.Groups.length === 0}
         <p class="muted">{$t.admin.noGroups}</p>
       {:else}
         <ul class="groups">
-          {#each detail.groups as g (g.groupID + g.subjectName)}
+          {#each detail.Groups as g (g.GroupID + g.SubjectName)}
             <li>
-              <strong>{g.classLabel}</strong>
-              <span>{g.subjectName}</span>
+              <strong>{g.ClassLabel}</strong>
+              <span>{g.SubjectName}</span>
             </li>
           {/each}
         </ul>
@@ -130,10 +130,10 @@
     <p class="muted">{$t.admin.noCatalog}</p>
   {:else}
     <ul class="catalog">
-      {#each catalog as s (s.id)}
+      {#each catalog as s (s.ID)}
         <li>
-          <button type="button" on:click={() => assign(s.id, s.name)}>
-            <Icon name="book" /><span>{s.name}</span>
+          <button type="button" on:click={() => assign(s.ID, s.Name)}>
+            <Icon name="book" /><span>{s.Name}</span>
           </button>
         </li>
       {/each}

@@ -40,7 +40,7 @@
         kind: 'day',
         title: isWeekend ? $t.teacher.nextTitle : $t.teacher.todayTitle,
         weekend: isWeekend,
-        classes: [...classes].sort((a, b) => a.start.localeCompare(b.start))
+        classes: [...classes].sort((a, b) => a.Start.localeCompare(b.Start))
       };
     } catch (err) {
       // Missing route = backend phase pending: honest empty, not an error loop.
@@ -51,7 +51,7 @@
   onMount(load);
 
   function openClass(entry: TeacherClass) {
-    push(`/clase/${encodeURIComponent(entry.groupID)}?materia=${encodeURIComponent(entry.subjectID)}`);
+    push(`/clase/${encodeURIComponent(entry.GroupID)}?materia=${encodeURIComponent(entry.SubjectID)}`);
   }
 
   $: todayLabel = new Date().toLocaleDateString('es-CO', {
@@ -91,7 +91,7 @@
       {/if}
     </div>
     <div class="list">
-      {#each state.classes as entry (entry.groupID + entry.start)}
+      {#each state.classes as entry (entry.GroupID + entry.Start)}
         <ClassCard
           {entry}
           students=""

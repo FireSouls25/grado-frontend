@@ -19,13 +19,13 @@ export function isMissing(err: unknown): boolean {
 // exposes them. No fake data is ever invented here.
 
 export interface TeacherClass {
-  groupID: string;
-  classLabel: string;
-  subjectID: string;
-  subjectName: string;
-  weekday: number;
-  start: string;
-  end: string;
+  GroupID: string;
+  ClassLabel: string;
+  SubjectID: string;
+  SubjectName: string;
+  Weekday: number;
+  Start: string;
+  End: string;
 }
 
 /** Weekly schedule entries for a weekday. Pending: GET /v1/teachers/me/schedule. */

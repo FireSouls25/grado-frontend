@@ -9,16 +9,16 @@
   export let students: string;
   export let onOpen: () => void;
 
-  $: palette = paletteFor(entry.subjectID || entry.groupID);
+  $: palette = paletteFor(entry.SubjectID || entry.GroupID);
 </script>
 
 <button type="button" class="card" on:click={onOpen}>
   <div class="main">
-    <span class={`chip chip-${palette}`}>{entry.subjectName || entry.classLabel}</span>
-    <h2>{entry.classLabel}</h2>
+    <span class={`chip chip-${palette}`}>{entry.SubjectName || entry.ClassLabel}</span>
+    <h2>{entry.ClassLabel}</h2>
     <p class="meta">
       <Icon name="clock" />
-      <span>{entry.start} – {entry.end}</span>
+      <span>{entry.Start} – {entry.End}</span>
       {#if students}
         <span class="dot" aria-hidden="true">·</span>
         <span>{students}</span>

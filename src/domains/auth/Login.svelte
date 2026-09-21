@@ -4,6 +4,7 @@
   import { session } from './session';
   import { resolveDevAccount, checkDevPassword } from './accounts';
   import { me } from '../teacher/api';
+  import { ApiError } from '$lib/api/types';
   import { push } from 'svelte-spa-router';
 
   // Draft identifier only (never the password): survives any remount so
@@ -56,10 +57,16 @@
     try {
       const profile = await me();
       push(profile.home || '/hoy');
-    } catch {
-      push('/hoy');
-    } finally {
+    } catch (err) {
+      // Visible failure: wrong navigation hides real problems. Tell the
+      // user what happened and stay put instead of landing on an
+      // unrelated page.
       busy = false;
+      if (err instanceof ApiError) {
+        error = err.message || $t.common.loadError;
+      } else {
+        error = $t.common.loadError;
+      }
     }
   }
 </script>
@@ -93,6 +100,10 @@
         id="identifier"
         name="username"
         autocomplete="username"
+        autocapitalize="none"
+        autocorrect="off"
+        spellcheck="false"
+        enterkeyhint="next"
         placeholder={$t.login.identifierPlaceholder}
         bind:value={identifier}
       />
@@ -104,6 +115,10 @@
           name="current-password"
           type={showPassword ? 'text' : 'password'}
           autocomplete="current-password"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+          enterkeyhint="go"
           bind:value={password}
         />
         <button
@@ -255,11 +270,15 @@
     min-height: 56px;
     font-size: 1.02rem;
     width: 100%;
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      background-color 0.2s ease;
   }
   .card input:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: 0;
+    outline: none;
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .password {
     position: relative;
