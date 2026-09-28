@@ -3,7 +3,9 @@ import Recover from './domains/auth/Recover.svelte';
 import SettingsPage from './domains/shell/SettingsPage.svelte';
 import HelpPage from './domains/shell/HelpPage.svelte';
 import Home from './domains/teacher/Home.svelte';
+import Agenda from './domains/teacher/Agenda.svelte';
 import ClassDetail from './domains/teacher/ClassDetail.svelte';
+import WarningNew from './domains/teacher/WarningNew.svelte';
 import ScheduleTab from './domains/teacher/ScheduleTab.svelte';
 import StudentHome from './domains/student/Home.svelte';
 import wrap from 'svelte-spa-router/wrap';
@@ -23,11 +25,15 @@ export const routes = {
   '/recuperar': Recover,
   '/ajustes': SettingsPage,
   '/ayuda': HelpPage,
-  '/hoy': Home,
-  '/docente': Home,
+  '/hoy-antiguo': Home,
+  '/hoy': Agenda,
+  '/docente': Agenda,
+  '/agenda': Agenda,
+  '/mi-agenda': Agenda,
   '/horario': ScheduleTab,
   '/estudiante': StudentHome,
   '/clase/:groupID': ClassDetail,
+  '/llamado/:groupID': WarningNew,
   '/admin': admin(() => import('./domains/admin/Overview.svelte')),
   '/admin/docentes': admin(() => import('./domains/admin/Teachers.svelte')),
   '/admin/docentes/:id': admin(() => import('./domains/admin/TeacherDetail.svelte')),

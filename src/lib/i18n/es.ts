@@ -66,7 +66,32 @@ export const es = {
     schedule: 'Horario',
     overview: 'Resumen',
     teachers: 'Docentes',
-    students: 'Estudiantes'
+    students: 'Estudiantes',
+    agenda: 'Mi Agenda',
+    myClasses: 'Mis Clases',
+    warnings: 'Llamados de Atención'
+  },
+  agenda: {
+    breadcrumbHome: 'Inicio',
+    breadcrumbHere: 'Mi Agenda',
+    title: 'Agenda de Clases',
+    todayLabel: 'Clases de hoy',
+    todayValue: (count: number) => `${count} clases`,
+    registeredLabel: 'Registradas',
+    registeredValue: (done: number, total: number) => `${done} de ${total}`,
+    monthLabel: 'Noviembre 2026',
+    listTitle: 'Listado de clases asignadas',
+    searchPlaceholder: 'Buscar estudiante o clase…',
+    teacherName: 'Prof. Carlos Mendoza',
+    teacherId: 'ID: #40582',
+    openClass: 'Abrir Clase',
+    statusDone: 'Finalizado',
+    statusPending: 'Pendiente',
+    gradeLabel: (grade: string) => `Grado: ${grade}`,
+    roomLabel: (room: string) => `Salón ${room}`,
+    loading: 'Cargando tu agenda…',
+    emptyTitle: 'Sin clases este día',
+    emptyBody: 'No tienes clases asignadas para este día. Elige otro día de la semana.'
   },
   studentHome: {
     title: 'Mi historial',
@@ -116,6 +141,65 @@ export const es = {
     emptyTitle: 'Sin horario todavía',
     emptyBody:
       'Cuando un administrador arme tu horario semanal aparecerá aquí, día por día.'
+  },
+  attendance: {
+    breadcrumbHome: 'Inicio',
+    breadcrumbAgenda: 'Mi Agenda',
+    breadcrumbHere: 'Detalle de Clase',
+    title: 'Control de Asistencia',
+    collective: 'Llamado de Atención Colectivo',
+    todayTag: 'Clase de hoy',
+    dateLabel: 'Lunes 18 de Nov, 2026',
+    timeLabel: (range: string) => `${range} (90 Min)`,
+    roomLabel: (room: string) => `Salón de Ciencias ${room}`,
+    summaryTitle: 'Resumen de Asistencia',
+    presentLabel: 'Asistentes',
+    absentLabel: 'Ausentes',
+    studentsCount: (count: number) =>
+      count === 1 ? '1 Estudiante' : `${count} Estudiantes`,
+    listTitle: (group: string) => `Listado del Salón (${group})`,
+    listHint: 'Ordenado alfabéticamente por apellido',
+    colId: 'ID Estudiante',
+    colName: 'Apellido, Nombre',
+    colCheck: 'Asistencia',
+    back: 'Volver a la Agenda',
+    save: 'Guardar Asistencia',
+    saved: 'Asistencia guardada.',
+    saveHint: 'Marca con el check a quienes asistieron. Sin marca cuenta como ausente.',
+    classDesc:
+      'Clase enfocada en Mecánica de Fluidos y dinámica estática. Se revisarán ejercicios y casos prácticos.'
+  },
+  warning: {
+    breadcrumbHome: 'Inicio',
+    breadcrumbAgenda: 'Mi Agenda',
+    breadcrumbDetail: 'Detalle de Clase',
+    breadcrumbHere: 'Llamado de Atención',
+    title: 'Registrar Llamado de Atención',
+    originTag: 'Clase de origen',
+    originNote:
+      'El llamado de atención quedará guardado en el historial del estudiante.',
+    titleLabel: 'Título del Llamado / Incidencia',
+    titleOptions: [
+      'Irrespeto reiterado a normas de convivencia en el salón de clases',
+      'Uso de dispositivos móviles sin autorización durante la clase',
+      'Inasistencia injustificada a la clase',
+      'Falta de respeto hacia un compañero o docente'
+    ],
+    studentLabel: 'Seleccionar Estudiante',
+    severityLabel: 'Nivel de Severidad',
+    severityMild: 'Leve',
+    severityModerate: 'Medio',
+    severitySevere: 'Grave',
+    descLabel: 'Descripción detallada de los hechos',
+    descPlaceholder: 'Describe lo ocurrido con detalle…',
+    descDefault:
+      'El estudiante persistió en el uso de dispositivos móviles y juegos de mesa no autorizados durante el desarrollo de la explicación de Mecánica de Fluidos, ignorando las advertencias directas en tres oportunidades.',
+    cancel: 'Cancelar',
+    save: 'Guardar Registro',
+    saving: 'Guardando…',
+    saved: 'Llamado guardado en el historial del estudiante.',
+    backToDetail: 'Volver al detalle de la clase',
+    loading: 'Cargando el formulario…'
   },
   admin: {
     overviewTitle: 'Panel',

@@ -31,3 +31,11 @@
 - `POST /v1/sessions/open` — abrir llamado a lista
 - `POST /v1/warnings/batch` — lote de llamados (existe `POST
   /v1/sessions/{id}/marks` y ya se usa para marcar)
+
+## Autenticación
+
+Hoy no hay login: la identidad es el header `X-Subject-ID` y la
+contraseña solo se valida en el cliente (`domains/auth/accounts.ts`).
+`docs/auth-backend.md` documenta cómo nace una identidad ahora
+(`SEED_ADMINS`/`SEED_TEACHERS`, `POST /v1/teachers`, `POST /v1/roles`)
+y la spec del capability `users`/`auth` pendiente.
