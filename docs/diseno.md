@@ -112,6 +112,10 @@ tasa bajo umbral (tinta grave + delta), no tiñendo la marca.
 - **Horario**: cada bloque nombra materia, `Salón X · año`, docente
   (`Prof. …`) y aula explícitos; estados `Finalizada / Ahora /
   Siguiente` (el `Ahora` es el único relleno tinta).
+- **Desplegable** (`lib/ui/Dropdown.svelte`): botón 44px con píldora,
+  lista hairline con búsqueda opcional, navegación por teclado
+  (Esc/flechas/Enter) y cierre al tocar fuera. Todo texto por props,
+  sin hardcode. Reemplaza `select` nativos y `datalist` en filtros.
 
 ## Tema oscuro (Dracula contenido)
 
