@@ -17,7 +17,7 @@
 <div class="console">
   <aside class="side" aria-label={$t.admin.consoleEyebrow}>
     <div class="usercard">
-      <span class="logo">SB</span>
+      <span class="logo">G</span>
       <span class="u-t"><strong>{$t.admin.schoolName}</strong><small>{$t.admin.schoolSite} · {year}</small></span>
     </div>
     <nav class="vnav" aria-label={$t.admin.manageTitle}>

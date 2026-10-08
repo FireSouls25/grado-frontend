@@ -314,7 +314,7 @@ export const es = {
     consoleEyebrow: 'Consola del colegio',
     consoleSearch: 'Buscar estudiante o salón…',
     consoleSearchLabel: 'Buscar en la consola',
-    schoolName: 'San Bartolomé',
+    schoolName: 'Nuestra Señora de Guadalupe',
     schoolSite: 'Sede central',
     manageTitle: 'Gestionar',
     yearLabel: 'Año lectivo',
