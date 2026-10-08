@@ -32,7 +32,7 @@
   // rail de Pendientes y tabs segmentados. Solo datos de endpoints reales;
   // lo que aún da 404 pinta vacío honesto, nunca datos falsos.
 
-  type View = 'resumen' | 'salones' | 'historial';
+  type View = 'resumen' | 'historial';
   type Sev = 'leve' | 'medio' | 'grave';
 
   interface RiskRow {
@@ -393,9 +393,6 @@
             <button type="button" role="tab" aria-selected={view === 'resumen'} class:on={view === 'resumen'} on:click={() => (view = 'resumen')}>
               {$t.admin.viewOverview}
             </button>
-            <button type="button" role="tab" aria-selected={view === 'salones'} class:on={view === 'salones'} on:click={() => (view = 'salones')}>
-              {$t.admin.viewSalons}
-            </button>
             <button type="button" role="tab" aria-selected={view === 'historial'} class:on={view === 'historial'} on:click={() => (view = 'historial')}>
               {$t.admin.viewHistory}
             </button>
@@ -452,7 +449,7 @@
                     <span class="ibadge"><Icon name="calendar" /></span>
                     <span>{groupsKnown ? $t.admin.salonsCount(groups.length) : $t.admin.attNoData}</span>
                     {#if reportCount > 0}
-                      <button type="button" class="mini-act" on:click={() => (view = 'salones')}>{$t.admin.attActionList}</button>
+                      <button type="button" class="mini-act" on:click={() => push('/admin/estudiantes')}>{$t.admin.attActionList}</button>
                     {:else}
                       <span class="soon">{$t.admin.soon}</span>
                     {/if}
@@ -503,6 +500,20 @@
                     <span><i class="sw k-leve"></i>{$t.roster.warnGravityMild}</span>
                   </div>
                 </div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h2>{$t.admin.salonRateTitle}</h2>
+                  <span class="caps">{$t.admin.salonRateCaption}</span>
+                </div>
+                <Chart option={salonBars} empty={!hasSalonRates} emptyLabel={hasSalonRates ? $t.admin.salonRateTitle : ''} height={220} />
+                {#if hasSalonRates}
+                  <p class="insight">
+                    <span class="ibadge"><Icon name="pin" /></span>
+                    {$t.admin.salonBelow(salonRates.filter((s) => s.rate < RATE_FLOOR).length)}
+                  </p>
+                {/if}
               </div>
 
               <p class="cat-kicker" id="riesgo">{$t.admin.riskTitle}</p>
@@ -570,43 +581,6 @@
                   {/each}
                 </div>
                 <EmptyState icon="calendar" title={$t.admin.todayTitle} body={$t.admin.todayEmpty} />
-              </div>
-            {:else if view === 'salones'}
-              <p class="cat-kicker">{$t.admin.viewSalons}</p>
-              <div class="panel">
-                <div class="panel-head">
-                  <h2>{$t.admin.salonRateTitle}</h2>
-                  <span class="caps">{$t.admin.salonRateCaption}</span>
-                </div>
-                <Chart option={salonBars} empty={!hasSalonRates} emptyLabel={hasSalonRates ? $t.admin.salonRateTitle : ''} height={220} />
-                {#if hasSalonRates}
-                  <p class="insight">
-                    <span class="ibadge"><Icon name="pin" /></span>
-                    {$t.admin.salonBelow(salonRates.filter((s) => s.rate < RATE_FLOOR).length)}
-                  </p>
-                {/if}
-              </div>
-              <div class="panel">
-                <div class="panel-head">
-                  <h2>{$t.admin.viewSalons}</h2>
-                  <span class="count">{$t.admin.salonsCount(groups.length)}</span>
-                </div>
-                {#if groups.length === 0}
-                  <EmptyState
-                    icon="users"
-                    title={$t.admin.noGroupsYear(year)}
-                    body={$t.admin.noGroupsYearBody}
-                  />
-                {:else}
-                  <ul class="salons">
-                    {#each groups as group (group.GroupID)}
-                      <li>
-                        <strong>{group.ClassLabel}</strong>
-                        <span>{$t.admin.groupStudents(group.StudentCount)}</span>
-                      </li>
-                    {/each}
-                  </ul>
-                {/if}
               </div>
             {:else}
               <p class="cat-kicker">{$t.admin.viewHistory}</p>
@@ -1147,7 +1121,6 @@
   .weekstrip span.today small {
     color: var(--bg);
   }
-  .salons,
   .history {
     list-style: none;
     margin: 0;
@@ -1156,7 +1129,6 @@
     flex-direction: column;
     gap: 8px;
   }
-  .salons li,
   .history li {
     display: flex;
     align-items: center;
@@ -1166,12 +1138,6 @@
     border-radius: 12px;
     padding: 12px 14px;
     min-height: 56px;
-  }
-  .salons span {
-    margin-left: auto;
-    color: var(--muted);
-    font-size: 0.85rem;
-    font-weight: 600;
   }
   .sev {
     display: inline-flex;

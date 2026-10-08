@@ -319,7 +319,6 @@ export const es = {
     manageTitle: 'Gestionar',
     yearLabel: 'Año lectivo',
     viewOverview: 'Resumen',
-    viewSalons: 'Salones',
     viewHistory: 'Historial',
     attRisk: 'Riesgo de asistencia',
     attRiskDetail: 'Bajo 85% o con 3 faltas o más',
