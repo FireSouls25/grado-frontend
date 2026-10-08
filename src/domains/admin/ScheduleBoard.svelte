@@ -19,6 +19,8 @@
   let optionsYear = 0;
   const yearOptions = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
+  $: boardDays = [...$t.admin.scheduleWeekdays, ...$t.admin.scheduleWeekend];
+
   async function loadGroups() {
     if (year === optionsYear) return;
     optionsYear = year;
@@ -73,12 +75,12 @@
   <div class="board-wrap">
     <div class="board" role="grid" aria-label={`${$t.admin.scheduleTitle} ${salon || '—'} ${year}`}>
       <div class="corner"></div>
-      {#each $t.admin.scheduleWeekdays as day}
+      {#each boardDays as day}
         <div class="day" role="columnheader">{day}</div>
       {/each}
       {#each $t.admin.scheduleHours as hour}
         <div class="hour">{hour}</div>
-        {#each $t.admin.scheduleWeekdays as _d, di}
+        {#each boardDays as _d, di}
           <div class="cell" role="gridcell" data-day={di} data-hour={hour}></div>
         {/each}
       {/each}
@@ -167,7 +169,7 @@
   }
   .board {
     display: grid;
-    grid-template-columns: 52px repeat(5, minmax(96px, 1fr));
+    grid-template-columns: 52px repeat(7, minmax(96px, 1fr));
     gap: 6px;
     min-width: 560px;
   }

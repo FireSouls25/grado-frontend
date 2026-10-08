@@ -29,7 +29,7 @@ el color informa, no decora.
 | `--tint` | `hsl(45, 8%, 91%)` | pistas, chips neutros, rieles |
 | `--ink` / `--ink-soft` / `--muted` | `10%` / `28%` / `52%` neutros | texto / secundario / terciario |
 | `--line` | `hsl(45, 10%, 88%)` | hairlines |
-| `--grid` | `hsl(43, 12%, 78%)` | líneas de la grilla de horario |
+| `--grid` | `hsl(43, 12%, 68%)` | líneas de la grilla de horario |
 | `--accent` / `--accent-ink` / `--accent-soft` | terracota `hsl(28, 40%, 52%)` | **acción y atención**, nada más |
 | `--coral` | `hsl(343, 68%, 48%)` | puntos de datos en series |
 

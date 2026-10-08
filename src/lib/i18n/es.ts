@@ -282,6 +282,7 @@ export const es = {
     scheduleGroupPlaceholder: '7-1',
     scheduleYearLabel: 'Año',
     scheduleWeekdays: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'],
+    scheduleWeekend: ['Sáb', 'Dom'],
     scheduleHours: ['7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM'],
     scheduleEmpty: 'Escribe un salón para ver su semana.',
     scheduleEditHint: 'Tocar una celda asignará docente, materia y horas.',
