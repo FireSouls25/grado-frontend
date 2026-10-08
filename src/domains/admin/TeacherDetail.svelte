@@ -27,7 +27,10 @@
     try {
       const data = await guarded(() => teacherDetail(id));
       if (data === null) return;
-      detail = data;
+      // Subjects/Groups come from pending endpoints (/v1/subjects,
+      // /v1/assignments): the backend profile has neither yet. Default
+      // to honest empties instead of crashing on undefined.length.
+      detail = { ...data, Subjects: data.Subjects ?? [], Groups: data.Groups ?? [] };
       state = 'ready';
     } catch (err) {
       state = err instanceof ApiError && isMissing(err) ? 'ready' : 'error';
@@ -69,6 +72,11 @@
     <TopActions />
   </TopBar>
 
+  <div class="pagehead">
+    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
+  </div>
+
+  <div class="sheet">
   {#if state === 'loading'}
     <Skeleton rows={4} />
   {:else if state === 'error' || !detail}
@@ -122,9 +130,10 @@
       {/if}
     </section>
   {/if}
+  </div>
 </div>
 
-<Sheet open={assignOpen} title={$t.admin.assignSubjectTitle} on:close={() => (assignOpen = false)}>
+<Sheet open={assignOpen} title={$t.admin.assignSubjectTitle} onClose={() => (assignOpen = false)}>
   {#if feedback}<p class="flash" role="alert">{feedback}</p>{/if}
   {#if catalog.length === 0}
     <p class="muted">{$t.admin.noCatalog}</p>
@@ -142,8 +151,28 @@
 </Sheet>
 
 <style>
-  .card {
+  .pagehead {
+    margin-bottom: 12px;
+  }
+  .eyebrow {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 2px;
+  }
+  .sheet {
     background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 24px 24px 0 0;
+    padding: 16px 16px 130px;
+  }
+  @media (min-width: 700px) {
+    .sheet {
+      padding: 20px 20px 130px;
+    }
+  }
+  .card {
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow);

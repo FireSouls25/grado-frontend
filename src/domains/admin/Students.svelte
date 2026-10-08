@@ -7,7 +7,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
-  import { groupsByYear, createStudent, type YearGroup } from './api';
+  import { groupsByYear, createStudent, classReport, type YearGroup, type ClassReport } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -23,6 +23,8 @@
   let saving = false;
   let feedback = '';
   let form = freshForm();
+  let report: ClassReport | null = null;
+  let reportLoading = false;
 
   function freshForm() {
     return {
@@ -60,6 +62,28 @@
     load();
   }
 
+  // Reporte real del salón elegido: lista pasada tal como la guardó el
+  // docente. Si el backend aún no tiene sesiones, vacío honesto.
+  async function pick(group: YearGroup | null) {
+    picked = picked?.GroupID === group?.GroupID ? null : group;
+    report = null;
+    const current = picked;
+    if (!current) return;
+    reportLoading = true;
+    try {
+      const data = await guarded(() => classReport(current.GroupID));
+      report = data ?? null;
+    } catch (err) {
+      report = null;
+    } finally {
+      reportLoading = false;
+    }
+  }
+
+  function rateOf(presences: number, sessions: number): number {
+    return sessions > 0 ? Math.round((presences / sessions) * 100) : 0;
+  }
+
   async function save() {
     feedback = '';
     saving = true;
@@ -88,18 +112,23 @@
 <div class="page">
   <TopBar title={$t.admin.studentsTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
 
-  <div class="yearbar">
-    <button type="button" class="icon-btn" on:click={() => changeYear(-1)} aria-label={$t.a11y.prevYear}>
-      <Icon name="back" />
-    </button>
-    <strong>{year}</strong>
-    <button type="button" class="icon-btn" on:click={() => changeYear(1)} aria-label={$t.a11y.nextYear}>
-      <Icon name="next" />
-    </button>
-    <button type="button" class="new" on:click={() => { creating = true; feedback = ''; }}>
-      {$t.admin.newStudent}
-    </button>
+  <div class="pagehead">
+    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
+    <div class="yearbar">
+      <button type="button" class="icon-btn" on:click={() => changeYear(-1)} aria-label={$t.a11y.prevYear}>
+        <Icon name="back" />
+      </button>
+      <strong>{year}</strong>
+      <button type="button" class="icon-btn" on:click={() => changeYear(1)} aria-label={$t.a11y.nextYear}>
+        <Icon name="next" />
+      </button>
+      <button type="button" class="new" on:click={() => { creating = true; feedback = ''; }}>
+        {$t.admin.newStudent}
+      </button>
+    </div>
   </div>
+
+  <div class="sheet">
 
   {#if failed}
     <EmptyState
@@ -124,7 +153,7 @@
           class="salon"
           class:selected={picked?.GroupID === g.GroupID}
           aria-pressed={picked?.GroupID === g.GroupID}
-          on:click={() => (picked = picked?.GroupID === g.GroupID ? null : g)}
+          on:click={() => pick(g)}
         >
           <strong>{g.ClassLabel}</strong>
           <span>{$t.admin.groupStudents(g.StudentCount)}</span>
@@ -132,26 +161,45 @@
       {/each}
     </div>
     {#if picked}
-      <section class="card">
+      <section class="card" aria-label={$t.admin.reportTitle}>
         <h2>
           {$t.admin.groupDetailTitle(picked.ClassLabel, picked.SchoolYear)}
         </h2>
-        <p>{$t.admin.rosterHint}</p>
+        {#if reportLoading}
+          <p class="muted">{$t.admin.loadingGroups}</p>
+        {:else if !report || report.Students.length === 0}
+          <p class="muted">{$t.admin.reportEmpty}</p>
+        {:else}
+          <p class="muted">{$t.admin.reportSessions(report.Sessions)}</p>
+          <ul class="ledger">
+            {#each [...report.Students].sort((a, b) => rateOf(a.Presences, a.Sessions) - rateOf(b.Presences, b.Sessions)) as s (s.StudentID)}
+              {@const rate = rateOf(s.Presences, s.Sessions)}
+              <li>
+                <span class="who"><strong>{s.Surnames} {s.Names}</strong><small>{s.Absences} {$t.admin.colAbsences} · {s.Evasions} {$t.admin.colEvasions} · {s.Lates} {$t.admin.markLate}</small></span>
+                <span class="rateblock">
+                  <strong class:low={rate < 85}>{rate}%</strong>
+                  <span class="rbar"><span class:low={rate < 85} style={`width:${rate}%`}></span></span>
+                </span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </section>
     {/if}
   {/if}
+  </div>
 </div>
 
 <AdminTabs active="estudiantes" />
 
-<Sheet open={creating} title={$t.admin.newStudent} on:close={() => (creating = false)}>
+<Sheet open={creating} title={$t.admin.newStudent} onClose={() => (creating = false)}>
   <form class="form" on:submit|preventDefault={save}>
     <div class="row2">
       <label>{$t.admin.formNames}<input bind:value={form.Names} autocomplete="off" /></label>
       <label>{$t.admin.formSurnames}<input bind:value={form.Surnames} autocomplete="off" /></label>
     </div>
     <div class="row2">
-      <label>{$t.admin.formDocument}<input bind:value={form.DocumentID} placeholder={$t.admin.formDocumentPlaceholder} autocomplete="off" /></label>
+      <label>{$t.admin.formDocument}<input bind:value={form.DocumentID} placeholder={$t.admin.formDocumentPlaceholder} inputmode="numeric" pattern="[0-9]*" autocomplete="off" /></label>
       <label>{$t.admin.formClass}<input bind:value={form.ClassID} placeholder={$t.admin.formClassPlaceholder} autocomplete="off" /></label>
     </div>
     <label>{$t.admin.formBirthdate}<input type="date" bind:value={form.Birthdate} /></label>
@@ -167,12 +215,31 @@
 </Sheet>
 
 <style>
+  .pagehead {
+    margin-bottom: 12px;
+  }
+  .eyebrow {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+  }
+  .sheet {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 24px 24px 0 0;
+    padding: 16px 16px 130px;
+  }
+  @media (min-width: 700px) {
+    .sheet {
+      padding: 20px 20px 130px;
+    }
+  }
   .yearbar {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    margin-bottom: 12px;
+    gap: 12px;
   }
   .yearbar strong {
     font-size: 1.2rem;
@@ -220,8 +287,13 @@
   }
   .row2 {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px;
+  }
+  @media (min-width: 420px) {
+    .row2 {
+      grid-template-columns: 1fr 1fr;
+    }
   }
   .form input {
     background: var(--surface-2);
@@ -266,7 +338,7 @@
     }
   }
   .salon {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
     padding: 16px;
@@ -297,7 +369,7 @@
     font-weight: 600;
   }
   .card {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow);
@@ -307,6 +379,74 @@
   .card p {
     color: var(--muted);
     font-size: 0.92rem;
+  }
+  .muted {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin-top: 4px;
+  }
+  .ledger {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ledger li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 14px;
+    min-height: 56px;
+  }
+  .ledger .who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ledger .who strong {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ledger .who small {
+    color: var(--muted);
+    font-size: 0.78rem;
+  }
+  .rateblock {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: none;
+    min-width: 76px;
+  }
+  .rateblock strong {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92rem;
+    text-align: right;
+  }
+  .rateblock strong.low {
+    color: var(--g-grave-ink);
+  }
+  .rbar {
+    height: 5px;
+    border-radius: 999px;
+    background: var(--tint);
+    overflow: hidden;
+  }
+  .rbar span {
+    display: block;
+    height: 100%;
+    background: var(--ink);
+    border-radius: 999px;
+  }
+  .rbar span.low {
+    background: var(--g-grave-ink);
   }
   @keyframes rise {
     from {

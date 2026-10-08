@@ -17,6 +17,11 @@
 <div class="page wide">
   <TopBar title={$t.admin.scheduleTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
 
+  <div class="pagehead">
+    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
+  </div>
+
+  <div class="sheet">
   <div class="pickers">
     <label>
       {$t.admin.scheduleGroupLabel}
@@ -58,6 +63,9 @@
     </div>
   </div>
 
+  <p class="soon-note"><span class="soon">{$t.admin.soon}</span> {$t.admin.scheduleSoon}</p>
+  </div>
+
   <EmptyState
     icon="book"
     title={$t.admin.scheduleManualTitle}
@@ -68,6 +76,47 @@
 <AdminTabs active="horario" />
 
 <style>
+  .pagehead {
+    margin-bottom: 12px;
+  }
+  .eyebrow {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 2px;
+  }
+  .sheet {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 24px 24px 0 0;
+    padding: 16px 16px 130px;
+  }
+  @media (min-width: 700px) {
+    .sheet {
+      padding: 20px 20px 130px;
+    }
+  }
+  .soon-note {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 12px;
+  }
+  .soon {
+    background: var(--tint);
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 0.72rem;
+    border-radius: 999px;
+    padding: 8px 14px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    flex: none;
+  }
   .wide {
     max-width: 100%;
   }
@@ -100,7 +149,7 @@
   }
   .board-wrap {
     position: relative;
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow);
