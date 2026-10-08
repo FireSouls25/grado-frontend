@@ -102,10 +102,6 @@
     font-size: 0.8rem;
     line-height: 1.25;
   }
-  .u-t small {
-    color: var(--muted);
-    font-size: 0.7rem;
-  }
   .vnav {
     display: flex;
     flex-direction: column;
