@@ -42,7 +42,12 @@
     failed = false;
     try {
       const data = await guarded(() => groupsByYear(year));
-      if (data === null) return;
+      if (data === null) {
+        groups = [];
+        picked = null;
+        loaded = true;
+        return;
+      }
       groups = [...data].sort((a, b) => a.Grade - b.Grade || a.GroupNo - b.GroupNo);
       picked = null;
       loaded = true;
@@ -156,7 +161,9 @@
           on:click={() => pick(g)}
         >
           <strong>{g.ClassLabel}</strong>
-          <span>{$t.admin.groupStudents(g.StudentCount)}</span>
+          {#if g.StudentCount !== undefined}
+            <span>{$t.admin.groupStudents(g.StudentCount)}</span>
+          {/if}
         </button>
       {/each}
     </div>

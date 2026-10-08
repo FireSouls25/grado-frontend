@@ -28,7 +28,10 @@
     state = 'loading';
     try {
       const data = await guarded(() => teacherDetail(id));
-      if (data === null) return;
+      if (data === null) {
+        state = 'error';
+        return;
+      }
       // Subjects/Groups come from pending endpoints (/v1/subjects,
       // /v1/assignments): the backend profile has neither yet. Default
       // to honest empties instead of crashing on undefined.length.

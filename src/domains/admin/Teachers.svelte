@@ -46,7 +46,11 @@
     state = 'loading';
     try {
       const data = await guarded(() => teachers());
-      if (data === null) return;
+      if (data === null) {
+        list = [];
+        state = 'ready';
+        return;
+      }
       list = [...data].sort((a, b) =>
         `${a.Surnames} ${a.Names}`.toLowerCase() < `${b.Surnames} ${b.Names}`.toLowerCase() ? -1 : 1
       );

@@ -99,8 +99,8 @@
     min-width: 0;
   }
   .u-t strong {
-    font-size: 0.82rem;
-    white-space: nowrap;
+    font-size: 0.8rem;
+    line-height: 1.25;
   }
   .u-t small {
     color: var(--muted);

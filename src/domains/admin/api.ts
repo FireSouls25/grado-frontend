@@ -37,7 +37,7 @@ export interface YearGroup {
   GroupNo: number;
   ClassLabel: string;
   SchoolYear: number;
-  StudentCount: number;
+  StudentCount?: number;
 }
 
 export async function teachers(): Promise<TeacherSummary[]> {
@@ -108,8 +108,22 @@ export async function createUser(input: NewUser): Promise<UserAccount> {
   return api.post<UserAccount>('/v1/users', input);
 }
 
+interface RawGroup {
+  ID: string;
+  SchoolYearID: string;
+  Grade: number;
+  GroupNo: number;
+}
+
 export async function groupsByYear(year: number): Promise<YearGroup[]> {
-  return api.get<YearGroup[]>(`/v1/classes?year=${year}`);
+  const raw = await api.get<RawGroup[]>(`/v1/classes?year=${year}`);
+  return raw.map((g) => ({
+    GroupID: g.ID,
+    Grade: g.Grade,
+    GroupNo: g.GroupNo,
+    ClassLabel: `${g.Grade}-${g.GroupNo}`,
+    SchoolYear: year
+  }));
 }
 
 export interface ClassReport {
@@ -194,16 +208,26 @@ export async function incidentsRecent(limit = 20): Promise<RecentIncident[]> {
 }
 
 export interface DashboardSummary {
-  students?: number;
-  teachers?: number;
-  groups?: number;
-  warningsWeek?: number;
-  sessionsWeek?: number;
-  attendanceRate?: number;
+  Year: number;
+  Totals: { Teachers: number; Students: number; Groups: number };
+  GroupsTruncated: boolean;
+  WarningsLast7d: { Mild: number; Moderate: number; Severe: number };
+  MarksLast7d: { Presences: number; Absences: number; Evasions: number; Lates: number };
+  TopRisk: {
+    StudentID: string;
+    Names: string;
+    Surnames: string;
+    Sessions: number;
+    Presences: number;
+    Absences: number;
+    Evasions: number;
+    Lates: number;
+  }[];
+  RecentWarnings: RecentWarning[];
 }
 
-// Aggregated admin counters. Pending backend contract: every field is
-// optional and a 404 means "no data yet", so stats render "—".
-export async function dashboardSummary(): Promise<DashboardSummary> {
-  return api.get<DashboardSummary>('/v1/dashboard/summary');
+// Agregado real del backend (`?year=` obligatorio). Todo campo puede
+// venir vacío: la consola pinta vacíos honestos, nunca ceros falsos.
+export async function dashboardSummary(year: number): Promise<DashboardSummary> {
+  return api.get<DashboardSummary>(`/v1/dashboard/summary?year=${year}`);
 }

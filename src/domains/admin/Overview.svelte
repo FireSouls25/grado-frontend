@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
-  import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
   import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -24,7 +23,8 @@
     type TeacherSummary,
     type YearGroup,
     type RecentWarning,
-    type RecentIncident
+    type RecentIncident,
+    type DashboardSummary
   } from './api';
 
   // Consola del administrador (identidad docs/diseno.md, referencia
@@ -74,7 +74,7 @@
   let risk: RiskRow[] = [];
   let warnings: RecentWarning[] = [];
   let incidents: RecentIncident[] = [];
-  let summary: { students?: number; teachers?: number; groups?: number; warningsWeek?: number } | null = null;
+  let summary: DashboardSummary | null = null;
 
   let search = '';
   let searchEl: HTMLInputElement | null = null;
@@ -99,7 +99,7 @@
 
   $: todayIndex = weekdayOf(new Date());
   $: consoleTitle = (() => {
-    const s = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' });
+    const s = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   })();
 
@@ -110,7 +110,17 @@
         guarded(() => teachers()),
         guarded(() => groupsByYear(year))
       ]);
-      if (teacherData === null || groupData === null) return;
+      if (teacherData === null || groupData === null) {
+        // Sin identidad o sin permiso la guarda navega; si seguimos aquí,
+        // pinta vacío honesto en vez de cargar para siempre.
+        teacherList = [];
+        teachersKnown = true;
+        groups = [];
+        groupsKnown = true;
+        await loadReports();
+        state = 'ready';
+        return;
+      }
       teacherList = [...teacherData];
       teachersKnown = true;
       try {
@@ -146,16 +156,15 @@
     risk = [];
     reportCount = 0;
     reportsKnown = false;
-    // Sin /v1/classes en el backend, los salones con lista se descubren
-    // por la dirección de grupo real de cada docente: solo esos reportes
-    // existen, el resto es vacío honesto.
-    const homerooms = [...new Set(teacherList.map((t) => t.HomeroomClassID).filter(Boolean))];
+    // Los salones vienen del endpoint real (/v1/classes?year): cada grupo
+    // aporta su reporte por ID. Sin grupos no hay reportes que sumar.
     const byStudent = new Map<
       string,
       { names: string; surnames: string; presences: number; absences: number; evasions: number; lates: number; sessions: number }
     >();
     const labelOf = new Map(groups.map((g) => [g.GroupID, g.ClassLabel]));
-    for (const groupID of homerooms) {
+    for (const group of groups) {
+      const groupID = group.GroupID;
       try {
         const report = await classReport(groupID);
         if (!report) continue;
@@ -219,8 +228,14 @@
 
   async function loadSecondary() {
     try {
-      const data = await dashboardSummary();
+      const data = await dashboardSummary(year);
       summary = data ?? null;
+      if (summary) {
+        const m = summary.MarksLast7d;
+        if (m.Presences + m.Absences + m.Evasions + m.Lates > 0) {
+          totals = { presences: m.Presences, absences: m.Absences, evasions: m.Evasions, lates: m.Lates, sessions: 0 };
+        }
+      }
     } catch {
       summary = null;
     }
@@ -299,14 +314,23 @@
   $: hasDonut = marksTotal > 0;
   $: donutRate = hasDonut ? Math.round((totals.presences / marksTotal) * 100) : 0;
 
-  $: graveCount = warnings.filter((w) => w.Gravity === 'severe').length;
-  $: warningsKnown = warnings.length > 0;
-  $: gravityCounts = [
-    warnings.filter((w) => w.Gravity === 'mild').length,
-    warnings.filter((w) => w.Gravity === 'moderate').length,
-    warnings.filter((w) => w.Gravity === 'severe').length
-  ];
-  $: hasGravity = warnings.length > 0;
+  $: warningsWeek = summary
+    ? summary.WarningsLast7d.Mild + summary.WarningsLast7d.Moderate + summary.WarningsLast7d.Severe
+    : null;
+  $: graveCount = summary
+    ? summary.WarningsLast7d.Severe
+    : warnings.filter((w) => w.Gravity === 'severe').length;
+  $: warningsKnown = summary ? true : warnings.length > 0;
+  $: gravityCounts = summary
+    ? [summary.WarningsLast7d.Mild, summary.WarningsLast7d.Moderate, summary.WarningsLast7d.Severe]
+    : [
+        warnings.filter((w) => w.Gravity === 'mild').length,
+        warnings.filter((w) => w.Gravity === 'moderate').length,
+        warnings.filter((w) => w.Gravity === 'severe').length
+      ];
+  $: hasGravity = summary
+    ? summary.WarningsLast7d.Mild + summary.WarningsLast7d.Moderate + summary.WarningsLast7d.Severe > 0
+    : warnings.length > 0;
   $: hasSalonRates = salonRates.length > 0;
 
   $: donut = makeDonut($theme);
@@ -376,18 +400,19 @@
     };
   }
 
-  $: statTeachers = summary?.teachers ?? (teachersKnown ? teacherList.length : null);
-  $: statStudents = summary?.students ?? null;
-  $: statGroups = summary?.groups ?? (groupsKnown ? (groups.length > 0 ? groups.length : null) : null);
-  $: statWarnings = summary?.warningsWeek ?? (warningsKnown ? graveCount : null);
+  $: statTeachers = summary?.Totals.Teachers ?? (teachersKnown ? teacherList.length : null);
+  $: statStudents = summary?.Totals.Students ?? null;
+  $: statGroups = summary?.Totals.Groups ?? (groupsKnown ? (groups.length > 0 ? groups.length : null) : null);
+  $: statWarnings = warningsWeek ?? (warningsKnown ? graveCount : null);
 </script>
 
 <AdminShell active="resumen" {year} onYear={changeYear}>
-    <TopBar title={$t.admin.overviewTitle}><TopActions /></TopBar>
     <main class="main">
       <div class="pagehead">
-        <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-        <h1 class="title">{consoleTitle}</h1>
+        <div class="titlebar">
+          <h1 class="title">{consoleTitle}</h1>
+          <div class="topactions"><TopActions /></div>
+        </div>
         <div class="controlbar">
           <div class="tabs" role="tablist" aria-label={$t.admin.consoleEyebrow}>
             <button type="button" role="tab" aria-selected={view === 'resumen'} class:on={view === 'resumen'} on:click={() => (view = 'resumen')}>
@@ -676,6 +701,17 @@
     line-height: 1.05;
     margin-bottom: 12px;
     font-variant-numeric: tabular-nums;
+  }
+  .titlebar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .topactions {
+    flex: none;
+    display: flex;
   }
   .controlbar {
     display: flex;
@@ -1311,8 +1347,9 @@
     }
     .controlbar {
       flex-direction: row;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
+      gap: 12px;
     }
     .search {
       min-width: 230px;
