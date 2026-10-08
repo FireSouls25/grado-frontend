@@ -272,6 +272,9 @@ export const es = {
     loadingGroups: 'Cargando salones…',
     groupDetailTitle: (label: string, year: number) => `Salón ${label} · ${year}`,
     noDirector: 'Sin director asignado',
+    backSalons: 'Volver a salones',
+    globalRoster: 'Todos los estudiantes',
+    loadingRoster: 'Cargando nóminas…',
     noGroupsYear: (year: number) => `Sin salones en ${year}`,
     noGroupsYearBody:
       'Cuando existan salones con estudiantes matriculados aparecerán aquí, organizados por grado y grupo.',

@@ -28,7 +28,7 @@
   let reportLoading = false;
   let warns: RecentWarning[] = [];
   let teacherList: TeacherSummary[] = [];
-  let counts: Record<string, number> = {};
+  let reports: Record<string, ClassReport> = {};
   let q2 = '';
   let minAbs = '';
   let minLate = '';
@@ -60,7 +60,8 @@
       picked = null;
       loaded = true;
       void loadTeachers();
-      void loadCounts();
+      void loadReports();
+      void loadWarns();
     } catch (err) {
       if (err instanceof ApiError && isMissing(err)) {
         groups = [];
@@ -79,13 +80,21 @@
     }
   }
 
-  async function loadCounts() {
+  async function loadReports() {
     const settled = await Promise.allSettled(groups.map((g) => classReport(g.GroupID)));
-    const next: Record<string, number> = {};
+    const next: Record<string, ClassReport> = {};
     settled.forEach((result, i) => {
-      if (result.status === 'fulfilled' && result.value) next[groups[i].GroupID] = result.value.Students.length;
+      if (result.status === 'fulfilled' && result.value) next[groups[i].GroupID] = result.value;
     });
-    counts = next;
+    reports = next;
+  }
+
+  async function loadWarns() {
+    try {
+      warns = (await warningsRecent(100)) ?? [];
+    } catch {
+      warns = [];
+    }
   }
 
   function directorOf(label: string): TeacherSummary | null {
@@ -103,22 +112,22 @@
   async function pick(group: YearGroup | null) {
     picked = picked?.GroupID === group?.GroupID ? null : group;
     report = null;
-    warns = [];
     const current = picked;
     if (!current) return;
+    report = reports[current.GroupID] ?? null;
+    if (report) {
+      reportLoading = false;
+      return;
+    }
     reportLoading = true;
     try {
       const data = await guarded(() => classReport(current.GroupID));
       report = data ?? null;
+      if (report) reports = { ...reports, [current.GroupID]: report };
     } catch (err) {
       report = null;
     } finally {
       reportLoading = false;
-    }
-    try {
-      warns = (await warningsRecent(100)) ?? [];
-    } catch {
-      warns = [];
     }
   }
 
@@ -126,21 +135,25 @@
     return sessions > 0 ? Math.round((presences / sessions) * 100) : 0;
   }
 
-  $: warnedIds = new Set(warns.map((w) => w.StudentID));
-  $: warnCountOf = (id: string) => warns.filter((w) => w.StudentID === id).length;
-  $: roster = (report?.Students ?? []).map((s) => ({
-    ...s,
-    rate: rateOf(s.Presences, s.Sessions),
-    calls: warnCountOf(s.StudentID)
-  }));
+  $: allRoster = groups.flatMap((g) =>
+    (reports[g.GroupID]?.Students ?? []).map((s) => ({
+      ...s,
+      group: g.ClassLabel,
+      rate: rateOf(s.Presences, s.Sessions),
+      calls: warns.filter((w) => w.StudentID === s.StudentID).length
+    }))
+  );
   $: qn = q2.trim().toLowerCase();
   $: nAbs = Number(minAbs) || 0;
   $: nLate = Number(minLate) || 0;
-  $: visibleRoster = roster
+  $: visibleRoster = allRoster
+    .filter((s) => (picked ? s.group === picked.ClassLabel : true))
     .filter((s) => (qn ? `${s.Surnames} ${s.Names}`.toLowerCase().includes(qn) : true))
     .filter((s) => s.Absences >= nAbs && s.Lates >= nLate)
     .filter((s) => (fWarn === 'yes' ? s.calls > 0 : true))
     .sort((a, b) => a.rate - b.rate);
+  $: hasAnyStudents = allRoster.length > 0;
+  $: loadingReports = groups.length > 0 && Object.keys(reports).length === 0;
 
   async function save() {
     feedback = '';
@@ -204,77 +217,78 @@
       body={$t.admin.noGroupsYearBody}
     />
   {:else}
-    <div class="salonstrip" role="group" aria-label={$t.admin.studentsTitle}>
-      {#each groups as g (g.GroupID)}
-        {@const dir = directorOf(g.ClassLabel)}
-        <button
-          type="button"
-          class="saloncard"
-          class:selected={picked?.GroupID === g.GroupID}
-          aria-pressed={picked?.GroupID === g.GroupID}
-          on:click={() => pick(g)}
-        >
-          <strong>{g.ClassLabel}</strong>
-          <small>{dir ? `${dir.Surnames} ${dir.Names}`.trim() : $t.admin.noDirector}</small>
-          <span>{g.GroupID in counts ? $t.admin.groupStudents(counts[g.GroupID]) : '—'}</span>
-        </button>
-      {/each}
+    <div class="filters" role="group" aria-label={$t.admin.reportTitle}>
+      <label class="search">
+        <Icon name="search" />
+        <input type="search" placeholder={$t.admin.studentSearch} aria-label={$t.admin.studentSearch} bind:value={q2} />
+      </label>
+      <label>{$t.admin.minAbsences}<input type="number" min="0" inputmode="numeric" bind:value={minAbs} /></label>
+      <label>{$t.admin.minLates}<input type="number" min="0" inputmode="numeric" bind:value={minLate} /></label>
+      <Dropdown
+        label={$t.admin.warnFilter}
+        value={fWarn}
+        options={[
+          { value: '', label: $t.admin.warnAny },
+          { value: 'yes', label: $t.admin.warnWith }
+        ]}
+        on:select={(e) => (fWarn = e.detail === 'yes' ? 'yes' : '')}
+      />
+      <span class="count" role="status">{$t.admin.rosterCount(visibleRoster.length)}</span>
     </div>
     {#if picked}
-      <section class="card" aria-label={$t.admin.reportTitle}>
-        <h2>
-          {$t.admin.groupDetailTitle(picked.ClassLabel, picked.SchoolYear)}
-        </h2>
-        {#if reportLoading}
-          <p class="muted">{$t.admin.loadingGroups}</p>
-        {:else if !report || report.Students.length === 0}
-          <p class="muted">{$t.admin.reportEmpty}</p>
-        {:else}
-          <p class="muted">{$t.admin.reportSessions(report.Sessions)}</p>
-          <div class="filters" role="group" aria-label={$t.admin.reportTitle}>
-            <label class="search">
-              <Icon name="search" />
-              <input type="search" placeholder={$t.admin.studentSearch} aria-label={$t.admin.studentSearch} bind:value={q2} />
-            </label>
-            <label>{$t.admin.minAbsences}<input type="number" min="0" inputmode="numeric" bind:value={minAbs} /></label>
-            <label>{$t.admin.minLates}<input type="number" min="0" inputmode="numeric" bind:value={minLate} /></label>
-            <Dropdown
-              label={$t.admin.warnFilter}
-              value={fWarn}
-              options={[
-                { value: '', label: $t.admin.warnAny },
-                { value: 'yes', label: $t.admin.warnWith }
-              ]}
-              on:select={(e) => (fWarn = e.detail === 'yes' ? 'yes' : '')}
-            />
-            <span class="count" role="status">{$t.admin.rosterCount(visibleRoster.length)}</span>
-          </div>
-          {#if visibleRoster.length === 0}
-            <EmptyState icon="list" title={$t.admin.rosterEmptySearch} />
-          {:else}
-          <ul class="ledger">
-            {#each visibleRoster as s (s.StudentID)}
-              <li>
-                <span class="who">
-                  <strong>{s.Surnames} {s.Names}</strong>
-                  <small>
-                    <span class="countchip">{s.Absences} {$t.admin.colAbsences}</span>
-                    <span class="countchip" class:alert={s.Evasions > 0}>{s.Evasions} {$t.admin.colEvasions}</span>
-                    <span class="countchip" class:alert={s.Lates > 0}>{s.Lates} {$t.admin.markLate}</span>
-                    {#if s.calls > 0}<span class="countchip warn">{$t.admin.callsCount(s.calls)}</span>{/if}
-                  </small>
-                </span>
-                <span class="rateblock">
-                  <strong class:low={s.rate < 85}>{s.rate}%</strong>
-                  <span class="rbar"><span class:low={s.rate < 85} style={`width:${s.rate}%`}></span></span>
-                </span>
-              </li>
-            {/each}
-          </ul>
-          {/if}
-        {/if}
-      </section>
+      <button type="button" class="back" on:click={() => (picked = null)}>‹ {$t.admin.backSalons}</button>
+    {:else}
+      <div class="salonlist" role="group" aria-label={$t.admin.studentsTitle}>
+        {#each groups as g (g.GroupID)}
+          {@const dir = directorOf(g.ClassLabel)}
+          {@const known = g.GroupID in reports}
+          <button
+            type="button"
+            class="salonrow"
+            on:click={() => pick(g)}
+          >
+            <span class="who">
+              <strong>{g.ClassLabel}</strong>
+              <small>{dir ? `${dir.Surnames} ${dir.Names}`.trim() : $t.admin.noDirector}</small>
+            </span>
+            <span class="sub">{known ? $t.admin.groupStudents(reports[g.GroupID].Students.length) : '—'}</span>
+            <span class="go" aria-hidden="true"><Icon name="next" /></span>
+          </button>
+        {/each}
+      </div>
     {/if}
+    <section class="card" aria-label={$t.admin.reportTitle}>
+      <h2>{picked ? $t.admin.groupDetailTitle(picked.ClassLabel, picked.SchoolYear) : $t.admin.globalRoster}</h2>
+      {#if loadingReports}
+        <p class="muted">{$t.admin.loadingRoster}</p>
+      {:else if picked && reportLoading}
+        <p class="muted">{$t.admin.loadingGroups}</p>
+      {:else if visibleRoster.length === 0}
+        <EmptyState icon="list" title={hasAnyStudents ? $t.admin.rosterEmptySearch : $t.admin.reportEmpty} />
+      {:else}
+        {#if picked && report}<p class="muted">{$t.admin.reportSessions(report.Sessions)}</p>{/if}
+        <ul class="ledger">
+          {#each visibleRoster as s (s.StudentID + s.group)}
+            <li>
+              <span class="who">
+                <strong>{s.Surnames} {s.Names}</strong>
+                <small>
+                  {#if !picked}<span class="countchip">{s.group}</span>{/if}
+                  <span class="countchip">{s.Absences} {$t.admin.colAbsences}</span>
+                  <span class="countchip" class:alert={s.Evasions > 0}>{s.Evasions} {$t.admin.colEvasions}</span>
+                  <span class="countchip" class:alert={s.Lates > 0}>{s.Lates} {$t.admin.markLate}</span>
+                  {#if s.calls > 0}<span class="countchip warn">{$t.admin.callsCount(s.calls)}</span>{/if}
+                </small>
+              </span>
+              <span class="rateblock">
+                <strong class:low={s.rate < 85}>{s.rate}%</strong>
+                <span class="rbar"><span class:low={s.rate < 85} style={`width:${s.rate}%`}></span></span>
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
   {/if}
   </div>
 </AdminShell>
@@ -414,55 +428,78 @@
   .primary:disabled {
     opacity: 0.7;
   }
-  .salonstrip {
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    padding: 2px 2px 10px;
-    scroll-snap-type: x proximity;
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 8px 16px 8px 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 0.84rem;
+    margin-bottom: 10px;
   }
-  .saloncard {
-    flex: none;
-    width: 210px;
-    scroll-snap-align: start;
+  .back:active {
+    transform: scale(0.97);
+  }
+  .salonlist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .salonrow {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    padding: 16px;
-    min-height: 118px;
+    padding: 14px 16px;
+    min-height: 68px;
+  }
+  .salonrow:active {
+    transform: scale(0.98);
+  }
+  .salonrow .who {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
-    text-align: left;
-    transition:
-      border-color 0.15s ease,
-      transform 0.1s ease;
   }
-  .saloncard:active {
-    transform: scale(0.97);
-  }
-  .saloncard.selected {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
-  }
-  .saloncard strong {
-    font-size: 1.4rem;
+  .salonrow strong {
+    font-size: 1.2rem;
     font-variant-numeric: tabular-nums;
   }
-  .saloncard small {
+  .salonrow small {
     color: var(--ink-soft);
     font-size: 0.8rem;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%;
   }
-  .saloncard span {
+  .salonrow .sub {
     color: var(--muted);
     font-size: 0.8rem;
     font-weight: 600;
+    white-space: nowrap;
+  }
+  .go {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .card {
     background: var(--card);
