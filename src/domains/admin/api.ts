@@ -86,8 +86,26 @@ export async function createTeacher(input: NewTeacher): Promise<{ ID: string }> 
   return api.post<{ ID: string }>('/v1/teachers', input);
 }
 
-export async function grantRole(subjectID: string, role: string): Promise<unknown> {
-  return api.post('/v1/roles', { subjectID, role });
+export interface NewUser {
+  username: string;
+  email: string;
+  password: string;
+  role: string;
+}
+
+export interface UserAccount {
+  ID: string;
+  Username: string;
+  Email: string;
+  Active: boolean;
+  Roles: string[];
+}
+
+// Creates a login account (admin only). Teachers never self-register:
+// the admin sets their initial password here. Optionally grants a role
+// in the same call (e.g. "teacher").
+export async function createUser(input: NewUser): Promise<UserAccount> {
+  return api.post<UserAccount>('/v1/users', input);
 }
 
 export async function groupsByYear(year: number): Promise<YearGroup[]> {
@@ -112,4 +130,80 @@ export interface ClassReport {
 
 export async function classReport(groupID: string): Promise<ClassReport> {
   return api.get<ClassReport>(`/v1/statistics/class/${encodeURIComponent(groupID)}`);
+}
+
+export interface StudentSessionEntry {
+  SessionID: string;
+  Date: string;
+  ClassLabel: string;
+  SchoolYear: number;
+  Period: number;
+  Mark: string;
+}
+
+export interface StudentReport {
+  StudentID: string;
+  Sessions: StudentSessionEntry[];
+  Presences: number;
+  Absences: number;
+  Evasions: number;
+  Lates: number;
+  WarningsMild: number;
+  WarningsModerate: number;
+  WarningsSevere: number;
+  FaultsMinor: number;
+  FaultsOrdinary: number;
+  FaultsSevere: number;
+}
+
+// Full cross-year report of one student (admin-only in the backend).
+// 404 today means "no data yet": callers paint an honest empty.
+export async function studentReport(studentID: string): Promise<StudentReport> {
+  return api.get<StudentReport>(`/v1/statistics/student/${encodeURIComponent(studentID)}`);
+}
+
+export interface RecentWarning {
+  ID: string;
+  StudentID: string;
+  ClassID: string;
+  TeacherID: string;
+  HappenedAt: string;
+  Gravity: 'mild' | 'moderate' | 'severe';
+  Title: string;
+  Description: string;
+  GroupID: string;
+}
+
+// Latest llamados. No such route in the backend yet: callers treat
+// isMissing as an honest empty, never as an error screen.
+export async function warningsRecent(limit = 20): Promise<RecentWarning[]> {
+  return api.get<RecentWarning[]>(`/v1/warnings/recent?limit=${limit}`);
+}
+
+export interface RecentIncident {
+  ID: string;
+  Title: string;
+  HappenedAt: string;
+  Severity: string;
+}
+
+// Latest fault/incident records. Pending backend contract: same
+// honest-empty rule as warningsRecent.
+export async function incidentsRecent(limit = 20): Promise<RecentIncident[]> {
+  return api.get<RecentIncident[]>(`/v1/incidents/recent?limit=${limit}`);
+}
+
+export interface DashboardSummary {
+  students?: number;
+  teachers?: number;
+  groups?: number;
+  warningsWeek?: number;
+  sessionsWeek?: number;
+  attendanceRate?: number;
+}
+
+// Aggregated admin counters. Pending backend contract: every field is
+// optional and a 404 means "no data yet", so stats render "—".
+export async function dashboardSummary(): Promise<DashboardSummary> {
+  return api.get<DashboardSummary>('/v1/dashboard/summary');
 }
