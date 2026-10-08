@@ -71,7 +71,7 @@
     });
   });
 
-  $: if (chart) render();
+  $: option, chart && render();
 </script>
 
 <div class="wrap" style={`height: ${height}px`}>

@@ -333,23 +333,23 @@
     : warnings.length > 0;
   $: hasSalonRates = salonRates.length > 0;
 
-  $: donut = makeDonut($theme);
-  $: gravityBars = makeGravityBars($theme);
-  $: salonBars = makeSalonBars($theme);
+  $: donut = makeDonut($theme, totals, hasDonut);
+  $: gravityBars = makeGravityBars($theme, gravityCounts, hasGravity);
+  $: salonBars = makeSalonBars($theme, salonRates);
 
-  function makeDonut(_theme: Theme) {
+  function makeDonut(_theme: Theme, marks: typeof totals, has: boolean) {
     return {
       series: [
         {
           type: 'pie',
           radius: ['58%', '80%'],
           label: { show: false },
-          data: hasDonut
+          data: has
             ? [
-                { value: totals.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#4e8a3c') } },
-                { value: totals.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#b26a35') } },
-                { value: totals.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#8377a8') } },
-                { value: totals.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#5b93b5') } }
+                { value: marks.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#4e8a3c') } },
+                { value: marks.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#b26a35') } },
+                { value: marks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#8377a8') } },
+                { value: marks.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#5b93b5') } }
               ]
             : []
         }
@@ -357,7 +357,7 @@
     };
   }
 
-  function makeGravityBars(_theme: Theme) {
+  function makeGravityBars(_theme: Theme, counts: number[], has: boolean) {
     return {
       xAxis: {
         type: 'category',
@@ -367,25 +367,27 @@
       series: [
         {
           type: 'bar',
-          data: [
-            { value: gravityCounts[0], itemStyle: { color: cssVar('--g-leve-ink', '#1f8fc4') } },
-            { value: gravityCounts[1], itemStyle: { color: cssVar('--g-medio-ink', '#93700f') } },
-            { value: gravityCounts[2], itemStyle: { color: cssVar('--g-grave-ink', '#cf4444') } }
-          ],
+          data: has
+            ? [
+                { value: counts[0], itemStyle: { color: cssVar('--g-leve-ink', '#1f8fc4') } },
+                { value: counts[1], itemStyle: { color: cssVar('--g-medio-ink', '#93700f') } },
+                { value: counts[2], itemStyle: { color: cssVar('--g-grave-ink', '#cf4444') } }
+              ]
+            : [],
           itemStyle: { borderRadius: [8, 8, 0, 0] }
         }
       ]
     };
   }
 
-  function makeSalonBars(_theme: Theme) {
+  function makeSalonBars(_theme: Theme, rates: { label: string; rate: number }[]) {
     return {
-      xAxis: { type: 'category', data: salonRates.map((s) => s.label) },
+      xAxis: { type: 'category', data: rates.map((s) => s.label) },
       yAxis: { type: 'value', max: 100 },
       series: [
         {
           type: 'bar',
-          data: salonRates.map((s) => ({
+          data: rates.map((s) => ({
             value: s.rate,
             itemStyle: {
               color:
