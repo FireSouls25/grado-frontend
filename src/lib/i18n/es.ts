@@ -74,7 +74,13 @@ export const es = {
   agenda: {
     breadcrumbHome: 'Inicio',
     breadcrumbHere: 'Mi Agenda',
+    eyebrow: 'Consola docente',
     title: 'Agenda de Clases',
+    stateDone: 'Finalizada',
+    stateNow: 'Ahora',
+    stateNext: 'Siguiente',
+    openList: 'Abrir lista',
+    searchLabel: 'Buscar en tu agenda',
     todayLabel: 'Clases de hoy',
     todayValue: (count: number) => `${count} clases`,
     registeredLabel: 'Registradas',
@@ -94,10 +100,12 @@ export const es = {
     emptyBody: 'No tienes clases asignadas para este día. Elige otro día de la semana.'
   },
   studentHome: {
+    eyebrow: 'Consola del estudiante',
     title: 'Mi historial',
     body: 'Aquí verás tus asistencias, llamados y faltas. Esta vista estará disponible próximamente.'
   },
   teacher: {
+    eyebrow: 'Consola docente',
     greeting: 'Hola',
     todayTitle: 'Clases de hoy',
     nextTitle: 'Próxima clase',
@@ -137,7 +145,13 @@ export const es = {
     markSaved: 'Asistencia guardada.'
   },
   schedule: {
+    eyebrow: 'Consola docente',
     title: 'Horario semanal',
+    openList: 'Abrir lista',
+    stateDone: 'Finalizada',
+    stateNow: 'Ahora',
+    stateNext: 'Siguiente',
+    loading: 'Cargando tu horario…',
     emptyTitle: 'Sin horario todavía',
     emptyBody:
       'Cuando un administrador arme tu horario semanal aparecerá aquí, día por día.'
@@ -162,9 +176,17 @@ export const es = {
     colId: 'ID Estudiante',
     colName: 'Apellido, Nombre',
     colCheck: 'Asistencia',
+    eyebrow: 'Consola docente',
     back: 'Volver a la Agenda',
     save: 'Guardar Asistencia',
     saved: 'Asistencia guardada.',
+    savedLocal:
+      'Guardado local: el backend aún no expone sesiones, así que nada se envió.',
+    noSessionNote:
+      'Sin sesión abierta en el backend: las marcas se conservan solo en este dispositivo.',
+    emptyRosterTitle: 'Salón sin lista',
+    emptyRosterBody:
+      'El backend aún no expone la nómina de este salón. Vuelve a intentarlo más tarde.',
     saveHint: 'Marca con el check a quienes asistieron. Sin marca cuenta como ausente.',
     classDesc:
       'Clase enfocada en Mecánica de Fluidos y dinámica estática. Se revisarán ejercicios y casos prácticos.'
@@ -194,6 +216,12 @@ export const es = {
     descPlaceholder: 'Describe lo ocurrido con detalle…',
     descDefault:
       'El estudiante persistió en el uso de dispositivos móviles y juegos de mesa no autorizados durante el desarrollo de la explicación de Mecánica de Fluidos, ignorando las advertencias directas en tres oportunidades.',
+    eyebrow: 'Consola docente',
+    noRosterTitle: 'Salón sin lista',
+    noRosterBody:
+      'El backend aún no expone la nómina de este salón, así que no se puede registrar el llamado.',
+    pendingBackend:
+      'El backend aún no expone el registro de llamados; nada se envió.',
     cancel: 'Cancelar',
     save: 'Guardar Registro',
     saving: 'Guardando…',

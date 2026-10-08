@@ -1,33 +1,28 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
-  import { paletteFor } from '$lib/ui/palette';
   import type { TeacherClass } from './api';
 
   export let entry: TeacherClass;
   export let studentsLabel: string;
   export let students: string;
   export let onOpen: () => void;
-
-  $: palette = paletteFor(entry.SubjectID || entry.GroupID);
 </script>
 
-<button type="button" class="card" on:click={onOpen}>
+<article class="card">
   <div class="main">
-    <span class={`chip chip-${palette}`}>{entry.SubjectName || entry.ClassLabel}</span>
+    <span class="subjectpill">{entry.SubjectName || entry.ClassLabel}</span>
     <h2>{entry.ClassLabel}</h2>
-    <p class="meta">
-      <Icon name="clock" />
-      <span>{entry.Start} – {entry.End}</span>
+    <div class="facts">
+      <span class="factpill"><Icon name="clock" /> {entry.Start} – {entry.End}</span>
       {#if students}
-        <span class="dot" aria-hidden="true">·</span>
-        <span>{students}</span>
+        <span class="factpill"><Icon name="users" /> {students}</span>
       {/if}
-    </p>
-    <p class="sr">{studentsLabel}</p>
+    </div>
+    <span class="sr">{studentsLabel}</span>
   </div>
-  <span class="go" aria-hidden="true"><Icon name="next" /></span>
-</button>
+  <button type="button" class="open" on:click={onOpen}>{$t.agenda.openList}</button>
+</article>
 
 <style>
   .card {
@@ -36,23 +31,11 @@
     align-items: center;
     gap: 12px;
     text-align: left;
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
-    padding: 18px;
+    padding: 16px 18px;
     min-height: 96px;
-    transition:
-      transform 0.1s ease,
-      box-shadow 0.2s ease;
-    animation: rise 0.3s ease both;
-  }
-  .card:hover {
-    box-shadow:
-      0 14px 32px rgba(27, 35, 64, 0.13);
-  }
-  .card:active {
-    transform: scale(0.98);
   }
   .main {
     flex: 1;
@@ -60,25 +43,46 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 8px;
   }
   .main h2 {
     font-size: 1.4rem;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
   }
-  .meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--muted);
-    font-size: 0.9rem;
+  .subjectpill {
+    background: var(--tint);
+    color: var(--ink-soft);
+    border-radius: var(--radius-pill);
+    padding: 5px 12px;
+    font-size: 0.74rem;
     font-weight: 600;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .meta :global(svg) {
-    width: 16px;
-    height: 16px;
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 8px;
   }
-  .dot {
-    opacity: 0.6;
+  .factpill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--tint);
+    color: var(--ink-soft);
+    border-radius: var(--radius-pill);
+    padding: 4px 11px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .factpill :global(svg) {
+    width: 15px;
+    height: 15px;
   }
   .sr {
     position: absolute;
@@ -87,25 +91,19 @@
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
-  .go {
+  .open {
     flex: none;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-pill);
-    background: var(--surface-2);
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    border-radius: var(--radius-chip);
+    padding: 9px 18px;
+    min-height: 44px;
   }
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
+  .open:active {
+    transform: scale(0.97);
   }
 </style>
