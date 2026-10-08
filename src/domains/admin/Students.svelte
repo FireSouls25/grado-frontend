@@ -7,7 +7,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
-  import { groupsByYear, createStudent, classReport, type YearGroup, type ClassReport } from './api';
+  import { groupsByYear, createStudent, classReport, warningsRecent, type YearGroup, type ClassReport, type RecentWarning } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -25,6 +25,11 @@
   let form = freshForm();
   let report: ClassReport | null = null;
   let reportLoading = false;
+  let warns: RecentWarning[] = [];
+  let q2 = '';
+  let minAbs = '';
+  let minLate = '';
+  let fWarn: '' | 'yes' = '';
 
   function freshForm() {
     return {
@@ -72,6 +77,7 @@
   async function pick(group: YearGroup | null) {
     picked = picked?.GroupID === group?.GroupID ? null : group;
     report = null;
+    warns = [];
     const current = picked;
     if (!current) return;
     reportLoading = true;
@@ -83,11 +89,32 @@
     } finally {
       reportLoading = false;
     }
+    try {
+      warns = (await warningsRecent(100)) ?? [];
+    } catch {
+      warns = [];
+    }
   }
 
   function rateOf(presences: number, sessions: number): number {
     return sessions > 0 ? Math.round((presences / sessions) * 100) : 0;
   }
+
+  $: warnedIds = new Set(warns.map((w) => w.StudentID));
+  $: warnCountOf = (id: string) => warns.filter((w) => w.StudentID === id).length;
+  $: roster = (report?.Students ?? []).map((s) => ({
+    ...s,
+    rate: rateOf(s.Presences, s.Sessions),
+    calls: warnCountOf(s.StudentID)
+  }));
+  $: qn = q2.trim().toLowerCase();
+  $: nAbs = Number(minAbs) || 0;
+  $: nLate = Number(minLate) || 0;
+  $: visibleRoster = roster
+    .filter((s) => (qn ? `${s.Surnames} ${s.Names}`.toLowerCase().includes(qn) : true))
+    .filter((s) => s.Absences >= nAbs && s.Lates >= nLate)
+    .filter((s) => (fWarn === 'yes' ? s.calls > 0 : true))
+    .sort((a, b) => a.rate - b.rate);
 
   async function save() {
     feedback = '';
@@ -178,18 +205,44 @@
           <p class="muted">{$t.admin.reportEmpty}</p>
         {:else}
           <p class="muted">{$t.admin.reportSessions(report.Sessions)}</p>
+          <div class="filters" role="group" aria-label={$t.admin.reportTitle}>
+            <label class="search">
+              <Icon name="search" />
+              <input type="search" placeholder={$t.admin.studentSearch} aria-label={$t.admin.studentSearch} bind:value={q2} />
+            </label>
+            <label>{$t.admin.minAbsences}<input type="number" min="0" inputmode="numeric" bind:value={minAbs} /></label>
+            <label>{$t.admin.minLates}<input type="number" min="0" inputmode="numeric" bind:value={minLate} /></label>
+            <label>{$t.admin.warnFilter}
+              <select bind:value={fWarn}>
+                <option value="">{$t.admin.warnAny}</option>
+                <option value="yes">{$t.admin.warnWith}</option>
+              </select>
+            </label>
+            <span class="count" role="status">{$t.admin.rosterCount(visibleRoster.length)}</span>
+          </div>
+          {#if visibleRoster.length === 0}
+            <EmptyState icon="list" title={$t.admin.rosterEmptySearch} />
+          {:else}
           <ul class="ledger">
-            {#each [...report.Students].sort((a, b) => rateOf(a.Presences, a.Sessions) - rateOf(b.Presences, b.Sessions)) as s (s.StudentID)}
-              {@const rate = rateOf(s.Presences, s.Sessions)}
+            {#each visibleRoster as s (s.StudentID)}
               <li>
-                <span class="who"><strong>{s.Surnames} {s.Names}</strong><small>{s.Absences} {$t.admin.colAbsences} · {s.Evasions} {$t.admin.colEvasions} · {s.Lates} {$t.admin.markLate}</small></span>
+                <span class="who">
+                  <strong>{s.Surnames} {s.Names}</strong>
+                  <small>
+                    <span class="countchip">{s.Absences} {$t.admin.colAbsences}</span>
+                    <span class="countchip" class:alert={s.Evasions > 0}>{s.Evasions} {$t.admin.colEvasions}</span>
+                    <span class="countchip" class:alert={s.Lates > 0}>{s.Lates} {$t.admin.markLate}</span>
+                    {#if s.calls > 0}<span class="countchip warn">{$t.admin.callsCount(s.calls)}</span>{/if}
+                  </small>
+                </span>
                 <span class="rateblock">
-                  <strong class:low={rate < 85}>{rate}%</strong>
-                  <span class="rbar"><span class:low={rate < 85} style={`width:${rate}%`}></span></span>
+                  <strong class:low={s.rate < 85}>{s.rate}%</strong>
+                  <span class="rbar"><span class:low={s.rate < 85} style={`width:${s.rate}%`}></span></span>
                 </span>
               </li>
             {/each}
           </ul>
+          {/if}
         {/if}
       </section>
     {/if}
@@ -384,6 +437,86 @@
   .card p {
     color: var(--muted);
     font-size: 0.92rem;
+  }
+  .filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 12px 0 4px;
+    align-items: end;
+  }
+  @media (min-width: 700px) {
+    .filters {
+      grid-template-columns: 2fr 1fr 1fr 1fr auto;
+    }
+  }
+  .filters > label.search {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0 12px;
+    min-height: 44px;
+    color: var(--muted);
+  }
+  .filters > label.search input {
+    border: 0;
+    background: none;
+    outline: none;
+    width: 100%;
+    color: var(--ink);
+  }
+  .filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .filters input:not([type='search']),
+  .filters select {
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-2);
+    padding: 0 12px;
+    font-weight: 600;
+    font-size: 0.84rem;
+    color: var(--ink);
+    width: 100%;
+  }
+  .count {
+    align-self: center;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .ledger .who small {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .countchip {
+    background: var(--tint);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .countchip.alert {
+    background: var(--g-grave-bg);
+    color: var(--g-grave-ink);
+  }
+  .countchip.warn {
+    background: var(--accent-soft);
+    color: var(--accent);
   }
   .muted {
     color: var(--muted);

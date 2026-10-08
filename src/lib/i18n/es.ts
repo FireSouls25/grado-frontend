@@ -377,6 +377,17 @@ export const es = {
       count === 1 ? '1 salón' : `${count} salones`,
     salonNoTeacher: 'Sin asignar',
     teachersSearch: 'Buscar docente…',
+    studentSearch: 'Buscar estudiante…',
+    minAbsences: 'Mín. inasistencias',
+    minLates: 'Mín. atrasos',
+    warnFilter: 'Llamados',
+    warnAny: 'Todos',
+    warnWith: 'Con llamados',
+    rosterCount: (count: number) =>
+      count === 1 ? '1 estudiante' : `${count} estudiantes`,
+    rosterEmptySearch: 'Ningún estudiante coincide con esos filtros.',
+    callsCount: (count: number) =>
+      count === 1 ? '1 llamado' : `${count} llamados`,
     teachersEmptySearch: 'Ningún docente coincide con esa búsqueda.',
     reportTitle: 'Reporte del salón',
     reportSessions: (count: number) =>
