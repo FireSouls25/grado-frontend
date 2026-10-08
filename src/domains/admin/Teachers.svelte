@@ -8,7 +8,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Icon from '$lib/ui/Icon.svelte';
-  import { teachers, createTeacher, createUser, type TeacherSummary } from './api';
+  import { teachers, teacherDetail, createTeacher, createUser, type TeacherSummary, type TeacherDetail } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -24,6 +24,10 @@
   let error = '';
   let showPassword = false;
   let search = '';
+  let details: Record<string, TeacherDetail> = {};
+  let fSubject = '';
+  let fGroup = '';
+  let fRole: '' | 'director' | 'plain' = '';
   let form = freshForm();
 
   function freshForm() {
@@ -47,19 +51,55 @@
         `${a.Surnames} ${a.Names}`.toLowerCase() < `${b.Surnames} ${b.Names}`.toLowerCase() ? -1 : 1
       );
       state = 'ready';
+      void loadDetails();
     } catch (err) {
       state = err instanceof ApiError && isMissing(err) ? 'ready' : 'error';
     }
   }
 
+  async function loadDetails() {
+    const settled = await Promise.allSettled(list.map((teacher) => teacherDetail(teacher.ID)));
+    const next: Record<string, TeacherDetail> = {};
+    settled.forEach((result, i) => {
+      if (result.status === 'fulfilled' && result.value) next[list[i].ID] = result.value;
+    });
+    details = next;
+  }
+
+  function initialsOf(surnames: string, names: string): string {
+    return `${surnames} ${names}`
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase();
+  }
+
   onMount(load);
 
   $: q = search.trim().toLowerCase();
-  $: visible = list.filter((teacher) =>
-    q
-      ? `${teacher.Surnames} ${teacher.Names} ${teacher.DocumentID}`.toLowerCase().includes(q)
-      : true
+  $: subjectOptions = [...new Set(Object.values(details).flatMap((d) => d.Subjects.map((s) => s.SubjectName)))].sort((a, b) =>
+    a.localeCompare(b, 'es')
   );
+  $: groupOptions = [...new Set(list.map((teacher) => teacher.HomeroomClassID).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, 'es')
+  );
+  $: visible = list.filter((teacher) => {
+    if (
+      q &&
+      !`${teacher.Surnames} ${teacher.Names} ${teacher.DocumentID}`.toLowerCase().includes(q)
+    )
+      return false;
+    if (fRole === 'director' && !teacher.HomeroomClassID) return false;
+    if (fRole === 'plain' && teacher.HomeroomClassID) return false;
+    if (fGroup && teacher.HomeroomClassID !== fGroup) return false;
+    if (fSubject) {
+      const names = details[teacher.ID]?.Subjects.map((s) => s.SubjectName) ?? [];
+      if (!names.includes(fSubject)) return false;
+    }
+    return true;
+  });
 
   function validate(): string {
     if (!form.Names.trim() || !form.Surnames.trim() || !form.DocumentID.trim()) {
@@ -144,6 +184,28 @@
         {$t.admin.newTeacher}
       </button>
     </div>
+    <div class="filters" role="group" aria-label={$t.admin.teachersTitle}>
+      <label>{$t.admin.filterSubject}
+        <select bind:value={fSubject}>
+          <option value="">{$t.admin.filterAll}</option>
+          {#each subjectOptions as subject}<option value={subject}>{subject}</option>{/each}
+        </select>
+      </label>
+      <label>{$t.admin.filterGroup}
+        <select bind:value={fGroup}>
+          <option value="">{$t.admin.filterAll}</option>
+          {#each groupOptions as group}<option value={group}>{group}</option>{/each}
+        </select>
+      </label>
+      <label>{$t.admin.filterRole}
+        <select bind:value={fRole}>
+          <option value="">{$t.admin.filterAll}</option>
+          <option value="director">{$t.admin.roleDirector}</option>
+          <option value="plain">{$t.admin.rolePlain}</option>
+        </select>
+      </label>
+      <span class="count" role="status">{$t.admin.teachersCount(visible.length)}</span>
+    </div>
   </div>
 
   <div class="sheet">
@@ -170,6 +232,9 @@
   {:else}
     <ul class="roster">
       {#each visible as teacher (teacher.ID)}
+        {@const detail = details[teacher.ID]}
+        {@const subjects = detail?.Subjects.map((s) => s.SubjectName) ?? []}
+        {@const contact = [teacher.DocumentID, detail?.Phone, detail?.Email].filter(Boolean).join(' · ')}
         <li>
           <button
             type="button"
@@ -177,11 +242,20 @@
             on:click={() => push(`/admin/docentes/${encodeURIComponent(teacher.ID)}`)}
           >
             <span class="who">
-              <span class="name">{teacher.Surnames} {teacher.Names}</span>
-              <span class="sub">
-                {teacher.DocumentID}
-                {#if teacher.HomeroomClassID}· {$t.admin.directs(teacher.HomeroomClassID)}{/if}
-                {#if !teacher.Active}· {$t.admin.inactive}{/if}
+              <span class="liner">
+                <span class="avatar" aria-hidden="true">{initialsOf(teacher.Surnames, teacher.Names)}</span>
+                <span class="name">{teacher.Surnames} {teacher.Names}</span>
+                {#if !teacher.Active}<span class="pill off">{$t.admin.inactive}</span>{/if}
+              </span>
+              <span class="sub">{contact || teacher.DocumentID}</span>
+              <span class="tags">
+                {#if teacher.HomeroomClassID}
+                  <span class="pill dir">{$t.admin.directs(teacher.HomeroomClassID)}</span>
+                {:else}
+                  <span class="pill">{$t.admin.rolePlain}</span>
+                {/if}
+                {#each subjects.slice(0, 3) as subject}<span class="pill sub">{subject}</span>{/each}
+                {#if subjects.length === 0}<span class="pill mute">{$t.admin.noSubjects}</span>{/if}
               </span>
             </span>
             <span class="go" aria-hidden="true"><Icon name="next" /></span>
@@ -437,6 +511,102 @@
   }
   .ghost:active {
     transform: scale(0.98);
+  }
+  .filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: end;
+  }
+  .filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .filters select {
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 0 12px;
+    font-weight: 600;
+    font-size: 0.84rem;
+    color: var(--ink);
+    max-width: 100%;
+  }
+  .count {
+    align-self: center;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    padding-bottom: 10px;
+  }
+  .liner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .liner .name {
+    flex: 1;
+  }
+  .avatar {
+    width: 38px;
+    height: 38px;
+    flex: none;
+    border-radius: 999px;
+    border: 1px solid var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.72rem;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .pill {
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 3px 10px;
+    background: var(--tint);
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .pill.dir {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .pill.sub {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+  }
+  .pill.off {
+    background: var(--g-grave-bg);
+    color: var(--g-grave-ink);
+  }
+  .pill.mute {
+    background: transparent;
+    border: 1px dashed var(--line);
+    color: var(--muted);
+  }
+  @media (max-width: 700px) {
+    .filters {
+      grid-template-columns: 1fr 1fr;
+    }
+    .count {
+      grid-column: 1 / -1;
+      padding-bottom: 0;
+    }
   }
   .roster {
     list-style: none;
