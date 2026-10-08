@@ -91,6 +91,7 @@
     return teacherList.find((t) => t.HomeroomClassID === label) ?? null;
   }
 
+  function changeYear(delta: number) {
     year += delta;
     loaded = false;
     load();
