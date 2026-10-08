@@ -747,7 +747,19 @@
     gap: 8px;
     align-items: center;
   }
-  .search,
+  .search {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: var(--muted);
+    min-height: 44px;
+    min-width: 200px;
+  }
   .search input {
     border: 0;
     background: none;

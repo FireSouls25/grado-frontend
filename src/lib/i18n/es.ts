@@ -323,7 +323,6 @@ export const es = {
     consoleSearch: 'Buscar estudiante o salón…',
     consoleSearchLabel: 'Buscar en la consola',
     schoolName: 'Nuestra Señora de Guadalupe',
-    schoolSite: 'Sede central',
     manageTitle: 'Gestionar',
     yearLabel: 'Año lectivo',
     viewOverview: 'Resumen',
