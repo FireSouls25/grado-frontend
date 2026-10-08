@@ -27,7 +27,7 @@ el color informa, no decora.
 | `--surface-2` | `hsl(40, 12%, 97%)` | hundidos suaves |
 | `--card` | `hsl(44, 20%, 95.5%)` | tarjetas **dentro** de la lámina |
 | `--tint` | `hsl(45, 8%, 91%)` | pistas, chips neutros, rieles |
-| `--ink` / `--ink-soft` / `--muted` | `12%` / `32%` / `60%` neutros | texto / secundario / terciario |
+| `--ink` / `--ink-soft` / `--muted` | `10%` / `28%` / `52%` neutros | texto / secundario / terciario |
 | `--line` | `hsl(45, 10%, 88%)` | hairlines |
 | `--accent` / `--accent-ink` / `--accent-soft` | terracota `hsl(28, 40%, 52%)` | **acción y atención**, nada más |
 | `--coral` | `hsl(343, 68%, 48%)` | puntos de datos en series |

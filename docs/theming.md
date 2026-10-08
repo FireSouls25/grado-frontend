@@ -14,7 +14,7 @@ gris violeta contenido estilo Dracula (oscuro).
 | `--bg` | crema `94%` | gris `17%` |
 | `--surface` / `--surface-2` / `--card` | `#fff` / `97%` / `95.5%` | `11%` (lámina, casi negro) / `14%` / `21%` |
 | `--tint` | `91%` | `18%` |
-| `--ink` / `--ink-soft` / `--muted` / `--line` | `12%` / `32%` / `60%` / `88%` | `95%` / `76%` / `60%` / `26%` |
+| `--ink` / `--ink-soft` / `--muted` / `--line` | `10%` / `28%` / `52%` / `88%` | `95%` / `76%` / `60%` / `26%` |
 | `--accent` (+ ink/soft) | terracota `52%` | naranja `68%` |
 | `--coral` | puntos de datos claro | rosa Dracula oscuro |
 | `--g-leve/medio/grave` (-bg/-ink) | azul / amarillo / rojo | cian / amarillo / rojo Dracula |
