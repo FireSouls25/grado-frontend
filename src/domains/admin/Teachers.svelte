@@ -4,7 +4,7 @@
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import AdminTabs from './AdminTabs.svelte';
+  import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Icon from '$lib/ui/Icon.svelte';
@@ -17,6 +17,7 @@
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let list: TeacherSummary[] = [];
 
+  const currentYear = new Date().getFullYear();
   let creating = false;
   let saving = false;
   let feedback = '';
@@ -129,7 +130,7 @@
   }
 </script>
 
-<div class="page">
+<AdminShell active="docentes" year={currentYear}>
   <TopBar title={$t.admin.teachersTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
 
   <div class="pagehead">
@@ -190,9 +191,7 @@
     </ul>
   {/if}
   </div>
-</div>
-
-<AdminTabs active="docentes" />
+</AdminShell>
 
 <Sheet open={creating} title={$t.admin.newTeacher} onClose={() => (creating = false)}>
   <form class="form" on:submit|preventDefault={save}>

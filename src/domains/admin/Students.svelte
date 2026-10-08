@@ -3,7 +3,7 @@
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import AdminTabs from './AdminTabs.svelte';
+  import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
@@ -109,7 +109,7 @@
   onMount(load);
 </script>
 
-<div class="page">
+<AdminShell active="estudiantes" {year} onYear={changeYear}>
   <TopBar title={$t.admin.studentsTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
 
   <div class="pagehead">
@@ -188,9 +188,7 @@
     {/if}
   {/if}
   </div>
-</div>
-
-<AdminTabs active="estudiantes" />
+</AdminShell>
 
 <Sheet open={creating} title={$t.admin.newStudent} onClose={() => (creating = false)}>
   <form class="form" on:submit|preventDefault={save}>

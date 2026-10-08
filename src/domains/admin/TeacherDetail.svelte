@@ -8,6 +8,7 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
+  import AdminShell from './AdminShell.svelte';
   import { paletteFor } from '$lib/ui/palette';
   import { teacherDetail, subjects, assignSubject, type TeacherDetail } from './api';
   import { isMissing } from '../teacher/api';
@@ -19,6 +20,7 @@
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let detail: TeacherDetail | null = null;
+  const currentYear = new Date().getFullYear();
   let assignOpen = false;
   let feedback = '';
 
@@ -67,7 +69,7 @@
   }
 </script>
 
-<div class="page">
+<AdminShell active="docentes" year={currentYear}>
   <TopBar title={$t.admin.teacherDetailTitle} showBack onBack={() => push('/admin/docentes')}>
     <TopActions />
   </TopBar>
@@ -131,7 +133,7 @@
     </section>
   {/if}
   </div>
-</div>
+</AdminShell>
 
 <Sheet open={assignOpen} title={$t.admin.assignSubjectTitle} onClose={() => (assignOpen = false)}>
   {#if feedback}<p class="flash" role="alert">{feedback}</p>{/if}

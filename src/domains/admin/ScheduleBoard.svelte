@@ -3,7 +3,7 @@
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import AdminTabs from './AdminTabs.svelte';
+  import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Icon from '$lib/ui/Icon.svelte';
 
@@ -14,7 +14,7 @@
   let year = currentYear;
 </script>
 
-<div class="page wide">
+<AdminShell active="horario" {year}>
   <TopBar title={$t.admin.scheduleTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
 
   <div class="pagehead">
@@ -71,9 +71,8 @@
     title={$t.admin.scheduleManualTitle}
     body={$t.admin.scheduleManualBody}
   />
-</div>
 
-<AdminTabs active="horario" />
+</AdminShell>
 
 <style>
   .pagehead {
@@ -116,14 +115,6 @@
     align-items: center;
     white-space: nowrap;
     flex: none;
-  }
-  .wide {
-    max-width: 100%;
-  }
-  @media (min-width: 900px) {
-    .wide {
-      max-width: 1024px;
-    }
   }
   .pickers {
     display: grid;
