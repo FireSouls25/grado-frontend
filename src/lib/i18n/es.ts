@@ -271,6 +271,7 @@ export const es = {
     groupsTitle: 'Salones',
     loadingGroups: 'Cargando salones…',
     groupDetailTitle: (label: string, year: number) => `Salón ${label} · ${year}`,
+    noDirector: 'Sin director asignado',
     noGroupsYear: (year: number) => `Sin salones en ${year}`,
     noGroupsYearBody:
       'Cuando existan salones con estudiantes matriculados aparecerán aquí, organizados por grado y grupo.',

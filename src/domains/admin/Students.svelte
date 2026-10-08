@@ -7,7 +7,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
-  import { groupsByYear, createStudent, classReport, warningsRecent, type YearGroup, type ClassReport, type RecentWarning } from './api';
+  import { groupsByYear, createStudent, classReport, warningsRecent, teachers, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -26,6 +26,8 @@
   let report: ClassReport | null = null;
   let reportLoading = false;
   let warns: RecentWarning[] = [];
+  let teacherList: TeacherSummary[] = [];
+  let counts: Record<string, number> = {};
   let q2 = '';
   let minAbs = '';
   let minLate = '';
@@ -56,6 +58,8 @@
       groups = [...data].sort((a, b) => a.Grade - b.Grade || a.GroupNo - b.GroupNo);
       picked = null;
       loaded = true;
+      void loadTeachers();
+      void loadCounts();
     } catch (err) {
       if (err instanceof ApiError && isMissing(err)) {
         groups = [];
@@ -66,7 +70,27 @@
     }
   }
 
-  function changeYear(delta: number) {
+  async function loadTeachers() {
+    try {
+      teacherList = (await guarded(() => teachers())) ?? [];
+    } catch {
+      teacherList = [];
+    }
+  }
+
+  async function loadCounts() {
+    const settled = await Promise.allSettled(groups.map((g) => classReport(g.GroupID)));
+    const next: Record<string, number> = {};
+    settled.forEach((result, i) => {
+      if (result.status === 'fulfilled' && result.value) next[groups[i].GroupID] = result.value.Students.length;
+    });
+    counts = next;
+  }
+
+  function directorOf(label: string): TeacherSummary | null {
+    return teacherList.find((t) => t.HomeroomClassID === label) ?? null;
+  }
+
     year += delta;
     loaded = false;
     load();
@@ -178,19 +202,19 @@
       body={$t.admin.noGroupsYearBody}
     />
   {:else}
-    <div class="chips">
+    <div class="salonstrip" role="group" aria-label={$t.admin.studentsTitle}>
       {#each groups as g (g.GroupID)}
+        {@const dir = directorOf(g.ClassLabel)}
         <button
           type="button"
-          class="salon"
+          class="saloncard"
           class:selected={picked?.GroupID === g.GroupID}
           aria-pressed={picked?.GroupID === g.GroupID}
           on:click={() => pick(g)}
         >
           <strong>{g.ClassLabel}</strong>
-          {#if g.StudentCount !== undefined}
-            <span>{$t.admin.groupStudents(g.StudentCount)}</span>
-          {/if}
+          <small>{dir ? `${dir.Surnames} ${dir.Names}`.trim() : $t.admin.noDirector}</small>
+          <span>{g.GroupID in counts ? $t.admin.groupStudents(counts[g.GroupID]) : '—'}</span>
         </button>
       {/each}
     </div>
@@ -385,45 +409,54 @@
   .primary:disabled {
     opacity: 0.7;
   }
-  .chips {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+  .salonstrip {
+    display: flex;
     gap: 10px;
+    overflow-x: auto;
+    padding: 2px 2px 10px;
+    scroll-snap-type: x proximity;
   }
-  @media (min-width: 900px) {
-    .chips {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-  .salon {
+  .saloncard {
+    flex: none;
+    width: 210px;
+    scroll-snap-align: start;
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
     padding: 16px;
-    min-height: 88px;
+    min-height: 118px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: 3px;
     text-align: left;
     transition:
       border-color 0.15s ease,
       transform 0.1s ease;
-    animation: rise 0.25s ease both;
   }
-  .salon:active {
+  .saloncard:active {
     transform: scale(0.97);
   }
-  .salon.selected {
+  .saloncard.selected {
     border-color: var(--accent);
     box-shadow: 0 0 0 1px var(--accent);
   }
-  .salon strong {
-    font-size: 1.3rem;
+  .saloncard strong {
+    font-size: 1.4rem;
+    font-variant-numeric: tabular-nums;
   }
-  .salon span {
+  .saloncard small {
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .saloncard span {
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 600;
   }
   .card {
@@ -585,15 +618,5 @@
   }
   .rbar span.low {
     background: var(--g-grave-ink);
-  }
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
   }
 </style>
