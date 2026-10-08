@@ -449,7 +449,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin-bottom: 12px;
+    margin: 18px 0 12px;
   }
   .salonrow {
     width: 100%;
@@ -527,6 +527,7 @@
   }
   .filters > label.search {
     display: flex;
+    flex-direction: row;
     gap: 8px;
     align-items: center;
     background: var(--surface-2);
@@ -541,7 +542,12 @@
     background: none;
     outline: none;
     width: 100%;
+    flex: 1;
+    min-width: 0;
     color: var(--ink);
+  }
+  .filters > label.search :global(svg) {
+    flex: none;
   }
   .filters label {
     display: flex;
@@ -564,9 +570,14 @@
   }
   .count {
     align-self: center;
-    color: var(--muted);
-    font-size: 0.82rem;
-    font-weight: 600;
+    justify-self: end;
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 16px;
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+    font-weight: 700;
     white-space: nowrap;
   }
   .ledger .who small {
