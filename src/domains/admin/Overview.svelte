@@ -99,7 +99,7 @@
 
   $: todayIndex = weekdayOf(new Date());
   $: consoleTitle = (() => {
-    const s = new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric' });
+    const s = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   })();
 
@@ -322,10 +322,10 @@
           label: { show: false },
           data: hasDonut
             ? [
-                { value: totals.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#222') } },
-                { value: totals.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#bbb') } },
-                { value: totals.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#999') } },
-                { value: totals.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#777') } }
+                { value: totals.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#201d18') } },
+                { value: totals.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#d8d5cc') } },
+                { value: totals.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#adaba4') } },
+                { value: totals.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#8b897f') } }
               ]
             : []
         }
@@ -344,9 +344,9 @@
         {
           type: 'bar',
           data: [
-            { value: gravityCounts[0], itemStyle: { color: cssVar('--g-leve-ink', '#2a7ab5') } },
-            { value: gravityCounts[1], itemStyle: { color: cssVar('--g-medio-ink', '#8a6d00') } },
-            { value: gravityCounts[2], itemStyle: { color: cssVar('--g-grave-ink', '#c0392b') } }
+            { value: gravityCounts[0], itemStyle: { color: cssVar('--g-leve-ink', '#1f8fc4') } },
+            { value: gravityCounts[1], itemStyle: { color: cssVar('--g-medio-ink', '#93700f') } },
+            { value: gravityCounts[2], itemStyle: { color: cssVar('--g-grave-ink', '#cf4444') } }
           ],
           itemStyle: { borderRadius: [8, 8, 0, 0] }
         }
@@ -366,8 +366,8 @@
             itemStyle: {
               color:
                 s.rate < RATE_FLOOR
-                  ? cssVar('--g-grave-ink', '#c0392b')
-                  : cssVar('--ink', '#222')
+                  ? cssVar('--g-grave-ink', '#cf4444')
+                  : cssVar('--ink', '#201d18')
             }
           })),
           itemStyle: { borderRadius: [8, 8, 0, 0] }

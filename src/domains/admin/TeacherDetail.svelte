@@ -51,7 +51,7 @@
       }
       assignOpen = false;
     } catch (err) {
-      feedback = err instanceof ApiError ? err.message : 'No se pudo asignar.';
+      feedback = err instanceof ApiError ? err.message : $t.admin.assignFailed;
     }
   }
 

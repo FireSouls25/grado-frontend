@@ -190,6 +190,7 @@
     justify-content: center;
     gap: 8px;
     text-align: center;
+    background: var(--surface-2);
     background: color-mix(in srgb, var(--surface) 72%, transparent);
     border-radius: var(--radius-chip);
     padding: 24px;

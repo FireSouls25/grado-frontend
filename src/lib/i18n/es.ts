@@ -255,6 +255,7 @@ export const es = {
     noGroups: 'Sin salones en el horario.',
     assignSubject: 'Asignar',
     assignSubjectTitle: 'Asignar materia',
+    assignFailed: 'No se pudo asignar.',
     noCatalog: 'No hay materias creadas todavía.',
     directs: (group: string) => `Dirige ${group}`,
     inactive: 'Inactivo',

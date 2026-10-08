@@ -99,6 +99,7 @@
   --chip-sky-ink: var(--g-leve-ink);
 
   --danger: hsl(0, 100%, 71%);
+  --scrim: hsla(0, 0%, 0%, 0.6);
   --shadow: 0 10px 28px hsla(0, 0%, 0%, 0.45);
 }
 
@@ -145,7 +146,8 @@
     --chip-sky-ink: var(--g-leve-ink);
 
     --danger: hsl(0, 100%, 71%);
-    --shadow: 0 10px 28px hsla(0, 0, 0, 0.45);
+    --scrim: hsla(0, 0%, 0%, 0.6);
+    --shadow: 0 10px 28px hsla(0, 0%, 0%, 0.45);
   }
 }
 

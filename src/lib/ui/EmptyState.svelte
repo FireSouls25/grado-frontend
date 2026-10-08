@@ -40,8 +40,8 @@
     width: 52px;
     height: 52px;
     border-radius: var(--radius-pill);
-    background: var(--accent-soft);
-    color: var(--accent);
+    background: var(--tint);
+    color: var(--ink-soft);
     display: flex;
     align-items: center;
     justify-content: center;

@@ -1,21 +1,15 @@
 /** Render the node as a direct child of <body>, immune to ancestor
  *  transforms/filters that break position:fixed (bottom sheets, dialogs).
- *  Teardown is defensive: on unmount Svelte may detach siblings first,
- *  in which case reinsertion is pointless and the node just goes away. */
+ *  Teardown only removes: it must never reinsert the node back into its
+ *  original parent. On `{#if}` close Svelte tears the branch down while
+ *  the parent anchors are still intact, so reinserting would resurrect
+ *  the sheet as a dead, static zombie in the live tree (visible but
+ *  responding to nothing). `remove()` on an already-detached node is a
+ *  harmless no-op, which also covers full page unmounts. */
 export function portal(node: HTMLElement): { destroy(): void } {
-  const parent: Node | null = node.parentNode;
-  const next: Node | null = node.nextSibling;
   document.body.appendChild(node);
   return {
     destroy() {
-      try {
-        if (parent && next && next.parentNode === parent) {
-          parent.insertBefore(node, next);
-          return;
-        }
-      } catch {
-        /* fall through to removal */
-      }
       node.remove();
     }
   };
