@@ -62,10 +62,10 @@ Tasa por salón bajo el umbral (85%): tinta grave; el resto, tinta.
 
 | Marca | Color | Notas |
 |---|---|---|
-| Presente | tinta (`--ink`) | domina la dona; es el estado base |
-| Inasistencia | `hsl(45, 8%, 84%)` | gris cálido, nunca rojo |
-| Evasión | `hsl(60, 2%, 68%)` | gris medio; la alarma la da el conteo, no el color |
-| Atraso | `hsl(40, 3%, 53%)` | gris oscuro informativo |
+| Presente | verde `hsl(104, 42%, 39%)` | domina la dona; es el estado base |
+| Inasistencia | marrón `hsl(26, 55%, 45%)` | tierra, nunca rojo |
+| Evasión | violeta `hsl(249, 17%, 56%)` | deliberado y distinto |
+| Atraso | acero `hsl(202, 38%, 53%)` | informativo |
 
 La inasistencia no lleva rojo a propósito: el rojo está reservado a
 gravedad grave. Un estudiante con muchas inasistencias se señala con su

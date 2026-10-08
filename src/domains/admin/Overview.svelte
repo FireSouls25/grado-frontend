@@ -346,10 +346,10 @@
           label: { show: false },
           data: hasDonut
             ? [
-                { value: totals.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#201d18') } },
-                { value: totals.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#d8d5cc') } },
-                { value: totals.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#adaba4') } },
-                { value: totals.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#8b897f') } }
+                { value: totals.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#4e8a3c') } },
+                { value: totals.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#b26a35') } },
+                { value: totals.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#8377a8') } },
+                { value: totals.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#5b93b5') } }
               ]
             : []
         }
