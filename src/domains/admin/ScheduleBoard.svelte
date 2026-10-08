@@ -58,14 +58,14 @@
         on:input={(e) => (salon = e.currentTarget.value)}
       />
       <datalist id="salon-options">
-        {#each salonOptions as option}<option value={option} />{/each}
+        {#each salonOptions as option}<option value={option}></option>{/each}
       </datalist>
     </label>
     <label>
       {$t.admin.scheduleYearLabel}
       <input value={year} list="year-options" inputmode="numeric" autocomplete="off" on:input={onYearInput} />
       <datalist id="year-options">
-        {#each yearOptions as option}<option value={option} />{/each}
+        {#each yearOptions as option}<option value={option}></option>{/each}
       </datalist>
     </label>
   </div>
