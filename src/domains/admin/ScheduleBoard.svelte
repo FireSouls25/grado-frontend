@@ -6,12 +6,37 @@
   import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Icon from '$lib/ui/Icon.svelte';
+  import { onMount } from 'svelte';
+  import { groupsByYear } from './api';
 
   const currentYear = new Date().getFullYear();
-  // Draft: salon/year pickers and cells fill in with the schedules
-  // endpoints. The grid shell already follows reference/schedule example.
+  // Salones con opciones reales del año + escritura libre con filtro:
+  // combobox nativo (input + datalist), táctil y sin dependencias.
   let salon = '';
   let year = currentYear;
+  let salonOptions: string[] = [];
+  let optionsYear = 0;
+  const yearOptions = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+
+  async function loadGroups() {
+    if (year === optionsYear) return;
+    optionsYear = year;
+    try {
+      salonOptions = (await groupsByYear(year))
+        .map((g) => g.ClassLabel)
+        .sort((a, b) => a.localeCompare(b, 'es'));
+      if (!salon && salonOptions.length > 0) salon = salonOptions[0];
+    } catch {
+      salonOptions = [];
+    }
+  }
+
+  function onYearInput(e: Event) {
+    year = Number((e.currentTarget as HTMLInputElement).value) || currentYear;
+    void loadGroups();
+  }
+
+  onMount(loadGroups);
 </script>
 
 <AdminShell active="horario" {year}>
@@ -25,15 +50,23 @@
   <div class="pickers">
     <label>
       {$t.admin.scheduleGroupLabel}
-      <input value={salon} placeholder={$t.admin.scheduleGroupPlaceholder} on:input={(e) => (salon = e.currentTarget.value)} />
+      <input
+        value={salon}
+        list="salon-options"
+        placeholder={$t.admin.scheduleGroupPlaceholder}
+        autocomplete="off"
+        on:input={(e) => (salon = e.currentTarget.value)}
+      />
+      <datalist id="salon-options">
+        {#each salonOptions as option}<option value={option} />{/each}
+      </datalist>
     </label>
     <label>
       {$t.admin.scheduleYearLabel}
-      <input
-        value={year}
-        inputmode="numeric"
-        on:input={(e) => (year = Number(e.currentTarget.value) || currentYear)}
-      />
+      <input value={year} list="year-options" inputmode="numeric" autocomplete="off" on:input={onYearInput} />
+      <datalist id="year-options">
+        {#each yearOptions as option}<option value={option} />{/each}
+      </datalist>
     </label>
   </div>
 
