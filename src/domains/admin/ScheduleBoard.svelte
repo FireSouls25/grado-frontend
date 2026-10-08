@@ -203,7 +203,7 @@
     min-height: 52px;
     border-radius: var(--radius-chip);
     background: var(--surface-2);
-    border: 1px dashed var(--line);
+    border: 1px dashed var(--grid);
   }
   .overlay {
     position: absolute;

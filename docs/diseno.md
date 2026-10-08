@@ -29,6 +29,7 @@ el color informa, no decora.
 | `--tint` | `hsl(45, 8%, 91%)` | pistas, chips neutros, rieles |
 | `--ink` / `--ink-soft` / `--muted` | `10%` / `28%` / `52%` neutros | texto / secundario / terciario |
 | `--line` | `hsl(45, 10%, 88%)` | hairlines |
+| `--grid` | `hsl(43, 12%, 78%)` | líneas de la grilla de horario |
 | `--accent` / `--accent-ink` / `--accent-soft` | terracota `hsl(28, 40%, 52%)` | **acción y atención**, nada más |
 | `--coral` | `hsl(343, 68%, 48%)` | puntos de datos en series |
 
@@ -129,6 +130,7 @@ marca los puntos de datos, severidad en cian/amarillo/rojo Dracula.
 | `--tint` | `hsl(230, 10%, 18%)` | pistas, chips neutros, rieles |
 | `--ink` / `--ink-soft` / `--muted` | `#f8f8f2`-ish / `76%` / lavanda Dracula | texto y terciarios |
 | `--line` | `hsl(45, 6%, 26%)` | hairlines neutros, nunca azules |
+| `--grid` | `hsl(45, 6%, 34%)` | líneas de la grilla de horario |
 | `--accent` | naranja Dracula `hsl(31, 95%, 68%)` | acción y atención |
 | `--coral` | rosa Dracula `hsl(330, 100%, 73%)` | puntos de datos |
 | Leve / Medio / Grave | cian `80%` / amarillo `77%` / rojo `71%` sobre tintes `20–22%` | severidad |
