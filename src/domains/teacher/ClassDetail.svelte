@@ -2,14 +2,15 @@
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
+  import TopBar from '$lib/ui/TopBar.svelte';
+  import TopActions from '$lib/shell/TopActions.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
   import { classRoster, isMissing, openSession, recordMark } from './api';
   import type { RosterEntry } from '$lib/api/types';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
-  import { session } from '../auth/session';
-  import { devAccounts } from '../auth/accounts';
 
   export let params: { groupID?: string } = {};
   export let querystring: string = '';
@@ -25,47 +26,49 @@
   }
   $: subjectParam = queryParam('materia');
 
-  interface DemoMeta {
+  interface ClassMeta {
     subject: string;
     group: string;
-    room: string;
-    range: string;
   }
 
-  const demoByKey: Record<string, DemoMeta> = {
-    fisica: { subject: 'Física', group: '11°B', room: '304', range: '08:45 - 10:15' },
-    matematicas: { subject: 'Matemáticas', group: '10°A', room: '201', range: '07:00 - 08:30' },
-    geometria: { subject: 'Geometría', group: '9°A', room: '102', range: '10:30 - 12:00' },
-    estadistica: { subject: 'Estadística', group: '10°B', room: '202', range: '13:00 - 14:30' }
+  function humanize(slug: string): string {
+    const clean = slug.replace(/[-_]+/g, ' ').trim();
+    return clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : '';
+  }
+
+  // Meta honesta: solo lo que trae la ruta (materia y salón). Sala y hora
+  // las pone el horario del backend cuando exista; aquí no se inventan.
+  let meta: ClassMeta = { subject: '', group: '' };
+  $: meta = {
+    subject: humanize(subjectParam),
+    group: groupID
   };
+  $: titleLabel = meta.subject ? `${meta.subject} · ${meta.group}` : meta.group;
 
-  // Nómina de referencia tal cual la imagen (Física 11°B).
-  const demoRoster: RosterEntry[] = [
-    { StudentID: '#10024', Names: 'Mateo', Surnames: 'Albarracín', DocumentID: '#10024' },
-    { StudentID: '#10156', Names: 'Sofía', Surnames: 'Beltrán', DocumentID: '#10156' },
-    { StudentID: '#10098', Names: 'Juan José', Surnames: 'Cardona', DocumentID: '#10098' },
-    { StudentID: '#10214', Names: 'Mariana', Surnames: 'Delgado', DocumentID: '#10214' },
-    { StudentID: '#10045', Names: 'Lucas', Surnames: 'Espinosa', DocumentID: '#10045' },
-    { StudentID: '#10112', Names: 'Valentina', Surnames: 'Fajardo', DocumentID: '#10112' },
-    { StudentID: '#10301', Names: 'Andrés', Surnames: 'Gómez', DocumentID: '#10301' }
-  ];
-  const demoPresent = new Set(['#10024', '#10156', '#10214', '#10045', '#10112']);
-
-  $: meta: DemoMeta =
-    demoByKey[subjectParam] ??
-    demoByKey[groupID] ?? { subject: 'Física', group: '11°B', room: '304', range: '08:45 - 10:15' };
-
-  $: account = devAccounts.find((a) => a.id === $session) ?? devAccounts[1];
-  $: teacherName = account?.displayName ? `Prof. ${account.displayName}` : $t.agenda.teacherName;
+  const initials = (names: string, surnames: string) =>
+    `${surnames} ${names}`
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase();
 
   let loading = true;
   let roster: RosterEntry[] = [];
-  let present = new Set<string>(demoPresent);
-  let presentInit = new Set<string>(demoPresent);
+  let present = new Set<string>();
+  let presentInit = new Set<string>();
   let sessionID = '';
+  let sessionMissing = false;
   let feedback = '';
   let feedbackError = false;
   let saving = false;
+
+  $: todayLabel = new Date().toLocaleDateString('es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  });
 
   function bySurname(a: RosterEntry, b: RosterEntry): number {
     const x = `${a.Surnames} ${a.Names}`.toLowerCase();
@@ -78,28 +81,15 @@
     feedback = '';
     try {
       const data = await guarded(() => classRoster(groupID));
-      if (data === null) {
-        roster = [...demoRoster];
-        return;
-      }
-      if (data.length === 0) {
-        roster = [...demoRoster];
-      } else {
-        roster = [...data].sort(bySurname);
-      }
-      present = new Set(roster.filter((r) => demoPresent.has(r.StudentID)).map((r) => r.StudentID));
-      if (present.size === 0) present = new Set(roster.slice(0, 5).map((r) => r.StudentID));
+      if (data === null) return; // 401/403 already navigated away
+      roster = [...data].sort(bySurname);
+      present = new Set(roster.map((r) => r.StudentID));
       presentInit = new Set(present);
-    } catch (err) {
-      if (err instanceof ApiError && isMissing(err)) {
-        roster = [...demoRoster];
-        present = new Set(demoPresent);
-        presentInit = new Set(demoPresent);
-      } else {
-        roster = [...demoRoster];
-        present = new Set(demoPresent);
-        presentInit = new Set(demoPresent);
-      }
+    } catch {
+      // Backend sin nómina todavía (404 o error): vacío honesto, no lista falsa.
+      roster = [];
+      present = new Set();
+      presentInit = new Set();
     } finally {
       loading = false;
     }
@@ -124,7 +114,8 @@
       const detail = await openSession(groupID);
       sessionID = detail.Session.ID;
       return true;
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && isMissing(err)) sessionMissing = true;
       return false;
     }
   }
@@ -136,19 +127,23 @@
     saving = true;
     try {
       const ok = await ensureSession();
-      if (ok && sessionID) {
-        for (const r of roster) {
-          const wasPresent = presentInit.has(r.StudentID);
-          const isPresent = present.has(r.StudentID);
-          if (wasPresent === isPresent) continue;
-          try {
-            await recordMark(sessionID, r.StudentID, isPresent ? '' : 'absence', '');
-          } catch {
-            /* backend pendiente: se conserva el estado local */
-          }
-        }
+      if (!ok || !sessionID) {
+        // Sin sesión en el backend: se conserva el estado local y se dice.
         presentInit = new Set(present);
+        feedback = $t.attendance.savedLocal;
+        return;
       }
+      for (const r of roster) {
+        const wasPresent = presentInit.has(r.StudentID);
+        const isPresent = present.has(r.StudentID);
+        if (wasPresent === isPresent) continue;
+        try {
+          await recordMark(sessionID, r.StudentID, isPresent ? '' : 'absence', '');
+        } catch {
+          /* marca no enviada: se conserva el estado local */
+        }
+      }
+      presentInit = new Set(present);
       feedback = $t.attendance.saved;
     } catch (err) {
       feedbackError = true;
@@ -165,92 +160,72 @@
 </script>
 
 <div class="attendance">
-  <header class="top">
-    <div class="top-inner">
-      <div class="brand">
-        <span class="mark" aria-hidden="true">O</span>
-        <span class="brand-text"><strong>Observador</strong><small>Estudiantil</small></span>
-      </div>
-      <nav class="mainnav" aria-label={$t.a11y.sections}>
-        <button type="button" class="navlink active" aria-current="page" on:click={() => push('/agenda')}>{$t.nav.agenda}</button>
-        <button type="button" class="navlink" on:click={() => push('/horario')}>{$t.nav.myClasses}</button>
-        <button type="button" class="navlink" on:click={() => push('/hoy')}>{$t.nav.warnings}</button>
-        <button type="button" class="navlink" on:click={() => push('/admin/estudiantes')}>{$t.nav.students}</button>
-      </nav>
-      <div class="top-right">
-        <span class="search"><Icon name="search" /><span>{$t.agenda.searchPlaceholder}</span></span>
-        <div class="profile">
-          <span class="avatar" aria-hidden="true">CM</span>
-          <span class="who"><strong>{teacherName}</strong><small>{$t.agenda.teacherId}</small></span>
-        </div>
-        <button type="button" class="gear" aria-label={$t.settings.title} on:click={() => push('/ajustes')}>
-          <Icon name="settings" />
-        </button>
-      </div>
-    </div>
-  </header>
+  <TopBar title={$t.app.name} showBack onBack={() => push('/agenda')}><TopActions /></TopBar>
 
-  <main class="body">
-    <div class="head-row">
-      <div>
-        <p class="crumbs">{$t.attendance.breadcrumbHome} <span>›</span> {$t.attendance.breadcrumbAgenda} <span>›</span> <strong>{$t.attendance.breadcrumbHere}</strong></p>
-        <h1>{$t.attendance.title}</h1>
-      </div>
-      <button type="button" class="collective" on:click={openCollective}>
-        <Icon name="warn" /> {$t.attendance.collective}
-      </button>
-    </div>
+  <div class="pagehead">
+    <p class="crumbs">{$t.attendance.breadcrumbHome} <span>›</span> {$t.attendance.breadcrumbAgenda} <span>›</span> <strong>{$t.attendance.breadcrumbHere}</strong></p>
+    <p class="eyebrow">{$t.attendance.eyebrow}</p>
+    <h1 class="title">{$t.attendance.title}</h1>
+    <button type="button" class="collective" on:click={openCollective}>
+      <Icon name="warn" /> {$t.attendance.collective}
+    </button>
+  </div>
 
+  <div class="sheet">
     {#if loading}
       <Skeleton rows={6} />
+    {:else if roster.length === 0}
+      <EmptyState
+        icon="users"
+        title={$t.attendance.emptyRosterTitle}
+        body={$t.attendance.emptyRosterBody}
+        actionLabel={$t.common.retry}
+        onAction={load}
+      />
     {:else}
       <div class="grid">
         <aside class="card info">
           <p class="tag">{$t.attendance.todayTag}</p>
-          <h2>{meta.subject} - {meta.group}</h2>
-          <p class="desc">{$t.attendance.classDesc}</p>
+          <h2>{titleLabel}</h2>
           <ul class="facts">
-            <li><Icon name="calendar" /> {$t.attendance.dateLabel}</li>
-            <li><Icon name="clock" /> {$t.attendance.timeLabel(meta.range)}</li>
-            <li><Icon name="pin" /> {$t.attendance.roomLabel(meta.room)}</li>
+            <li><span class="ibadge"><Icon name="calendar" /></span> <span class="cap">{todayLabel}</span></li>
+            <li><span class="ibadge"><Icon name="list" /></span> {$t.attendance.listTitle(meta.group)}</li>
           </ul>
           <div class="summary">
             <h3>{$t.attendance.summaryTitle}</h3>
-            <div class="bar" role="img" aria-label={`${$t.attendance.presentLabel} ${presentCount}, ${$t.attendance.absentLabel} ${absentCount}`}>
-              <span class="fill-present" style={`width: ${presentPct}%`}></span>
-            </div>
-            <p class="sum-row"><span class="dot blue"></span> {$t.attendance.presentLabel} <strong>{ $t.attendance.studentsCount(presentCount)}</strong></p>
-            <p class="sum-row"><span class="dot red"></span> {$t.attendance.absentLabel} <strong>{ $t.attendance.studentsCount(absentCount)}</strong></p>
+            <p class="rate"><strong>{presentPct}%</strong><span class="rbar"><span style={`width: ${presentPct}%`}></span></span></p>
+            <p class="sum-row"><span class="dot present"></span> {$t.attendance.presentLabel} <strong>{$t.attendance.studentsCount(presentCount)}</strong></p>
+            <p class="sum-row"><span class="dot absent"></span> {$t.attendance.absentLabel} <strong>{$t.attendance.studentsCount(absentCount)}</strong></p>
           </div>
+          {#if sessionMissing}
+            <p class="note">{$t.attendance.noSessionNote}</p>
+          {/if}
         </aside>
 
         <section class="card list">
           <div class="list-head">
             <h2>{$t.attendance.listTitle(meta.group)}</h2>
-            <p>{$t.attendance.listHint}</p>
+            <span class="countpill">{$t.attendance.studentsCount(roster.length)}</span>
           </div>
-          <div class="table-head">
-            <span>{$t.attendance.colId}</span>
-            <span>{$t.attendance.colName}</span>
-            <span class="center">{$t.attendance.colCheck}</span>
-          </div>
-          <ul class="rows">
+          <p class="hint-top">{$t.attendance.listHint}</p>
+          <ul class="ledger">
             {#each roster as r (r.StudentID)}
-              <li class="row">
-                <span class="id">{r.StudentID}</span>
-                <span class="name"><strong>{r.Surnames}</strong> , {r.Names}</span>
-                <span class="check-wrap">
-                  <button
-                    type="button"
-                    class="check"
-                    class:on={present.has(r.StudentID)}
-                    role="checkbox"
-                    aria-checked={present.has(r.StudentID)}
-                    aria-label={`${r.Surnames} ${r.Names}`}
-                    on:click={() => toggle(r.StudentID)}
-                  >
-                    {#if present.has(r.StudentID)}<Icon name="check" />{/if}
-                  </button>
+              <li>
+                <button
+                  type="button"
+                  class="check"
+                  class:on={present.has(r.StudentID)}
+                  role="checkbox"
+                  aria-checked={present.has(r.StudentID)}
+                  aria-label={`${r.Surnames} ${r.Names}`}
+                  on:click={() => toggle(r.StudentID)}
+                >
+                  <span class="box">{#if present.has(r.StudentID)}<Icon name="check" />{/if}</span>
+                </button>
+                <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
+                <span class="who"><strong>{r.Surnames}, {r.Names}</strong><small>{r.StudentID}</small></span>
+                <span class={`markpill ${present.has(r.StudentID) ? 'present' : 'absent'}`}>
+                  {present.has(r.StudentID) ? $t.roster.present : $t.roster.absent}
                 </span>
               </li>
             {/each}
@@ -267,7 +242,7 @@
         </section>
       </div>
     {/if}
-  </main>
+  </div>
 </div>
 
 <style>
@@ -276,182 +251,70 @@
     min-height: 100svh;
     background: var(--bg);
     color: var(--ink);
+    padding-bottom: 110px;
   }
-  .top {
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
-  }
-  .top-inner {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 12px 20px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: none;
-  }
-  .mark {
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 800;
-    font-size: 1.15rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .brand-text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.15;
-  }
-  .brand-text strong {
-    font-size: 0.95rem;
-  }
-  .brand-text small {
-    color: var(--accent);
-    font-weight: 700;
-    font-size: 0.75rem;
-  }
-  .mainnav {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    gap: 4px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 4px;
-    max-width: 560px;
-    margin: 0 auto;
-    background: var(--surface);
-  }
-  .navlink {
-    flex: 1;
-    white-space: nowrap;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--muted);
-  }
-  .navlink.active {
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
-  .top-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: none;
-  }
-  .search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
-    padding: 8px 14px;
-    color: var(--muted);
-    font-size: 0.85rem;
-    min-width: 230px;
-  }
-  .profile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-pill);
-    background: var(--chip-sky-bg);
-    color: var(--chip-sky-ink);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 0.85rem;
-  }
-  .who {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.2;
-  }
-  .who strong {
-    font-size: 0.85rem;
-    white-space: nowrap;
-  }
-  .who small {
-    color: var(--muted);
-    font-size: 0.72rem;
-  }
-  .gear {
-    width: 40px;
-    height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-pill);
-    color: var(--muted);
-    border: 1px solid var(--line);
-    background: var(--surface);
-  }
-  .body {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 18px 20px 96px;
-  }
-  .head-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 18px;
+  .pagehead {
+    margin-bottom: 12px;
   }
   .crumbs {
     color: var(--muted);
     font-size: 0.8rem;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
   .crumbs strong {
     color: var(--ink);
   }
-  .head-row h1 {
-    font-size: 1.9rem;
+  .eyebrow {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 2px;
+  }
+  .title {
+    font-size: 2rem;
+    letter-spacing: -0.03em;
+    font-weight: 550;
+    line-height: 1.05;
+    margin-bottom: 12px;
+    font-variant-numeric: tabular-nums;
   }
   .collective {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: var(--chip-pink-bg);
-    color: var(--chip-pink-ink);
-    border: 1px solid currentColor;
+    background: var(--accent);
+    color: var(--accent-ink);
     font-weight: 700;
     font-size: 0.85rem;
     border-radius: var(--radius-pill);
     padding: 10px 18px;
     white-space: nowrap;
+    min-height: 44px;
+  }
+  .collective :global(svg) {
+    width: 15px;
+    height: 15px;
+  }
+  .sheet {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 24px 24px 0 0;
+    padding: 20px 18px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
   .grid {
     display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 16px;
+    grid-template-columns: 1fr;
+    gap: 12px;
     align-items: start;
   }
   .card {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
-    padding: 22px;
+    padding: 20px 18px;
   }
   .tag {
     color: var(--accent);
@@ -462,25 +325,21 @@
     margin-bottom: 6px;
   }
   .info h2 {
-    font-size: 1.5rem;
-    margin-bottom: 8px;
-  }
-  .desc {
-    color: var(--muted);
-    font-size: 0.88rem;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 16px;
+    font-size: 1.4rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+    overflow-wrap: anywhere;
   }
   .facts {
     list-style: none;
-    margin: 0 0 20px;
-    padding: 0;
+    margin: 0 0 16px;
+    padding: 0 0 16px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    color: var(--muted);
-    font-size: 0.88rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-size: 0.85rem;
     font-weight: 500;
   }
   .facts li {
@@ -488,22 +347,53 @@
     align-items: center;
     gap: 10px;
   }
+  .cap {
+    text-transform: capitalize;
+  }
+  .ibadge {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--tint);
+    color: var(--ink-soft);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
+  .ibadge :global(svg) {
+    width: 15px;
+    height: 15px;
+  }
   .summary h3 {
     font-size: 0.9rem;
+    font-weight: 550;
     margin-bottom: 10px;
   }
-  .bar {
-    height: 8px;
-    border-radius: 999px;
-    background: var(--danger);
-    overflow: hidden;
-    margin-bottom: 12px;
+  .rate {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
   }
-  .fill-present {
+  .rate strong {
+    font-size: 1.5rem;
+    font-weight: 550;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .rbar {
+    flex: 1;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--tint);
+    overflow: hidden;
+  }
+  .rbar span {
     display: block;
     height: 100%;
-    background: var(--accent);
-    border-radius: 999px;
+    background: var(--ink);
+    border-radius: var(--radius-pill);
     transition: width 0.25s ease;
   }
   .sum-row {
@@ -518,97 +408,142 @@
     margin-left: auto;
     color: var(--ink);
     font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
   }
   .dot {
     width: 9px;
     height: 9px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     flex: none;
   }
-  .dot.blue {
-    background: var(--accent);
+  .dot.present {
+    background: var(--m-present);
   }
-  .dot.red {
-    background: var(--danger);
+  .dot.absent {
+    background: var(--m-absent);
+    border: 1px solid var(--m-evasion);
+  }
+  .note {
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
   }
   .list-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 4px;
   }
   .list-head h2 {
-    font-size: 1.05rem;
+    font-size: 1rem;
+    font-weight: 550;
+    overflow-wrap: anywhere;
   }
-  .list-head p {
+  .countpill {
+    background: var(--tint);
+    color: var(--ink-soft);
+    font-size: 0.74rem;
+    font-weight: 600;
+    border-radius: var(--radius-pill);
+    padding: 5px 12px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .hint-top {
     color: var(--muted);
     font-size: 0.78rem;
+    margin-bottom: 10px;
   }
-  .table-head {
-    display: grid;
-    grid-template-columns: 110px 1fr 110px;
-    gap: 12px;
-    background: var(--surface-2);
-    border-radius: 8px;
-    padding: 10px 16px;
-    color: var(--muted);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .table-head .center {
-    text-align: center;
-  }
-  .rows {
+  .ledger {
     list-style: none;
     margin: 0;
     padding: 0;
-  }
-  .row {
-    display: grid;
-    grid-template-columns: 110px 1fr 110px;
-    gap: 12px;
-    align-items: center;
-    padding: 13px 16px;
-    border-bottom: 1px solid var(--line);
-  }
-  .id {
-    color: var(--muted);
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-  .name {
-    font-size: 0.92rem;
-    color: var(--muted);
-  }
-  .name strong {
-    color: var(--ink);
-  }
-  .check-wrap {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ledger li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 6px 14px 6px 6px;
+    min-height: 56px;
   }
   .check {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .box {
     width: 22px;
     height: 22px;
     border-radius: 7px;
-    border: 1.5px solid var(--line);
+    border: 1.5px solid var(--muted);
     background: var(--surface);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--accent-ink);
+    color: var(--bg);
   }
-  .check.on {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-  .check :global(svg) {
+  .box :global(svg) {
     width: 14px;
     height: 14px;
+  }
+  .check.on .box {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .avatar {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.7rem;
+  }
+  .who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .who strong {
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .who small {
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .markpill {
+    flex: none;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: var(--radius-pill);
+    padding: 5px 12px;
+    white-space: nowrap;
+    background: var(--tint);
+    color: var(--ink-soft);
+  }
+  .markpill.absent {
+    background: var(--g-medio-bg);
+    color: var(--g-medio-ink);
   }
   .hint {
     color: var(--muted);
@@ -616,8 +551,8 @@
     margin: 14px 2px 0;
   }
   .flash {
-    background: var(--chip-green-bg);
-    color: var(--chip-green-ink);
+    background: var(--tint);
+    color: var(--ink);
     font-weight: 600;
     font-size: 0.88rem;
     border-radius: var(--radius-chip);
@@ -625,54 +560,51 @@
     margin: 14px 0 0;
   }
   .flash.error {
-    background: var(--chip-pink-bg);
-    color: var(--chip-pink-ink);
+    background: var(--g-grave-bg);
+    color: var(--g-grave-ink);
   }
   .actions {
     display: flex;
-    justify-content: space-between;
-    gap: 12px;
+    flex-direction: column-reverse;
+    gap: 8px;
     margin-top: 18px;
   }
   .ghost {
-    background: var(--surface-2);
+    background: var(--surface);
+    border: 1px solid var(--line);
     color: var(--ink);
     font-weight: 700;
     font-size: 0.88rem;
-    border-radius: 10px;
+    border-radius: var(--radius-chip);
     padding: 12px 20px;
+    min-height: 44px;
   }
   .primary {
     background: var(--accent);
     color: var(--accent-ink);
     font-weight: 700;
     font-size: 0.88rem;
-    border-radius: 10px;
+    border-radius: var(--radius-chip);
     padding: 12px 24px;
+    min-height: 44px;
   }
   .primary:disabled {
     opacity: 0.6;
   }
-
-  @media (max-width: 960px) {
-    .top-inner {
-      flex-wrap: wrap;
+  @media (min-width: 720px) {
+    .title {
+      font-size: 2.4rem;
     }
-    .mainnav {
-      order: 3;
-      flex-basis: 100%;
-      max-width: none;
-      overflow-x: auto;
+    .sheet {
+      padding: 24px 26px 60px;
     }
     .grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 12px;
     }
-    .head-row {
-      flex-direction: column;
-    }
-    .table-head,
-    .row {
-      grid-template-columns: 80px 1fr 60px;
+    .actions {
+      flex-direction: row;
+      justify-content: space-between;
     }
   }
 </style>

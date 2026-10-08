@@ -2,118 +2,76 @@
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
+  import TopBar from '$lib/ui/TopBar.svelte';
+  import TopActions from '$lib/shell/TopActions.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import { daySchedule, isMissing, type TeacherClass } from './api';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
-  import { session } from '../auth/session';
-  import { devAccounts } from '../auth/accounts';
 
   interface AgendaItem extends TeacherClass {
     Room: string;
     Grade: string;
-    Status: 'done' | 'pending';
   }
 
-  // Referencia visual entregada (Lun 18 · noviembre 2026). Se usa como
-  // respaldo cuando el backend aún no expone el horario; en cuanto
-  // GET /v1/teachers/me/schedule exista, los datos vivos la reemplazan.
-  const demoWeek = [
-    { key: 'lun', weekday: 'Lun', day: '18', jsWeekday: 1, active: true },
-    { key: 'mar', weekday: 'Mar', day: '19', jsWeekday: 2, active: false },
-    { key: 'mie', weekday: 'Mié', day: '20', jsWeekday: 3, active: false },
-    { key: 'jue', weekday: 'Jue', day: '21', jsWeekday: 4, active: false },
-    { key: 'vie', weekday: 'Vie', day: '22', jsWeekday: 5, active: false }
-  ];
+  // Semana real (lunes a viernes) derivada de la fecha actual: el backend
+  // es la única fuente de clases; sin ruta todavía cada día pinta vacío
+  // honesto en vez de datos falsos.
+  const monday = (() => {
+    const d = new Date();
+    const back = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - back);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  })();
+  const weekDays = [0, 1, 2, 3, 4].map((i) => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const jsWeekdays = [1, 2, 3, 4, 5];
+  const todayIdx = (() => {
+    const js = new Date().getDay();
+    return js >= 1 && js <= 5 ? js - 1 : -1;
+  })();
 
-  const demoClasses: AgendaItem[] = [
-    {
-      GroupID: 'demo-10a',
-      ClassLabel: '10°A',
-      SubjectID: 'matematicas',
-      SubjectName: 'Matemáticas',
-      Weekday: 1,
-      Start: '07:00',
-      End: '08:30',
-      Room: '201',
-      Grade: '10°A',
-      Status: 'done'
-    },
-    {
-      GroupID: 'demo-11b',
-      ClassLabel: '11°B',
-      SubjectID: 'fisica',
-      SubjectName: 'Física',
-      Weekday: 1,
-      Start: '08:45',
-      End: '10:15',
-      Room: '304',
-      Grade: '11°B',
-      Status: 'pending'
-    },
-    {
-      GroupID: 'demo-9a',
-      ClassLabel: '9°A',
-      SubjectID: 'geometria',
-      SubjectName: 'Geometría',
-      Weekday: 1,
-      Start: '10:30',
-      End: '12:00',
-      Room: '102',
-      Grade: '9°A',
-      Status: 'pending'
-    },
-    {
-      GroupID: 'demo-10b',
-      ClassLabel: '10°B',
-      SubjectID: 'estadistica',
-      SubjectName: 'Estadística',
-      Weekday: 1,
-      Start: '13:00',
-      End: '14:30',
-      Room: '202',
-      Grade: '10°B',
-      Status: 'pending'
-    }
-  ];
-
-  let selectedDay = 0;
+  let selectedDay = todayIdx === -1 ? 0 : todayIdx;
   let search = '';
+  let searchEl: HTMLInputElement | null = null;
   let loading = true;
   let loadError = false;
-  let liveClasses: AgendaItem[] | null = null;
-  let selectedCard = 'demo-11b';
+  let baseList: AgendaItem[] = [];
+  let backendMissing = false;
 
-  $: account = devAccounts.find((a) => a.id === $session) ?? devAccounts[1];
-  $: teacherName = account?.displayName ? `Prof. ${account.displayName}` : $t.agenda.teacherName;
+  $: weekdayLabel = (d: Date) =>
+    d.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', '');
+  $: monthLabel = monday.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
   async function load() {
     loading = true;
     loadError = false;
     try {
-      const weekday = demoWeek[selectedDay].jsWeekday;
+      const weekday = jsWeekdays[selectedDay];
       const classes = await guarded(() => daySchedule(weekday));
       if (classes === null) {
-        liveClasses = null;
         loading = false;
         return;
       }
-      if (classes.length === 0) {
-        liveClasses = [];
-      } else {
-        liveClasses = classes.map((c, i) => ({
+      backendMissing = false;
+      baseList = [...classes]
+        .sort((a, b) => a.Start.localeCompare(b.Start))
+        .map((c, i) => ({
           ...c,
           Room: c.ClassLabel.replace(/[^0-9]/g, '').slice(0, 3) || `20${i + 1}`,
-          Grade: c.ClassLabel,
-          Status: 'pending' as const
+          Grade: c.ClassLabel
         }));
-      }
     } catch (err) {
       if (err instanceof ApiError && isMissing(err)) {
-        // Backend sin ruta todavía: respaldo visual, no error.
-        liveClasses = null;
+        // Backend sin ruta todavía: vacío honesto, no error.
+        backendMissing = true;
+        baseList = [];
       } else {
         loadError = true;
       }
@@ -122,21 +80,42 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    load();
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        e.key === '/' &&
+        target &&
+        target.tagName !== 'INPUT' &&
+        target.tagName !== 'TEXTAREA' &&
+        !target.isContentEditable
+      ) {
+        e.preventDefault();
+        searchEl?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   function selectDay(i: number) {
     selectedDay = i;
     load();
   }
 
-  // Solo el día demo (Lun 18) trae clases de referencia; el resto usa el
-  // backend o queda vacío honesto.
-  $: baseList =
-    liveClasses !== null
-      ? liveClasses
-      : selectedDay === 0
-        ? demoClasses
-        : [];
+  function minutesOf(hhmm: string): number {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + (m || 0);
+  }
+
+  function statusOf(item: AgendaItem): 'done' | 'now' | 'next' {
+    if (selectedDay !== todayIdx || todayIdx === -1) return 'next';
+    const now = new Date().getHours() * 60 + new Date().getMinutes();
+    if (now > minutesOf(item.End)) return 'done';
+    if (now >= minutesOf(item.Start)) return 'now';
+    return 'next';
+  }
 
   $: q = search.trim().toLowerCase();
   $: visible = q
@@ -145,89 +124,54 @@
       )
     : baseList;
 
-  $: doneCount = baseList.filter((c) => c.Status === 'done').length;
+  $: doneCount = selectedDay === todayIdx ? baseList.filter((c) => statusOf(c) === 'done').length : 0;
 
   function openClass(item: AgendaItem) {
-    selectedCard = item.GroupID;
     push(`/clase/${encodeURIComponent(item.GroupID)}?materia=${encodeURIComponent(item.SubjectID)}`);
   }
 </script>
 
 <div class="agenda">
-  <!-- Barra superior estilo referencia -->
-  <header class="top">
-    <div class="top-inner">
-      <div class="brand">
-        <span class="mark" aria-hidden="true">O</span>
-        <span class="brand-text">
-          <strong>Observador</strong>
-          <small>Estudiantil</small>
-        </span>
-      </div>
+  <TopBar title={$t.app.name}><TopActions /></TopBar>
 
-      <nav class="mainnav" aria-label={$t.a11y.sections}>
-        <button type="button" class="navlink active" aria-current="page">{$t.nav.agenda}</button>
-        <button type="button" class="navlink" on:click={() => push('/horario')}>{$t.nav.myClasses}</button>
-        <button type="button" class="navlink" on:click={() => push('/hoy')}>{$t.nav.warnings}</button>
-        <button type="button" class="navlink" on:click={() => push('/admin/estudiantes')}>{$t.nav.students}</button>
-      </nav>
-
-      <div class="top-right">
-        <label class="search">
-          <Icon name="search" />
-          <input
-            type="search"
-            placeholder={$t.agenda.searchPlaceholder}
-            bind:value={search}
-            aria-label={$t.agenda.searchPlaceholder}
-          />
-        </label>
-        <div class="profile">
-          <span class="avatar" aria-hidden="true">CM</span>
-          <span class="who">
-            <strong>{teacherName}</strong>
-            <small>{$t.agenda.teacherId}</small>
-          </span>
-        </div>
-        <button type="button" class="gear" aria-label={$t.settings.title} on:click={() => push('/ajustes')}>
-          <Icon name="settings" />
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main class="body">
-    <p class="crumbs">{$t.agenda.breadcrumbHome} <span aria-hidden="true">›</span> <strong>{$t.agenda.breadcrumbHere}</strong></p>
-
-    <div class="title-row">
-      <h1>{$t.agenda.title}</h1>
+  <div class="pagehead">
+    <p class="eyebrow">{$t.agenda.eyebrow}</p>
+    <h1 class="title">{$t.agenda.title}</h1>
+    <div class="controlbar">
+      <label class="search">
+        <Icon name="search" />
+        <input
+          type="search"
+          placeholder={$t.agenda.searchPlaceholder}
+          aria-label={$t.agenda.searchLabel}
+          bind:value={search}
+          bind:this={searchEl}
+        />
+        <kbd title={$t.agenda.searchLabel}>/</kbd>
+      </label>
       <div class="stats">
-        <div class="stat">
-          <small>{$t.agenda.todayLabel}</small>
-          <strong>{$t.agenda.todayValue(baseList.length)}</strong>
-        </div>
-        <div class="stat">
-          <small>{$t.agenda.registeredLabel}</small>
-          <strong class="green">{$t.agenda.registeredValue(doneCount, baseList.length || 4)}</strong>
-        </div>
+        <span class="statpill">{$t.agenda.todayValue(baseList.length)}</span>
+        <span class="statpill">{$t.agenda.registeredValue(doneCount, baseList.length)}</span>
       </div>
     </div>
+  </div>
 
-    <section class="week" aria-label={$t.agenda.monthLabel}>
-      <p class="month">{$t.agenda.monthLabel}</p>
+  <div class="sheet">
+    <section class="week" aria-label={monthLabel}>
+      <p class="month">{monthLabel}</p>
       <div class="days" role="tablist">
-        {#each demoWeek as d, i}
+        {#each weekDays as d, i}
           <button
             type="button"
             role="tab"
             aria-selected={selectedDay === i}
             class="day"
             class:selected={selectedDay === i}
+            class:today={i === todayIdx}
             on:click={() => selectDay(i)}
           >
-            <small>{d.weekday}</small>
-            <strong>{d.day}</strong>
-            {#if selectedDay === i}<span class="dot" aria-hidden="true"></span>{/if}
+            <small>{weekdayLabel(d)}</small>
+            <strong>{d.getDate()}</strong>
           </button>
         {/each}
       </div>
@@ -240,41 +184,34 @@
     {:else if loadError}
       <EmptyState icon="warn" title={$t.common.loadError} actionLabel={$t.common.retry} onAction={load} />
     {:else if visible.length === 0}
-      <EmptyState icon="calendar" title={$t.agenda.emptyTitle} body={$t.agenda.emptyBody} />
+      <EmptyState icon="calendar" title={$t.agenda.emptyTitle} body={backendMissing ? $t.schedule.emptyBody : $t.agenda.emptyBody} />
     {:else}
-      <ul class="classes">
-        {#each visible as item (item.GroupID)}
-          <li>
-            <article class="class-card" class:selected={selectedCard === item.GroupID}>
-              <div class="left">
-                <p class="time"><Icon name="clock" /> {item.Start} - {item.End}</p>
+      <ol class="timeline">
+        {#each visible as item (item.GroupID + item.Start)}
+          {@const st = statusOf(item)}
+          <li class={st}>
+            <span class="rail" aria-hidden="true"><span class="pip"></span></span>
+            <div class="tblock">
+              <div>
+                <strong>{item.Start} - {item.End}</strong>
+                <span class="subj">{item.SubjectName}</span>
               </div>
-              <div class="mid">
-                <h3>{item.SubjectName}</h3>
-                <p>{$t.agenda.gradeLabel(item.Grade)}</p>
+              <div class="facts">
+                <span class="factpill"><Icon name="list" /> {$t.agenda.gradeLabel(item.Grade)}</span>
+                <span class="factpill"><Icon name="pin" /> {$t.agenda.roomLabel(item.Room)}</span>
               </div>
-              <div class="right">
-                <span class="room"><Icon name="pin" /> {$t.agenda.roomLabel(item.Room)}</span>
-                {#if item.Status === 'done'}
-                  <span class="chip chip-green">{$t.agenda.statusDone}</span>
-                {:else}
-                  <span class="chip chip-yellow">{$t.agenda.statusPending}</span>
-                {/if}
-                <button
-                  type="button"
-                  class="open"
-                  class:primary={selectedCard === item.GroupID}
-                  on:click={() => openClass(item)}
-                >
-                  {$t.agenda.openClass}
-                </button>
-              </div>
-            </article>
+            </div>
+            <span class={`st ${st}`}>
+              {st === 'done' ? $t.agenda.stateDone : st === 'now' ? $t.agenda.stateNow : $t.agenda.stateNext}
+            </span>
+            <button type="button" class="open" on:click={() => openClass(item)}>
+              {$t.agenda.openList}
+            </button>
           </li>
         {/each}
-      </ul>
+      </ol>
     {/if}
-  </main>
+  </div>
 </div>
 
 <style>
@@ -283,196 +220,93 @@
     min-height: 100svh;
     background: var(--bg);
     color: var(--ink);
+    padding-bottom: 110px;
   }
-  .top {
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
+  .pagehead {
+    margin-bottom: 12px;
   }
-  .top-inner {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 12px 20px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: none;
-  }
-  .mark {
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 800;
-    font-size: 1.15rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .brand-text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.15;
-  }
-  .brand-text strong {
-    font-size: 0.95rem;
-  }
-  .brand-text small {
-    color: var(--accent);
-    font-weight: 700;
-    font-size: 0.75rem;
-  }
-  .mainnav {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    gap: 4px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 4px;
-    max-width: 560px;
-    margin: 0 auto;
-  }
-  .navlink {
-    flex: 1;
-    white-space: nowrap;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
+  .eyebrow {
     color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 2px;
   }
-  .navlink.active {
-    background: var(--accent-soft);
-    color: var(--accent);
+  .title {
+    font-size: 2rem;
+    letter-spacing: -0.03em;
+    font-weight: 550;
+    line-height: 1.05;
+    margin-bottom: 12px;
+    font-variant-numeric: tabular-nums;
   }
-  .top-right {
+  .controlbar {
     display: flex;
+    gap: 8px;
     align-items: center;
-    gap: 12px;
-    flex: none;
+    flex-wrap: wrap;
   }
   .search {
+    flex: 1;
+    min-width: 200px;
     display: flex;
-    align-items: center;
     gap: 8px;
-    background: var(--surface-2);
+    align-items: center;
+    background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
-    padding: 8px 14px;
+    border-radius: var(--radius-chip);
+    padding: 9px 12px;
     color: var(--muted);
-    min-width: 230px;
+    min-height: 44px;
   }
   .search input {
-    border: none;
+    border: 0;
     background: none;
     outline: none;
     width: 100%;
-    font-size: 0.85rem;
-  }
-  .profile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-pill);
-    background: var(--chip-sky-bg);
-    color: var(--chip-sky-ink);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 0.85rem;
-    flex: none;
-  }
-  .who {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.2;
-  }
-  .who strong {
-    font-size: 0.85rem;
-    white-space: nowrap;
-  }
-  .who small {
-    color: var(--muted);
-    font-size: 0.72rem;
-  }
-  .gear {
-    width: 40px;
-    height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-pill);
-    color: var(--muted);
-    border: 1px solid var(--line);
-    background: var(--surface);
-  }
-  .body {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 18px 20px 96px;
-  }
-  .crumbs {
-    color: var(--muted);
-    font-size: 0.8rem;
-    margin-bottom: 4px;
-  }
-  .crumbs strong {
     color: var(--ink);
+    font-size: 0.85rem;
   }
-  .title-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 18px;
-  }
-  .title-row h1 {
-    font-size: 1.9rem;
+  .search kbd {
+    font-family: inherit;
+    font-size: 0.7rem;
+    color: var(--muted);
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 1px 6px;
   }
   .stats {
     display: flex;
-    gap: 12px;
-    flex: none;
+    gap: 8px;
   }
-  .stat {
+  .statpill {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 10px 18px;
-    min-width: 130px;
+    border-radius: var(--radius-pill);
+    padding: 9px 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .sheet {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 24px 24px 0 0;
+    padding: 20px 18px 40px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-  }
-  .stat small {
-    color: var(--muted);
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-  .stat strong {
-    font-size: 1.25rem;
-  }
-  .stat strong.green {
-    color: var(--chip-green-ink);
+    gap: 12px;
   }
   .week {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    padding: 14px 16px 16px;
-    margin-bottom: 22px;
+    padding: 14px 14px 16px;
   }
   .month {
     color: var(--muted);
@@ -485,145 +319,181 @@
   .days {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
+    gap: 8px;
   }
   .day {
-    background: var(--surface-2);
-    border: 1px solid transparent;
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: 12px;
-    padding: 12px 8px 10px;
+    padding: 10px 4px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 2px;
-    min-height: 74px;
+    min-height: 64px;
+    font-variant-numeric: tabular-nums;
   }
   .day small {
     color: var(--muted);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
+    text-transform: capitalize;
   }
   .day strong {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
+    font-weight: 600;
   }
   .day.selected {
-    background: var(--accent);
-    color: var(--accent-ink);
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--bg);
   }
   .day.selected small {
-    color: var(--accent-ink);
-    opacity: 0.9;
+    color: var(--bg);
+    opacity: 0.7;
   }
-  .dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 999px;
-    background: currentColor;
-    margin-top: 2px;
+  .day.today:not(.selected) {
+    border-color: var(--ink-soft);
   }
   .list-title {
-    font-size: 0.9rem;
-    margin-bottom: 12px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--ink-soft);
   }
-  .classes {
+  .timeline {
     list-style: none;
     margin: 0;
     padding: 0;
+  }
+  .timeline li {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 4px 12px;
+    padding: 13px 4px;
+    border-top: 1px solid var(--line);
+  }
+  .timeline li:first-child {
+    border-top: 0;
+  }
+  .rail {
+    display: flex;
+    justify-content: center;
+    align-self: stretch;
+    position: relative;
+    grid-row: span 2;
+  }
+  .rail::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--line);
+  }
+  .pip {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    border: 2px solid var(--muted);
+    margin-top: 4px;
+    z-index: 1;
+  }
+  li.done .pip {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  li.now .pip {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  .tblock {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-  }
-  .class-card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 16px 18px;
-    display: grid;
-    grid-template-columns: 170px 1fr auto;
-    align-items: center;
-    gap: 16px;
-  }
-  .class-card.selected {
-    border: 1.5px solid var(--accent);
-    box-shadow: var(--shadow);
-  }
-  .time {
-    display: flex;
-    align-items: center;
     gap: 6px;
-    color: var(--muted);
-    font-size: 0.85rem;
+    min-width: 0;
+  }
+  .tblock strong {
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .subj {
     font-weight: 600;
-    white-space: nowrap;
+    font-size: 0.9rem;
+    margin-left: 8px;
   }
-  .mid h3 {
-    font-size: 1.05rem;
-  }
-  .mid p {
-    color: var(--muted);
-    font-size: 0.82rem;
-  }
-  .right {
+  .facts {
     display: flex;
-    align-items: center;
-    gap: 14px;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    color: var(--ink-soft);
+    font-size: 0.74rem;
   }
-  .room {
+  .factpill {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    color: var(--muted);
-    font-size: 0.85rem;
+    gap: 5px;
+    background: var(--tint);
+    border-radius: var(--radius-pill);
+    padding: 4px 11px;
     font-weight: 600;
+  }
+  .factpill :global(svg) {
+    width: 15px;
+    height: 15px;
+  }
+  li.done {
+    opacity: 0.65;
+  }
+  .st {
+    grid-column: 2;
+    justify-self: start;
+    font-size: 0.68rem;
+    font-weight: 600;
+    border-radius: var(--radius-pill);
+    padding: 5px 12px;
     white-space: nowrap;
+    background: var(--tint);
+    color: var(--ink-soft);
+  }
+  .st.now {
+    background: var(--ink);
+    color: var(--bg);
   }
   .open {
-    background: var(--surface-2);
-    color: var(--ink);
+    grid-column: 2;
+    justify-self: start;
+    border-radius: var(--radius-chip);
+    padding: 9px 18px;
+    border: 1px solid var(--line);
+    background: var(--surface);
     font-weight: 700;
     font-size: 0.85rem;
-    border-radius: 10px;
-    padding: 10px 18px;
-    white-space: nowrap;
+    min-height: 44px;
   }
-  .open.primary {
+  li.now .open {
     background: var(--accent);
+    border-color: var(--accent);
     color: var(--accent-ink);
   }
-
-  @media (max-width: 960px) {
-    .top-inner {
-      flex-wrap: wrap;
+  @media (min-width: 720px) {
+    .title {
+      font-size: 2.4rem;
     }
-    .mainnav {
-      order: 3;
-      flex-basis: 100%;
-      max-width: none;
-      overflow-x: auto;
+    .sheet {
+      padding: 24px 26px 60px;
     }
-    .top-right {
-      margin-left: auto;
-      flex-wrap: wrap;
+    .timeline li {
+      grid-template-columns: 24px minmax(0, 1fr) auto auto;
+      align-items: center;
     }
-    .search {
-      min-width: 160px;
-      flex: 1;
+    .rail {
+      grid-row: auto;
     }
-    .title-row {
-      flex-direction: column;
-    }
-    .stats {
-      width: 100%;
-    }
-    .stat {
-      flex: 1;
-    }
-    .class-card {
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-    .right {
-      flex-wrap: wrap;
+    .st,
+    .open {
+      grid-column: auto;
     }
   }
 </style>
