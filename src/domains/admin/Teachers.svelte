@@ -13,6 +13,7 @@
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
   import Sheet from '$lib/ui/Sheet.svelte';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let list: TeacherSummary[] = [];
@@ -189,25 +190,28 @@
       </button>
     </div>
     <div class="filters" role="group" aria-label={$t.admin.teachersTitle}>
-      <label>{$t.admin.filterSubject}
-        <select bind:value={fSubject}>
-          <option value="">{$t.admin.filterAll}</option>
-          {#each subjectOptions as subject}<option value={subject}>{subject}</option>{/each}
-        </select>
-      </label>
-      <label>{$t.admin.filterGroup}
-        <select bind:value={fGroup}>
-          <option value="">{$t.admin.filterAll}</option>
-          {#each groupOptions as group}<option value={group}>{group}</option>{/each}
-        </select>
-      </label>
-      <label>{$t.admin.filterRole}
-        <select bind:value={fRole}>
-          <option value="">{$t.admin.filterAll}</option>
-          <option value="director">{$t.admin.roleDirector}</option>
-          <option value="plain">{$t.admin.rolePlain}</option>
-        </select>
-      </label>
+      <Dropdown
+        label={$t.admin.filterSubject}
+        value={fSubject}
+        options={[{ value: '', label: $t.admin.filterAll }, ...subjectOptions.map((s) => ({ value: s, label: s }))]} 
+        on:select={(e) => (fSubject = e.detail)}
+      />
+      <Dropdown
+        label={$t.admin.filterGroup}
+        value={fGroup}
+        options={[{ value: '', label: $t.admin.filterAll }, ...groupOptions.map((g) => ({ value: g, label: g }))]} 
+        on:select={(e) => (fGroup = e.detail)}
+      />
+      <Dropdown
+        label={$t.admin.filterRole}
+        value={fRole}
+        options={[
+          { value: '', label: $t.admin.filterAll },
+          { value: 'director', label: $t.admin.roleDirector },
+          { value: 'plain', label: $t.admin.rolePlain }
+        ]}
+        on:select={(e) => (fRole = e.detail === 'director' ? 'director' : e.detail === 'plain' ? 'plain' : '')}
+      />
       <span class="count" role="status">{$t.admin.teachersCount(visible.length)}</span>
     </div>
   </div>
@@ -522,25 +526,6 @@
     gap: 8px;
     margin-top: 10px;
     align-items: end;
-  }
-  .filters label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--muted);
-  }
-  .filters select {
-    min-height: 44px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
-    padding: 0 12px;
-    font-weight: 600;
-    font-size: 0.84rem;
-    color: var(--ink);
-    max-width: 100%;
   }
   .count {
     align-self: center;

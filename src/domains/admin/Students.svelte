@@ -7,6 +7,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
   import { groupsByYear, createStudent, classReport, warningsRecent, teachers, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
@@ -237,12 +238,15 @@
             </label>
             <label>{$t.admin.minAbsences}<input type="number" min="0" inputmode="numeric" bind:value={minAbs} /></label>
             <label>{$t.admin.minLates}<input type="number" min="0" inputmode="numeric" bind:value={minLate} /></label>
-            <label>{$t.admin.warnFilter}
-              <select bind:value={fWarn}>
-                <option value="">{$t.admin.warnAny}</option>
-                <option value="yes">{$t.admin.warnWith}</option>
-              </select>
-            </label>
+            <Dropdown
+              label={$t.admin.warnFilter}
+              value={fWarn}
+              options={[
+                { value: '', label: $t.admin.warnAny },
+                { value: 'yes', label: $t.admin.warnWith }
+              ]}
+              on:select={(e) => (fWarn = e.detail === 'yes' ? 'yes' : '')}
+            />
             <span class="count" role="status">{$t.admin.rosterCount(visibleRoster.length)}</span>
           </div>
           {#if visibleRoster.length === 0}
@@ -510,8 +514,7 @@
     font-weight: 700;
     color: var(--muted);
   }
-  .filters input:not([type='search']),
-  .filters select {
+  .filters input:not([type='search']) {
     min-height: 44px;
     border: 1px solid var(--line);
     border-radius: 10px;

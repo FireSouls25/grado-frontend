@@ -6,6 +6,7 @@
   import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Icon from '$lib/ui/Icon.svelte';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
   import { onMount } from 'svelte';
   import { groupsByYear } from './api';
 
@@ -31,8 +32,12 @@
     }
   }
 
-  function onYearInput(e: Event) {
-    year = Number((e.currentTarget as HTMLInputElement).value) || currentYear;
+  function onSalonSelect(next: string) {
+    salon = next;
+  }
+
+  function onYearSelect(next: string) {
+    year = Number(next) || currentYear;
     void loadGroups();
   }
 
@@ -48,26 +53,21 @@
 
   <div class="sheet">
   <div class="pickers">
-    <label>
-      {$t.admin.scheduleGroupLabel}
-      <input
-        value={salon}
-        list="salon-options"
-        placeholder={$t.admin.scheduleGroupPlaceholder}
-        autocomplete="off"
-        on:input={(e) => (salon = e.currentTarget.value)}
-      />
-      <datalist id="salon-options">
-        {#each salonOptions as option}<option value={option}></option>{/each}
-      </datalist>
-    </label>
-    <label>
-      {$t.admin.scheduleYearLabel}
-      <input value={year} list="year-options" inputmode="numeric" autocomplete="off" on:input={onYearInput} />
-      <datalist id="year-options">
-        {#each yearOptions as option}<option value={option}></option>{/each}
-      </datalist>
-    </label>
+    <Dropdown
+      label={$t.admin.scheduleGroupLabel}
+      value={salon}
+      placeholder={$t.admin.scheduleGroupPlaceholder}
+      searchable
+      searchPlaceholder={$t.admin.scheduleGroupPlaceholder}
+      options={salonOptions.map((option) => ({ value: option, label: option }))}
+      on:select={(e) => onSalonSelect(e.detail)}
+    />
+    <Dropdown
+      label={$t.admin.scheduleYearLabel}
+      value={String(year)}
+      options={yearOptions.map((option) => ({ value: String(option), label: String(option) }))}
+      on:select={(e) => onYearSelect(e.detail)}
+    />
   </div>
 
   <div class="board-wrap">
@@ -154,22 +154,6 @@
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     margin-bottom: 12px;
-  }
-  .pickers label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--muted);
-  }
-  .pickers input {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 12px 14px;
-    min-height: 52px;
-    width: 100%;
   }
   .board-wrap {
     position: relative;
