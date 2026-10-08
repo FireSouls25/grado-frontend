@@ -529,7 +529,7 @@
                 </div>
               </div>
 
-              <div class="panel">
+              <div class="panel ratepanel">
                 <div class="panel-head">
                   <h2>{$t.admin.salonRateTitle}</h2>
                   <span class="caps">{$t.admin.salonRateCaption}</span>
@@ -902,6 +902,10 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
+    margin-bottom: 18px;
+  }
+  .ratepanel {
+    margin-top: 8px;
   }
   .panel {
     background: var(--card);
