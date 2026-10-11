@@ -557,7 +557,7 @@
                 {:else}
                   <ul class="prow-head" aria-hidden="true">
                     <li>
-                      <span>Nº</span><span class="widespan">{$t.admin.colStudent}</span><span>{$t.admin.colSalon}</span><span>{$t.admin.colAbsences}</span><span>{$t.admin.colEvasions}</span><span>{$t.admin.colRate}</span>
+                      <span>Nº</span><span class="widespan">{$t.admin.colStudent}</span><span>{$t.admin.colAbsences}</span><span>{$t.admin.colEvasions}</span><span>{$t.admin.colRate}</span>
                     </li>
                   </ul>
                   <ul class="prows">

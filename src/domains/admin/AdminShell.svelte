@@ -9,9 +9,22 @@
   export let year: number;
   export let onYear: ((delta: number) => void) | null = null;
 
-  function goResumen() {
-    if (active !== 'resumen') push('/admin');
-  }
+  type Key = typeof active;
+  type IconName =
+    | 'book'
+    | 'users'
+    | 'list'
+    | 'calendar'
+    | 'warn';
+
+  // Una sola fuente para las dos navegaciones (lateral en escritorio,
+  // barra horizontal en móvil): el mismo destino y el mismo estado.
+  $: items = [
+    { key: 'resumen' as Key, href: '/admin', icon: 'book' as IconName, label: $t.admin.viewOverview },
+    { key: 'docentes' as Key, href: '/admin/docentes', icon: 'users' as IconName, label: $t.nav.teachers },
+    { key: 'estudiantes' as Key, href: '/admin/estudiantes', icon: 'list' as IconName, label: $t.nav.students },
+    { key: 'horario' as Key, href: '/admin/horario', icon: 'calendar' as IconName, label: $t.nav.schedule }
+  ];
 </script>
 
 <div class="console">
@@ -22,18 +35,16 @@
     </div>
     <nav class="vnav" aria-label={$t.admin.manageTitle}>
       <p class="nav-cap">{$t.admin.manageTitle}</p>
-      <button type="button" class:active={active === 'resumen'} on:click={goResumen}>
-        <Icon name="book" /> {$t.admin.viewOverview}
-      </button>
-      <button type="button" class:active={active === 'docentes'} on:click={() => push('/admin/docentes')}>
-        <Icon name="users" /> {$t.nav.teachers}
-      </button>
-      <button type="button" class:active={active === 'estudiantes'} on:click={() => push('/admin/estudiantes')}>
-        <Icon name="list" /> {$t.nav.students}
-      </button>
-      <button type="button" class:active={active === 'horario'} on:click={() => push('/admin/horario')}>
-        <Icon name="calendar" /> {$t.nav.schedule}
-      </button>
+      {#each items as item (item.key)}
+        <button
+          type="button"
+          class:active={active === item.key}
+          aria-current={active === item.key ? 'page' : undefined}
+          on:click={() => item.key !== active && push(item.href)}
+        >
+          <Icon name={item.icon} /> {item.label}
+        </button>
+      {/each}
       <button type="button" class="is-soon" disabled aria-disabled="true">
         <Icon name="warn" /> {$t.admin.navWarnings} <em>{$t.admin.soon}</em>
       </button>
@@ -52,6 +63,20 @@
     </div>
   </aside>
 
+  <!-- Móvil: la lateral no cabe, pero la navegación sigue siendo obligatoria. -->
+  <nav class="mnav" aria-label={$t.admin.manageTitle}>
+    {#each items as item (item.key)}
+      <button
+        type="button"
+        class:active={active === item.key}
+        aria-current={active === item.key ? 'page' : undefined}
+        on:click={() => item.key !== active && push(item.href)}
+      >
+        <Icon name={item.icon} /> <span>{item.label}</span>
+      </button>
+    {/each}
+  </nav>
+
   <div class="sbody"><slot /></div>
 </div>
 
@@ -64,6 +89,47 @@
   }
   .side {
     display: none;
+  }
+  /* Barra de secciones en móvil: coincide con el lateral de escritorio
+     (mismos destinos, mismo estado activo) y se desplaza en horizontal. */
+  .mnav {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .mnav::-webkit-scrollbar {
+    display: none;
+  }
+  .mnav button {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-weight: 500;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .mnav button.active {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--bg);
+    font-weight: 600;
+  }
+  .mnav button :global(svg) {
+    width: 18px;
+    height: 18px;
   }
   .sbody {
     min-width: 0;
@@ -188,6 +254,11 @@
       top: 0;
       height: 100vh;
       height: 100svh;
+      overflow-y: auto;
+    }
+    /* La lateral reemplaza a la barra en escritorio: nunca ambas. */
+    .mnav {
+      display: none;
     }
     .sbody {
       padding: 26px 28px calc(96px + env(safe-area-inset-bottom));

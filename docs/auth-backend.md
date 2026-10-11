@@ -1,91 +1,50 @@
-# Autenticación pendiente (documentación, sin cambios en backend)
+# Autenticación: estado real y pendientes
 
-Estado real hoy: **no hay login en el backend**. No existe tabla
-`users`, ni contraseñas, ni sesiones. Esto es lo que el frontend simula
-y lo que habría que construir en `school-backend/src/core/users`.
+Documentación de referencia. No se modificó `school-backend/`.
 
-No se tocó `school-backend/`; este documento es la especificación
-pendiente.
+## Estado real (tras el commit backend "Add user auth")
 
-## Cómo "inicia sesión" hoy (mockup, solo frontend)
+- **Sí existe** la capability `users`: tabla `users` con `username`,
+  `email`, `password_hash` (bcrypt), `active`. Ver
+  `school-backend/docs/users.md`.
+- `User.ID` **es** el subject que consume el sistema de roles.
+- **No existe todavía** ningún endpoint de login/token: no hay
+  `POST /v1/login`, ni `logout`, ni `refresh`, ni uso de `Authorization`.
+  La identidad sigue viajando en el header `X-Subject-ID`.
+- El admin raíz se crea al arrancar con `BOOTSTRAP_ADMIN_USERNAME` +
+  `BOOTSTRAP_ADMIN_PASSWORD` (+ `BOOTSTRAP_ADMIN_EMAIL` opcional), y su
+  rol admin se re-asegura en cada boot. `SEED_ADMINS` / `SEED_TEACHERS`
+  siguen funcionando para Roles sobre UUIDs de subjects.
+- `users.Service` (`Authenticate`, `Create`, `SetPassword`, `SetActive`)
+  ya existe y está testeado: lo que falta es la capa HTTP.
 
-- `src/domains/auth/accounts.ts` es el directorio de cuentas dev:
-  `admin` / `admin123*` y `carlos.mendoza` / `docente123*`. La
-  contraseña se compara en el cliente (`checkDevPassword`) y **nunca
-  viaja al backend**.
-- `src/domains/auth/session.ts` guarda el id del sujeto.
-  `src/lib/api/client.ts` lo manda como header `X-Subject-ID`.
-- El backend confía ese header (identidad placeholder,
-  `school-backend/docs/api.md`): cualquier UUID válido entra como
-  "ese" sujeto. No hay verificación.
-- Escribir un UUID crudo como identificador crea una cuenta con
-  contraseña vacía, y `checkDevPassword` la acepta.
+## Qué sigue en el login del frontend (mockup)
 
-## Cómo nace una identidad hoy
+- `src/domains/auth/accounts.ts` sigue siendo el directorio dev
+  (`admin`, `carlos.mendoza`); la contraseña se compara en el cliente y
+  nunca viaja al backend.
+- `session.ts` guarda solo el id del sujeto; `client.ts` manda
+  `X-Subject-ID`. No hay soporte de token en código.
+- Hueco conocido: escribir un UUID crudo como identificador crea una
+  cuenta con contraseña vacía y `checkDevPassword` la acepta.
 
-Único camino: variables de entorno al arrancar
-(`school-backend/src/cmd/server/main.go`, `SEED_ADMINS`,
-`SEED_TEACHERS`, UUIDs separados por coma). Los roles viven en
-`roles.MemoryStore`, así que **se borran en cada reinicio**; sin
-`DATABASE_URL` no hay persistencia de roles.
+## Cuando exista `POST /v1/login` (cambios solo de frontend)
 
-Flujo completo para una cuenta nueva:
+1. `accounts.ts`: borrar el directorio dev.
+2. `Login.svelte`: sustituir `resolveDevAccount`/`checkDevPassword` por
+   `POST /v1/login {"identifier","password"}`; mapear
+   `users.err_invalid_credentials` a un mensaje único.
+3. `session.ts`: guardar token + expiración (`grado.token`).
+4. `client.ts`: `Authorization: Bearer <token>`; mantener
+   `X-Subject-ID` solo con `VITE_DEV_SUBJECT_ID` (modo dev).
+5. `guarded()` en `lib/nav.ts` no cambia: `401`/`403` ya están resueltos.
 
-1. Admin raíz sembrado con `SEED_ADMINS=<uuid>` (obligatorio: nadie
-   puede otorgar el primer rol).
-2. `POST /v1/teachers` (permiso `manage-users`, solo admin) — el
-   servicio asigna el `ID`; el body ignora `ID` y `Active`.
-   Campos válidos: `Names`, `Surnames`, `DocumentID` (obligatorios),
-   `Phone`, `Address`, `Birthplace`, `Email`, `MedicalConditions`,
-   `HomeroomClassID`. JSON estricto: un campo desconocido es `400`.
-3. `POST /v1/roles {"subjectID":"<ID>","role":"teacher"}`
-   (permiso `manage-roles`, solo admin) — concede en vivo, sin
-   reiniciar.
-4. Añadir el `ID` a `src/domains/auth/accounts.ts` para poder escribir
-   la contraseña en el login del mockup.
+## Bloqueos de dominio docente en el backend (pendientes, sin tocar)
 
-Matriz de permisos (`core/roles/permission.go`): `admin` recibe la
-unión de todas; `teacher` solo `view-students`,
-`record-attendance`, `record-incidents`, `view-class-statistics`;
-`student` solo `view-own-history`. Crear cuentas y dar roles es
-exclusivo de admin.
-
-## Qué falta en backend (spec propuesta)
-
-Capability `users` + `auth`, siguiendo la arquitectura existente
-(ports + services + adaptador de Postgres, textos en el catálogo i18n,
-códigos de error estables):
-
-- `User{ID, SubjectID, Names, Surnames, DocumentID, Email, PasswordHash,
-  Active, CreatedAt, UpdatedAt}` + `TeacherID` opcional para enlazar el
-  perfil docente.
-- Hash de contraseñas (`bcrypt`/`argon2`), nunca texto plano; política
-  de contraseña y bloqueo por intentos.
-- Endpoints:
-  - `POST /v1/login {"identifier","password"}` → `200 {"token",
-    "expiresAt", "subject", "roles", "home"}` (`401
-    http.err_unauthorized` si no valida, sin revelar cuál campo falló).
-  - `POST /v1/logout` (revoca el token), `POST /v1/refresh`.
-  - `GET /v1/me` se mantiene; opcionalmente añade `displayName` para
-    la cabecera (ver `agenda-backend.md` §2).
-- El token reemplaza el header **sin tocar handlers**: el middleware
-  de contexto sigue siendo la única fuente del sujeto, tal como
-  anticipa `docs/api.md` ("a token scheme replaces the header without
-  touching handlers").
-- Roles en Postgres (`roles.Store` con adaptador) para que sobrevivan
-  reinicios; hoy `MemoryStore` + `SEED_*`.
-- Statics: throttling de `/v1/login`, auditoría de accesos y
-  preference de idioma por usuario (hoy la elige `?lang=` o
-  `Accept-Language`).
-
-## Cambios que corresponden solo al frontend (cuando exista)
-
-- `Login.svelte`: sustituir `resolveDevAccount`/`checkDevPassword` por
-  una llamada real; borrar el directorio de cuentas dev.
-- `session.ts`: guardar token + expiración en vez del id de sujeto.
-- `client.ts`: enviar `Authorization: Bearer <token>`; dejar
-  `X-Subject-ID` solo si `VITE_DEV_SUBJECT_ID` está puesto (modo dev).
-- `guarded()` no cambia: los códigos `401`/`403` y el destino ya están
-  implementados.
-- El `home` que devuelve `GET /v1/me` sigue siendo la referencia de
-  navegación (`/admin`, `/docente`, `/estudiante`).
+- **Vínculo `users.User` ↔ `Teacher.ID`**: sin él no se puede resolver
+  "mi horario" (`GET /v1/teachers/me/schedule`) ni el nombre del docente
+  en la cabecera.
+- **Roles en Postgres**: hoy viven en memoria, se pierden al reiniciar.
+- **Alta de cuentas por HTTP**: `POST /v1/users` y `POST /v1/roles`
+  (este último ya existe pero el frontend aún no lo llama).
+- **Auditoría y throttling** de login (pendientes de Ley 1581).

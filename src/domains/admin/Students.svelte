@@ -180,7 +180,9 @@
   onMount(load);
 </script>
 
-<AdminShell active="estudiantes" {year} onYear={changeYear}>
+<!-- El año se controla solo desde la barra de la página: el stepper de la
+     lateral es redundante en escritorio y además no existe en móvil. -->
+<AdminShell active="estudiantes" {year}>
   <TopBar title={$t.admin.studentsTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
 
   <div class="pagehead">
