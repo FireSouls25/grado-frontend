@@ -5,6 +5,10 @@ const DEV_SUBJECT = import.meta.env.VITE_DEV_SUBJECT_ID as string | undefined;
 
 const SUBJECT_KEY = 'grado.subject';
 
+// Requests give up after this long: the server may be unreachable, and a
+// pending fetch would leave the page on its skeleton for good.
+const REQUEST_TIMEOUT_MS = 15000;
+
 /** Persisted session subject id (set at login, cleared at sign-out). */
 export function getSubject(): string {
   try {
@@ -33,11 +37,24 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const subject = getSubject();
   if (subject) headers.set('X-Subject-ID', subject);
 
+  // A hung request is a failure too: without a deadline the skeleton spins
+  // forever when the server is up but unreachable.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      headers,
+      signal: init.signal ?? controller.signal
+    });
   } catch {
-    throw new ApiError(0, { error: { code: 'http.err_network', message: 'Sin conexión con el servidor.' } });
+    throw new ApiError(0, {
+      error: { code: 'http.err_network', message: 'Sin conexión con el servidor.' }
+    });
+  } finally {
+    clearTimeout(timer);
   }
   if (!res.ok) {
     let body: { error?: { code: string; message: string } } = {};

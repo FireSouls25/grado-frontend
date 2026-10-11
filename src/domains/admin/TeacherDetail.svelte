@@ -5,6 +5,7 @@
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
@@ -20,12 +21,14 @@
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let detail: TeacherDetail | null = null;
+  let loadError: unknown = null;
   const currentYear = new Date().getFullYear();
   let assignOpen = false;
   let feedback = '';
 
   async function load() {
     state = 'loading';
+    loadError = null;
     try {
       const data = await guarded(() => teacherDetail(id));
       if (data === null) {
@@ -38,6 +41,7 @@
       detail = { ...data, Subjects: data.Subjects ?? [], Groups: data.Groups ?? [] };
       state = 'ready';
     } catch (err) {
+      loadError = err;
       state = err instanceof ApiError && isMissing(err) ? 'ready' : 'error';
     }
   }
@@ -85,12 +89,7 @@
   {#if state === 'loading'}
     <Skeleton rows={4} />
   {:else if state === 'error' || !detail}
-    <EmptyState
-      icon="warn"
-      title={$t.common.loadError}
-      actionLabel={$t.common.retry}
-      onAction={load}
-    />
+    <ErrorState error={loadError} onRetry={load} />
   {:else}
     <section class="card profile" aria-label={$t.admin.teacherDetailTitle}>
       <h2>{detail.Surnames} {detail.Names}</h2>

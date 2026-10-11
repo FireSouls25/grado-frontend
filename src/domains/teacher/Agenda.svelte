@@ -7,6 +7,8 @@
   import Icon from '$lib/ui/Icon.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
+  import TeacherTabs from './TeacherTabs.svelte';
   import { daySchedule, isMissing, type TeacherClass } from './api';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
@@ -41,7 +43,7 @@
   let search = '';
   let searchEl: HTMLInputElement | null = null;
   let loading = true;
-  let loadError = false;
+  let loadError: unknown = null;
   let baseList: AgendaItem[] = [];
   let backendMissing = false;
 
@@ -51,7 +53,7 @@
 
   async function load() {
     loading = true;
-    loadError = false;
+    loadError = null;
     try {
       const weekday = jsWeekdays[selectedDay];
       const classes = await guarded(() => daySchedule(weekday));
@@ -75,7 +77,7 @@
         backendMissing = true;
         baseList = [];
       } else {
-        loadError = true;
+        loadError = err;
       }
     } finally {
       loading = false;
@@ -184,7 +186,7 @@
     {#if loading}
       <Skeleton rows={4} />
     {:else if loadError}
-      <EmptyState icon="warn" title={$t.common.loadError} actionLabel={$t.common.retry} onAction={load} />
+      <ErrorState error={loadError} onRetry={load} />
     {:else if visible.length === 0}
       <EmptyState icon="calendar" title={$t.agenda.emptyTitle} body={backendMissing ? $t.schedule.emptyBody : $t.agenda.emptyBody} />
     {:else}
@@ -218,14 +220,16 @@
   </div>
 </div>
 
+<TeacherTabs active="agenda" />
+
 <style>
   .agenda {
     min-height: 100vh;
     min-height: 100svh;
     background: var(--bg);
     color: var(--ink);
-    /* Estas páginas ya no montan la barra inferior: sin reserva muerta. */
-    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+    /* Reserva para la barra inferior fija, no espacio muerto. */
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
   .pagehead {
     margin-bottom: 12px;

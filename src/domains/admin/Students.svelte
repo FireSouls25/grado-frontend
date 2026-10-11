@@ -5,6 +5,7 @@
   import TopActions from '$lib/shell/TopActions.svelte';
   import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
@@ -18,6 +19,7 @@
   let groups: YearGroup[] = [];
   let loaded = false;
   let failed = false;
+  let loadError: unknown = null;
   let picked: YearGroup | null = null;
 
   let creating = false;
@@ -48,6 +50,7 @@
 
   async function load() {
     failed = false;
+    loadError = null;
     try {
       const data = await guarded(() => groupsByYear(year));
       if (data === null) {
@@ -67,6 +70,7 @@
         groups = [];
         loaded = true;
       } else {
+        loadError = err;
         failed = true;
       }
     }
@@ -204,12 +208,7 @@
   <div class="sheet">
 
   {#if failed}
-    <EmptyState
-      icon="warn"
-      title={$t.common.loadError}
-      actionLabel={$t.common.retry}
-      onAction={load}
-    />
+    <ErrorState error={loadError} onRetry={load} />
   {:else if !loaded}
     <EmptyState icon="list" title={$t.admin.loadingGroups} />
   {:else if groups.length === 0}

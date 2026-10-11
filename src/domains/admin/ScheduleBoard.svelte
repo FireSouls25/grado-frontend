@@ -5,11 +5,14 @@
   import TopActions from '$lib/shell/TopActions.svelte';
   import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import { onMount } from 'svelte';
   import { groupsByYear } from './api';
   import { guarded } from '$lib/nav';
+  import { ApiError } from '$lib/api/types';
+  import { isMissing } from '../teacher/api';
 
   const currentYear = new Date().getFullYear();
   // Salones con opciones reales del año + escritura libre con filtro:
@@ -18,6 +21,8 @@
   let year = currentYear;
   let salonOptions: string[] = [];
   let optionsYear = 0;
+  let loading = false;
+  let loadError: unknown = null;
   const yearOptions = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
   $: boardDays = [...$t.admin.scheduleWeekdays, ...$t.admin.scheduleWeekend];
@@ -25,6 +30,8 @@
   async function loadGroups() {
     if (year === optionsYear) return;
     optionsYear = year;
+    loading = true;
+    loadError = null;
     try {
       // guarded: 401 va a login y 403 a atras/home, igual que las demas
       // pantallas; un 404 sigue siendo lista vacia honesta.
@@ -37,8 +44,12 @@
         .map((g) => g.ClassLabel)
         .sort((a, b) => a.localeCompare(b, 'es'));
       if (!salon && salonOptions.length > 0) salon = salonOptions[0];
-    } catch {
+    } catch (err) {
+      // Un 404 es lista vacía honesta; el resto se muestra con reintento.
       salonOptions = [];
+      if (!(err instanceof ApiError && isMissing(err))) loadError = err;
+    } finally {
+      loading = false;
     }
   }
 
@@ -62,6 +73,9 @@
   </div>
 
   <div class="sheet">
+  {#if loadError}
+    <ErrorState error={loadError} onRetry={loadGroups} />
+  {:else}
   <div class="pickers">
     <Dropdown
       label={$t.admin.scheduleGroupLabel}
@@ -107,6 +121,7 @@
   </div>
 
   <p class="soon-note"><span class="soon">{$t.admin.soon}</span> {$t.admin.scheduleSoon}</p>
+  {/if}
   </div>
 
   <EmptyState

@@ -6,6 +6,7 @@
   import TopActions from '$lib/shell/TopActions.svelte';
   import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import { teachers, teacherDetail, createTeacher, createUser, type TeacherSummary, type TeacherDetail } from './api';
@@ -16,6 +17,7 @@
   import Dropdown from '$lib/ui/Dropdown.svelte';
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
+  let loadError: unknown = null;
   let list: TeacherSummary[] = [];
 
   const currentYear = new Date().getFullYear();
@@ -45,6 +47,7 @@
 
   async function load() {
     state = 'loading';
+    loadError = null;
     try {
       const data = await guarded(() => teachers());
       if (data === null) {
@@ -58,6 +61,7 @@
       state = 'ready';
       void loadDetails();
     } catch (err) {
+      loadError = err;
       state = err instanceof ApiError && isMissing(err) ? 'ready' : 'error';
     }
   }
@@ -220,12 +224,7 @@
   {#if state === 'loading'}
     <Skeleton rows={4} />
   {:else if state === 'error'}
-    <EmptyState
-      icon="warn"
-      title={$t.common.loadError}
-      actionLabel={$t.common.retry}
-      onAction={load}
-    />
+    <ErrorState error={loadError} onRetry={load} />
   {:else if list.length === 0}
     <EmptyState
       icon="users"

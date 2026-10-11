@@ -19,6 +19,15 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * True when the server was never reached (connection refused, DNS, CORS
+ * preflight) or the request timed out. Both are worth retrying, and both
+ * mean "the data is not wrong, the connection is".
+ */
+export function isOffline(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 0;
+}
+
 export interface Me {
   subject: string;
   roles: string[];

@@ -439,7 +439,12 @@ export const es = {
     save: 'Guardar',
     cancel: 'Cancelar',
     retry: 'Reintentar',
+    retrying: 'Reintentando…',
     loadError: 'No se pudo cargar. Revisa tu conexión e intenta de nuevo.',
+    loadErrorTitle: 'No pudimos cargar esto',
+    loadErrorBody: 'El servidor respondió con un error. Vuelve a intentarlo en un momento.',
+    offlineTitle: 'Sin conexión con el servidor',
+    offlineBody: 'Revisa que el servidor esté encendido y que tu dispositivo tenga red, luego reintenta.',
     today: 'Hoy'
   }
 } as const;

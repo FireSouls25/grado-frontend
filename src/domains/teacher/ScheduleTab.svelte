@@ -4,9 +4,10 @@
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import Tabs from '$lib/ui/Tabs.svelte';
+  import TeacherTabs from './TeacherTabs.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import { daySchedule, isMissing, type TeacherClass } from './api';
   import { guarded } from '$lib/nav';
@@ -28,6 +29,7 @@
   const weekdays = [1, 2, 3, 4, 5];
 
   let state: 'loading' | 'error' | 'empty' | 'ready' = 'loading';
+  let loadError: unknown = null;
   let days: DayBlock[] = [];
 
   function dayLabel(weekday: number): string {
@@ -40,6 +42,7 @@
 
   async function load() {
     state = 'loading';
+    loadError = null;
     try {
       const settled = await Promise.all(
         weekdays.map(async (weekday) => {
@@ -63,7 +66,8 @@
       if (settled.some((d) => d.auth)) return; // 401/403 already navigated away
       days = settled.map((d) => ({ weekday: d.weekday, label: dayLabel(d.weekday), classes: d.classes }));
       state = days.some((d) => d.classes.length > 0) ? 'ready' : 'empty';
-    } catch {
+    } catch (err) {
+      loadError = err;
       state = 'error';
     }
   }
@@ -87,12 +91,7 @@
     {#if state === 'loading'}
       <Skeleton rows={5} />
     {:else if state === 'error'}
-      <EmptyState
-        icon="warn"
-        title={$t.common.loadError}
-        actionLabel={$t.common.retry}
-        onAction={load}
-      />
+      <ErrorState error={loadError} onRetry={load} />
     {:else if state === 'empty'}
       <EmptyState
         icon="calendar"
@@ -130,13 +129,7 @@
   </div>
 </div>
 
-<Tabs
-  tabs={[
-    { href: '/hoy', icon: 'list', label: $t.nav.today, active: false },
-    { href: '/horario', icon: 'calendar', label: $t.nav.schedule, active: true }
-  ]}
-  onNavigate={(href) => push(href)}
-/>
+<TeacherTabs active="horario" />
 
 <style>
   .page {
@@ -144,7 +137,8 @@
     min-height: 100svh;
     background: var(--bg);
     color: var(--ink);
-    padding-bottom: 110px;
+    /* Reserva para la barra inferior fija, no espacio muerto. */
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
   .pagehead {
     margin-bottom: 12px;

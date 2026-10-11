@@ -5,6 +5,7 @@
   import TopActions from '$lib/shell/TopActions.svelte';
   import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Chart from '$lib/ui/Chart.svelte';
   import Icon from '$lib/ui/Icon.svelte';
@@ -63,6 +64,7 @@
   let view: View = 'resumen';
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
+  let loadError: unknown = null;
   let teacherList: TeacherSummary[] = [];
   let teachersKnown = false;
   let groups: YearGroup[] = [];
@@ -105,6 +107,7 @@
 
   async function load() {
     state = 'loading';
+    loadError = null;
     try {
       const [teacherData, groupData] = await Promise.all([
         guarded(() => teachers()),
@@ -146,6 +149,7 @@
         state = 'ready';
         return;
       }
+      loadError = err;
       state = 'error';
     }
   }
@@ -443,7 +447,7 @@
             {#if state === 'loading'}
               <Skeleton rows={6} />
             {:else if state === 'error'}
-              <EmptyState icon="warn" title={$t.common.loadError} actionLabel={$t.common.retry} onAction={load} />
+              <ErrorState error={loadError} onRetry={load} />
             {:else if view === 'resumen'}
               <p class="cat-kicker">{$t.admin.consoleEyebrow}</p>
               <div class="alerts">

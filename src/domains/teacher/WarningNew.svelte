@@ -6,6 +6,7 @@
   import TopActions from '$lib/shell/TopActions.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
+  import TeacherTabs from './TeacherTabs.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import { classRoster, isMissing, issueWarnings } from './api';
   import type { RosterEntry } from '$lib/api/types';
@@ -252,14 +253,16 @@
   </div>
 </div>
 
+<TeacherTabs active="agenda" />
+
 <style>
   .warning {
     min-height: 100vh;
     min-height: 100svh;
     background: var(--bg);
     color: var(--ink);
-    /* Estas páginas ya no montan la barra inferior: sin reserva muerta. */
-    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+    /* Reserva para la barra inferior fija, no espacio muerto. */
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
   .pagehead {
     margin-bottom: 12px;
