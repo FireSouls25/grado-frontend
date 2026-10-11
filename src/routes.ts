@@ -2,7 +2,6 @@ import Login from './domains/auth/Login.svelte';
 import Recover from './domains/auth/Recover.svelte';
 import SettingsPage from './domains/shell/SettingsPage.svelte';
 import HelpPage from './domains/shell/HelpPage.svelte';
-import Home from './domains/teacher/Home.svelte';
 import Agenda from './domains/teacher/Agenda.svelte';
 import ClassDetail from './domains/teacher/ClassDetail.svelte';
 import WarningNew from './domains/teacher/WarningNew.svelte';
@@ -25,7 +24,6 @@ export const routes = {
   '/recuperar': Recover,
   '/ajustes': SettingsPage,
   '/ayuda': HelpPage,
-  '/hoy-antiguo': Home,
   '/hoy': Agenda,
   '/docente': Agenda,
   '/agenda': Agenda,

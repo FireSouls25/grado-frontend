@@ -251,7 +251,8 @@
     min-height: 100svh;
     background: var(--bg);
     color: var(--ink);
-    padding-bottom: 110px;
+    /* Estas páginas ya no montan la barra inferior: sin reserva muerta. */
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
   }
   .pagehead {
     margin-bottom: 12px;

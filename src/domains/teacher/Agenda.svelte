@@ -60,11 +60,13 @@
         return;
       }
       backendMissing = false;
+      // El salón no viene en el horario: no se inventa. El endpoint
+      // futuro traerá `Room`; mientras tanto la tarjeta lo omite.
       baseList = [...classes]
         .sort((a, b) => a.Start.localeCompare(b.Start))
-        .map((c, i) => ({
+        .map((c) => ({
           ...c,
-          Room: c.ClassLabel.replace(/[^0-9]/g, '').slice(0, 3) || `20${i + 1}`,
+          Room: (c as { Room?: string }).Room ?? '',
           Grade: c.ClassLabel
         }));
     } catch (err) {
@@ -198,7 +200,9 @@
               </div>
               <div class="facts">
                 <span class="factpill"><Icon name="list" /> {$t.agenda.gradeLabel(item.Grade)}</span>
-                <span class="factpill"><Icon name="pin" /> {$t.agenda.roomLabel(item.Room)}</span>
+                {#if item.Room}
+                  <span class="factpill"><Icon name="pin" /> {$t.agenda.roomLabel(item.Room)}</span>
+                {/if}
               </div>
             </div>
             <span class={`st ${st}`}>
@@ -220,7 +224,8 @@
     min-height: 100svh;
     background: var(--bg);
     color: var(--ink);
-    padding-bottom: 110px;
+    /* Estas páginas ya no montan la barra inferior: sin reserva muerta. */
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
   }
   .pagehead {
     margin-bottom: 12px;

@@ -9,6 +9,7 @@
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import { onMount } from 'svelte';
   import { groupsByYear } from './api';
+  import { guarded } from '$lib/nav';
 
   const currentYear = new Date().getFullYear();
   // Salones con opciones reales del año + escritura libre con filtro:
@@ -25,7 +26,14 @@
     if (year === optionsYear) return;
     optionsYear = year;
     try {
-      salonOptions = (await groupsByYear(year))
+      // guarded: 401 va a login y 403 a atras/home, igual que las demas
+      // pantallas; un 404 sigue siendo lista vacia honesta.
+      const data = await guarded(() => groupsByYear(year));
+      if (data === null) {
+        salonOptions = [];
+        return;
+      }
+      salonOptions = data
         .map((g) => g.ClassLabel)
         .sort((a, b) => a.localeCompare(b, 'es'));
       if (!salon && salonOptions.length > 0) salon = salonOptions[0];

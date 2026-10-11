@@ -163,50 +163,47 @@
       { names: string; surnames: string; presences: number; absences: number; evasions: number; lates: number; sessions: number }
     >();
     const labelOf = new Map(groups.map((g) => [g.GroupID, g.ClassLabel]));
-    for (const group of groups) {
-      const groupID = group.GroupID;
-      try {
-        const report = await classReport(groupID);
-        if (!report) continue;
-        reportCount += 1;
-        totals.sessions += report.Sessions;
-        totals.presences += report.Totals.Presences;
-        totals.absences += report.Totals.Absences;
-        totals.evasions += report.Totals.Evasions;
-        totals.lates += report.Totals.Lates;
-        const label = labelOf.get(report.ClassGroupID) ?? '';
-        const sessions = report.Students.length > 0 ? report.Sessions : 0;
-        if (label && sessions > 0) {
-          const presences = report.Students.reduce((n, s) => n + s.Presences, 0);
-          const calls = report.Students.reduce((n, s) => n + s.Sessions, 0);
-          salonRates.push({
-            label,
-            rate: calls > 0 ? Math.round((presences / calls) * 100) : 0
-          });
-        }
-        for (const s of report.Students) {
-          const prev = byStudent.get(s.StudentID) ?? {
-            names: s.Names,
-            surnames: s.Surnames,
-            presences: 0,
-            absences: 0,
-            evasions: 0,
-            lates: 0,
-            sessions: 0
-          };
-          prev.presences += s.Presences;
-          prev.absences += s.Absences;
-          prev.evasions += s.Evasions;
-          prev.lates += s.Lates;
-          prev.sessions += s.Sessions;
-          byStudent.set(s.StudentID, prev);
-        }
-      } catch {
-        // Un reporte ausente es vacío honesto: se omite y la consola
-        // sigue con los reportes que sí existen.
-        continue;
+    // En paralelo: un salon sin reporte es vacio honesto y no frena a los
+    // demas. En serie eran N viajes encadenados por cada carga.
+    const settled = await Promise.allSettled(groups.map((g) => classReport(g.GroupID)));
+    settled.forEach((result) => {
+      if (result.status !== 'fulfilled') return;
+      const report = result.value;
+      if (!report) return;
+      reportCount += 1;
+      totals.sessions += report.Sessions;
+      totals.presences += report.Totals.Presences;
+      totals.absences += report.Totals.Absences;
+      totals.evasions += report.Totals.Evasions;
+      totals.lates += report.Totals.Lates;
+      const label = labelOf.get(report.ClassGroupID) ?? '';
+      const sessions = report.Students.length > 0 ? report.Sessions : 0;
+      if (label && sessions > 0) {
+        const presences = report.Students.reduce((n, s) => n + s.Presences, 0);
+        const calls = report.Students.reduce((n, s) => n + s.Sessions, 0);
+        salonRates.push({
+          label,
+          rate: calls > 0 ? Math.round((presences / calls) * 100) : 0
+        });
       }
-    }
+      for (const s of report.Students) {
+        const prev = byStudent.get(s.StudentID) ?? {
+          names: s.Names,
+          surnames: s.Surnames,
+          presences: 0,
+          absences: 0,
+          evasions: 0,
+          lates: 0,
+          sessions: 0
+        };
+        prev.presences += s.Presences;
+        prev.absences += s.Absences;
+        prev.evasions += s.Evasions;
+        prev.lates += s.Lates;
+        prev.sessions += s.Sessions;
+        byStudent.set(s.StudentID, prev);
+      }
+    });
     reportsKnown = true;
     salonRates.sort((a, b) => a.rate - b.rate);
     risk = [...byStudent.entries()]
