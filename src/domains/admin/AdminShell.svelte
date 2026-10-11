@@ -5,7 +5,12 @@
 
   // Barra lateral persistente de la consola admin (docs/diseno.md).
   // Sin búsqueda: cada página filtra con la suya junto a sus tabs.
-  export let active: 'resumen' | 'docentes' | 'estudiantes' | 'horario';
+  export let active:
+    | 'resumen'
+    | 'docentes'
+    | 'estudiantes'
+    | 'horario'
+    | 'auditoria';
   export let year: number;
   export let onYear: ((delta: number) => void) | null = null;
 
@@ -23,7 +28,8 @@
     { key: 'resumen' as Key, href: '/admin', icon: 'book' as IconName, label: $t.admin.viewOverview },
     { key: 'docentes' as Key, href: '/admin/docentes', icon: 'users' as IconName, label: $t.nav.teachers },
     { key: 'estudiantes' as Key, href: '/admin/estudiantes', icon: 'list' as IconName, label: $t.nav.students },
-    { key: 'horario' as Key, href: '/admin/horario', icon: 'calendar' as IconName, label: $t.nav.schedule }
+    { key: 'horario' as Key, href: '/admin/horario', icon: 'calendar' as IconName, label: $t.nav.schedule },
+    { key: 'auditoria' as Key, href: '/admin/auditoria', icon: 'book' as IconName, label: $t.audit.navLabel }
   ];
 </script>
 

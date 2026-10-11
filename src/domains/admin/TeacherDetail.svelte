@@ -11,7 +11,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import AdminShell from './AdminShell.svelte';
   import { paletteFor } from '$lib/ui/palette';
-  import { teacherDetail, subjects, assignSubject, type TeacherDetail } from './api';
+  import { teacherDetail, subjects, assignSubject, updateTeacher, type TeacherDetail } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -74,6 +74,68 @@
     }
     assignOpen = true;
   }
+
+  // Edición del perfil: el backend aplica solo los campos enviados, así que
+  // aquí se manda exactamente lo que el docente cambió.
+  let editing = false;
+  let saving = false;
+  let editError = '';
+  let editFeedback = '';
+  let form = { Names: '', Surnames: '', DocumentID: '', Phone: '', Email: '' };
+
+  function startEdit() {
+    if (!detail) return;
+    form = {
+      Names: detail.Names,
+      Surnames: detail.Surnames,
+      DocumentID: detail.DocumentID,
+      Phone: detail.Phone ?? '',
+      Email: detail.Email ?? ''
+    };
+    editError = '';
+    editFeedback = '';
+    editing = true;
+  }
+
+  async function saveEdit() {
+    if (!detail) return;
+    editFeedback = '';
+    editError = '';
+    if (!form.Names.trim() || !form.Surnames.trim() || !form.DocumentID.trim()) {
+      editError = $t.admin.formRequired;
+      return;
+    }
+    if (form.Email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.Email.trim())) {
+      editError = $t.admin.formEmailInvalid;
+      return;
+    }
+    saving = true;
+    try {
+      detail = { ...detail, ...form };
+      await updateTeacher(id, form);
+      editing = false;
+      editFeedback = $t.teacherDetail.saved;
+    } catch (err) {
+      editError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      saving = false;
+    }
+  }
+
+  // Retirar es reversible y conserva el historial: por eso "desactivar" y
+  // no "eliminar" (el backend no borra docentes).
+  async function toggleActive() {
+    if (!detail) return;
+    const next = !detail.Active;
+    editFeedback = '';
+    try {
+      const updated = await updateTeacher(id, { Active: next });
+      detail = { ...detail, Active: updated.Active };
+      editFeedback = next ? $t.teacherDetail.reactivated : $t.teacherDetail.retired;
+    } catch (err) {
+      editFeedback = err instanceof ApiError ? err.message : $t.common.loadError;
+    }
+  }
 </script>
 
 <AdminShell active="docentes" year={currentYear}>
@@ -83,6 +145,15 @@
 
   <div class="pagehead">
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
+    {#if detail}
+      <div class="toolbar">
+        {#if editFeedback}<p class="flash" role="status">{editFeedback}</p>{/if}
+        <button type="button" class="mini" on:click={startEdit}>{$t.teacherDetail.editAction}</button>
+        <button type="button" class="mini" on:click={toggleActive}>
+          {detail.Active ? $t.teacherDetail.retireAction : $t.teacherDetail.reactivateAction}
+        </button>
+      </div>
+    {/if}
   </div>
 
   <div class="sheet">
@@ -154,6 +225,25 @@
   {/if}
 </Sheet>
 
+<Sheet open={editing} title={$t.teacherDetail.editTitle} onClose={() => (editing = false)}>
+  <form class="form" on:submit|preventDefault={saveEdit}>
+    <div class="row2">
+      <label>{$t.admin.formSurnames}<input bind:value={form.Surnames} autocomplete="off" /></label>
+      <label>{$t.admin.formNames}<input bind:value={form.Names} autocomplete="off" /></label>
+    </div>
+    <div class="row2">
+      <label>{$t.admin.formDocument}<input bind:value={form.DocumentID} inputmode="numeric" autocomplete="off" /></label>
+      <label>{$t.admin.formPhone}<input bind:value={form.Phone} inputmode="tel" autocomplete="off" /></label>
+    </div>
+    <label>{$t.admin.formEmail}<input bind:value={form.Email} inputmode="email" autocomplete="off" /></label>
+    {#if editError}<p class="flash error" role="alert">{editError}</p>{/if}
+    <div class="actions">
+      <button class="ghost" type="button" on:click={() => (editing = false)}>{$t.common.cancel}</button>
+      <button class="primary" type="submit" disabled={saving}>{saving ? '…' : $t.common.save}</button>
+    </div>
+  </form>
+</Sheet>
+
 <style>
   .pagehead {
     margin-bottom: 12px;
@@ -194,6 +284,91 @@
   .profile .chip {
     margin-top: 8px;
     margin-right: 6px;
+  }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  .flash {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-radius: var(--radius-chip);
+    padding: 8px 12px;
+  }
+  .flash.error {
+    background: var(--chip-pink-bg);
+    color: var(--chip-pink-ink);
+  }
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+  .form input {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    font-size: 0.92rem;
+    width: 100%;
+  }
+  .form input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 0;
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .ghost,
+  .primary {
+    min-height: 46px;
+    border-radius: var(--radius-pill);
+    font-weight: 700;
+    font-size: 0.88rem;
+    padding: 10px 22px;
+  }
+  .ghost {
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .primary:disabled {
+    opacity: 0.6;
   }
   .row-head {
     display: flex;

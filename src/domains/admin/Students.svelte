@@ -271,20 +271,27 @@
         <ul class="ledger">
           {#each visibleRoster as s (s.StudentID + s.group)}
             <li>
-              <span class="who">
-                <strong>{s.Surnames} {s.Names}</strong>
-                <small>
-                  {#if !picked}<span class="countchip">{s.group}</span>{/if}
-                  <span class="countchip">{s.Absences} {$t.admin.colAbsences}</span>
-                  <span class="countchip" class:alert={s.Evasions > 0}>{s.Evasions} {$t.admin.colEvasions}</span>
-                  <span class="countchip" class:alert={s.Lates > 0}>{s.Lates} {$t.admin.markLate}</span>
-                  {#if s.calls > 0}<span class="countchip warn">{$t.admin.callsCount(s.calls)}</span>{/if}
-                </small>
-              </span>
-              <span class="rateblock">
-                <strong class:low={s.rate < 85}>{s.rate}%</strong>
-                <span class="rbar"><span class:low={s.rate < 85} style={`width:${s.rate}%`}></span></span>
-              </span>
+              <button
+                type="button"
+                class="stu"
+                on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.StudentID)}`)}
+                aria-label={`${$t.studentDetail.title}: ${s.Surnames} ${s.Names}`}
+              >
+                <span class="who">
+                  <strong>{s.Surnames} {s.Names}</strong>
+                  <small>
+                    {#if !picked}<span class="countchip">{s.group}</span>{/if}
+                    <span class="countchip">{s.Absences} {$t.admin.colAbsences}</span>
+                    <span class="countchip" class:alert={s.Evasions > 0}>{s.Evasions} {$t.admin.colEvasions}</span>
+                    <span class="countchip" class:alert={s.Lates > 0}>{s.Lates} {$t.admin.markLate}</span>
+                    {#if s.calls > 0}<span class="countchip warn">{$t.admin.callsCount(s.calls)}</span>{/if}
+                  </small>
+                </span>
+                <span class="rateblock">
+                  <strong class:low={s.rate < 85}>{s.rate}%</strong>
+                  <span class="rbar"><span class:low={s.rate < 85} style={`width:${s.rate}%`}></span></span>
+                </span>
+              </button>
             </li>
           {/each}
         </ul>
@@ -618,14 +625,29 @@
     gap: 8px;
   }
   .ledger li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
-    padding: 10px 14px;
     min-height: 56px;
+  }
+  /* La fila abre la ficha del estudiante: sin cruda que se note el toque. */
+  .stu {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    padding: 10px 14px;
+    border-radius: var(--radius-chip);
+    transition:
+      background-color 0.15s ease,
+      transform 0.1s ease;
+  }
+  .stu:hover {
+    background: var(--surface-2);
+  }
+  .stu:active {
+    transform: scale(0.99);
   }
   .ledger .who {
     flex: 1;

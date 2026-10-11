@@ -1,5 +1,5 @@
 import { api } from '$lib/api/client';
-import type { Me } from '$lib/api/types';
+import type { Me, StudentProfile, Warning } from '$lib/api/types';
 
 // Endpoints that exist in the backend today.
 export async function me(): Promise<Me> {
@@ -80,6 +80,50 @@ export async function createStudent(input: NewStudent): Promise<{ ID: string }> 
     ? `${input.Birthdate}T00:00:00Z`
     : '0001-01-01T00:00:00Z';
   return api.post<{ ID: string }>('/v1/students', { ...input, Birthdate: birthdate });
+}
+
+/** Full profile of one student: 25 fields the class report never carries. */
+export async function studentProfile(id: string): Promise<StudentProfile> {
+  return api.get<StudentProfile>(`/v1/students/${encodeURIComponent(id)}`);
+}
+
+/** Replaces the student profile. The id comes from the path and the status
+ *  is lifecycle-managed by the server, so it is never sent. */
+export async function updateStudent(id: string, profile: StudentProfile): Promise<StudentProfile> {
+  const { ID: _id, Status: _status, ...editable } = profile;
+  return api.put<StudentProfile>(`/v1/students/${encodeURIComponent(id)}`, editable);
+}
+
+/** Partial teacher update: omitted fields keep their stored value. */
+export async function updateTeacher(
+  id: string,
+  changes: Partial<TeacherSummary> & { Phone?: string; Email?: string }
+): Promise<TeacherDetail> {
+  return api.put<TeacherDetail>(`/v1/teachers/${encodeURIComponent(id)}`, changes);
+}
+
+/** The student's own warning history, with the frozen snapshot per entry. */
+export async function studentWarnings(id: string): Promise<Warning[]> {
+  return api.get<Warning[]>(`/v1/students/${encodeURIComponent(id)}/warnings`);
+}
+
+/** Audit trail access: who read or wrote student data (admin only). */
+export async function auditRecent(limit = 50): Promise<AuditEntry[]> {
+  return api.get<AuditEntry[]>(`/v1/audit?limit=${limit}`);
+}
+
+export async function auditForStudent(studentID: string): Promise<AuditEntry[]> {
+  return api.get<AuditEntry[]>(`/v1/audit?studentID=${encodeURIComponent(studentID)}`);
+}
+
+export interface AuditEntry {
+  ID: string;
+  SubjectID: string;
+  Action: 'read' | 'create' | 'update' | 'mark';
+  Resource: 'student' | 'warning' | 'session' | 'report';
+  ResourceID: string;
+  Status: number;
+  HappenedAt: string;
 }
 
 export async function createTeacher(input: NewTeacher): Promise<{ ID: string }> {

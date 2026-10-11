@@ -43,9 +43,20 @@ solos cuando existan:
   el endpoint). El frontend ya tolera su ausencia como "cuenta pendiente"
 
 Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
-`GET /v1/teachers/{id}`, `POST /v1/students`, `POST /v1/teachers`,
+`GET /v1/teachers/{id}`, `POST /v1/students`, `PUT /v1/students/{id}`,
+`POST /v1/teachers`, `PUT /v1/teachers/{id}`,
 `POST /v1/sessions/{id}/marks`,
-`GET /v1/statistics/class/{groupID}`.
+`GET /v1/statistics/class/{groupID}`, `GET /v1/statistics/student/{id}`,
+`GET /v1/students/{id}`, `GET /v1/students/{id}/warnings`, `GET /v1/audit`.
+
+Notas de los endpoints de edición:
+
+- `PUT /v1/students/{id}` **reemplaza** el perfil completo (el estado lo
+  administra el servidor). El frontend envía la ficha tal como la cargó,
+  con los campos editados.
+- `PUT /v1/teachers/{id}` es **parcial**: lo que no se envía se conserva,
+  así un formulario a medias nunca borra el teléfono ni desactiva a un
+  docente por accidente.
 
 ## Bloqueos para el dominio docente (documentados)
 
