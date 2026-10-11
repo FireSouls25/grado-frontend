@@ -6,7 +6,8 @@
     | 'calendar'
     | 'list'
     | 'warn'
-    | 'book' = 'users';
+    | 'book'
+    | 'search' = 'users';
   export let title: string;
   export let body = '';
   export let actionLabel = '';

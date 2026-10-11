@@ -188,7 +188,13 @@
     {:else if loadError}
       <ErrorState error={loadError} onRetry={load} />
     {:else if visible.length === 0}
-      <EmptyState icon="calendar" title={$t.agenda.emptyTitle} body={backendMissing ? $t.schedule.emptyBody : $t.agenda.emptyBody} />
+      {#if search.trim()}
+        <!-- Distinguir "no hay clases" de "tu filtro no encontró nada":
+             si no, el docente cree que el día está vacío. -->
+        <EmptyState icon="search" title={$t.agenda.noMatchTitle} body={$t.agenda.noMatchBody} />
+      {:else}
+        <EmptyState icon="calendar" title={$t.agenda.emptyTitle} body={backendMissing ? $t.schedule.emptyBody : $t.agenda.emptyBody} />
+      {/if}
     {:else}
       <ol class="timeline">
         {#each visible as item (item.GroupID + item.Start)}

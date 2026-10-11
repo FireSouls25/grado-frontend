@@ -33,12 +33,12 @@ solos cuando existan:
 - `GET /v1/teachers/me/schedule?weekday=N` — clases del día
 - `GET /v1/classes/{groupID}/roster` — nómina del salón
 - `POST /v1/sessions/open` — abrir llamado a lista
-- `POST /v1/warnings/batch` — lote de llamados
 - `GET /v1/subjects` y `POST /v1/assignments` — catálogo/asignación de
   materias (usados por la ficha docente)
 - `GET /v1/classes?year=N` — salones por año (lo usa el dominio admin)
-- `GET /v1/warnings/recent`, `GET /v1/incidents/recent`,
-  `GET /v1/dashboard/summary` — agregados del panel
+- `GET /v1/incidents/recent` — incidentes recientes (la pestaña
+  Historial lo muestra vacío mientras no exista)
+- `GET /v1/dashboard/summary?year=N` — agregados del panel Resumen
 - `POST /v1/users` — alta de cuenta (la tabla `users` ya existe; falta
   el endpoint). El frontend ya tolera su ausencia como "cuenta pendiente"
 
@@ -47,7 +47,8 @@ Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `POST /v1/teachers`, `PUT /v1/teachers/{id}`,
 `POST /v1/sessions/{id}/marks`,
 `GET /v1/statistics/class/{groupID}`, `GET /v1/statistics/student/{id}`,
-`GET /v1/students/{id}`, `GET /v1/students/{id}/warnings`, `GET /v1/audit`.
+`GET /v1/students/{id}`, `GET /v1/students/{id}/warnings`,
+`POST /v1/warnings/batch`, `GET /v1/warnings/recent`, `GET /v1/audit`.
 
 Notas de los endpoints de edición:
 

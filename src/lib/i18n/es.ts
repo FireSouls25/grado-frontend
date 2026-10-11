@@ -97,7 +97,9 @@ export const es = {
     roomLabel: (room: string) => `Salón ${room}`,
     loading: 'Cargando tu agenda…',
     emptyTitle: 'Sin clases este día',
-    emptyBody: 'No tienes clases asignadas para este día. Elige otro día de la semana.'
+    emptyBody: 'No tienes clases asignadas para este día. Elige otro día de la semana.',
+    noMatchTitle: 'Sin resultados',
+    noMatchBody: 'Ninguna de tus clases coincide con la búsqueda. Prueba con otro texto o bórralo.'
   },
   teacherDetail: {
     editAction: 'Editar perfil',
@@ -197,6 +199,8 @@ export const es = {
     emptyRosterBody:
       'El backend aún no expone la nómina de este salón. Vuelve a intentarlo más tarde.',
     saveHint: 'Marca con el check a quienes asistieron. Sin marca cuenta como ausente.',
+    markAllPresent: 'Marcar todos presentes',
+    markAllAbsent: 'Marcar todos ausentes',
     classDesc:
       'Clase enfocada en Mecánica de Fluidos y dinámica estática. Se revisarán ejercicios y casos prácticos.'
   },
@@ -369,6 +373,8 @@ export const es = {
     groupStudents: (count: number) =>
       count === 1 ? '1 estudiante' : `${count} estudiantes`,
     rosterHint: 'Toca un salón para ver su lista de estudiantes.',
+    exportCsv: 'Exportar CSV',
+    exported: 'Archivo CSV descargado.',
     scheduleGroupLabel: 'Salón',
     scheduleGroupPlaceholder: '7-1',
     scheduleYearLabel: 'Año',

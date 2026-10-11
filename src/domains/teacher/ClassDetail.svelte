@@ -121,6 +121,21 @@
     }
   }
 
+  // Acciones en bloque: en un salón de 35 students, marcar uno por uno es
+  // la forma más común de equivocarse. Se marca todo y luego se descuenta
+  // a quien falta; el guardado sigue siendo el de siempre.
+  function markAllPresent() {
+    const next = new Set<string>();
+    for (const r of roster) next.add(r.StudentID);
+    present = next;
+    feedback = '';
+  }
+
+  function markAllAbsent() {
+    present = new Set<string>();
+    feedback = '';
+  }
+
   async function save() {
     feedback = '';
     feedbackError = false;
@@ -209,6 +224,14 @@
             <span class="countpill">{$t.attendance.studentsCount(roster.length)}</span>
           </div>
           <p class="hint-top">{$t.attendance.listHint}</p>
+          <div class="bulk">
+            <button type="button" class="bulk-btn" on:click={markAllPresent}>
+              <Icon name="check" /> {$t.attendance.markAllPresent}
+            </button>
+            <button type="button" class="bulk-btn" on:click={markAllAbsent}>
+              <Icon name="close" /> {$t.attendance.markAllAbsent}
+            </button>
+          </div>
           <ul class="ledger">
             {#each roster as r (r.StudentID)}
               <li>
@@ -455,6 +478,32 @@
     padding: 5px 12px;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+  }
+  .bulk {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .bulk-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.8rem;
+  }
+  .bulk-btn:hover {
+    color: var(--ink);
+  }
+  .bulk-btn :global(svg) {
+    width: 15px;
+    height: 15px;
   }
   .hint-top {
     color: var(--muted);

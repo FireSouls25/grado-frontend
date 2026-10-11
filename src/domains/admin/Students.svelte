@@ -139,6 +139,47 @@
     return sessions > 0 ? Math.round((presences / sessions) * 100) : 0;
   }
 
+  // Exportación a CSV: secretaría pide la lista en Excel, no una captura de
+  // pantalla. Se arma en el cliente con lo que ya está en memoria (sin
+  // endpoint nuevo) y se descarga como archivo.
+  function csvCell(value: string | number): string {
+    const raw = String(value ?? '');
+    return /[";\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
+  }
+
+  function exportCsv() {
+    if (visibleRoster.length === 0) return;
+    const header = [
+      $t.admin.colStudent,
+      $t.admin.colSalon,
+      $t.admin.colAbsences,
+      $t.admin.colEvasions,
+      $t.admin.colRate
+    ];
+    const rows = visibleRoster.map((s) =>
+      [
+        `${s.Surnames}, ${s.Names}`,
+        s.group,
+        s.Absences,
+        s.Evasions,
+        `${s.rate}%`
+      ]
+        .map(csvCell)
+        .join(';')
+    );
+    const csv = [header.map(csvCell).join(';'), ...rows].join('\r\n');
+    // BOM para que Excel reconozca UTF-8 y no rompa los acentos.
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const scope = picked ? picked.ClassLabel : 'todos';
+    link.href = url;
+    link.download = `asistencia-${scope}-${year}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    feedback = $t.admin.exported;
+  }
+
   $: allRoster = groups.flatMap((g) =>
     (reports[g.GroupID]?.Students ?? []).map((s) => ({
       ...s,
@@ -259,7 +300,14 @@
       </div>
     {/if}
     <section class="card" aria-label={$t.admin.reportTitle}>
-      <h2>{picked ? $t.admin.groupDetailTitle(picked.ClassLabel, picked.SchoolYear) : $t.admin.globalRoster}</h2>
+      <div class="card-head">
+        <h2>{picked ? $t.admin.groupDetailTitle(picked.ClassLabel, picked.SchoolYear) : $t.admin.globalRoster}</h2>
+        {#if visibleRoster.length > 0}
+          <button type="button" class="mini" on:click={exportCsv}>
+            <Icon name="list" /> {$t.admin.exportCsv}
+          </button>
+        {/if}
+      </div>
       {#if loadingReports}
         <p class="muted">{$t.admin.loadingRoster}</p>
       {:else if picked && reportLoading}
@@ -615,6 +663,37 @@
     color: var(--muted);
     font-size: 0.92rem;
     margin-top: 4px;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .card-head h2 {
+    font-size: 1.05rem;
+  }
+  .mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .mini:hover {
+    color: var(--ink);
+  }
+  .mini :global(svg) {
+    width: 15px;
+    height: 15px;
   }
   .ledger {
     list-style: none;
