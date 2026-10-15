@@ -65,7 +65,8 @@
   async function loadWarnings() {
     try {
       warnings = (await guarded(() => studentWarnings(studentID))) ?? [];
-    } catch {
+    } catch (err) {
+      console.warn('student warnings unavailable', err);
       warnings = [];
     }
   }
@@ -79,13 +80,15 @@
       // El informe completo es admin-only (manage-system): un docente ve la
       // ficha, pero el backend le cierra este bloque. Se dice, no se oculta.
       reportDenied = err instanceof ApiError && err.status === 403;
+      if (!reportDenied) console.warn('student report unavailable', err);
     }
   }
 
   async function loadTrail() {
     try {
       trail = (await guarded(() => auditForStudent(studentID))) ?? [];
-    } catch {
+    } catch (err) {
+      console.warn('student audit trail unavailable', err);
       trail = [];
     }
   }

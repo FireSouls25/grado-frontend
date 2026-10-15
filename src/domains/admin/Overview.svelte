@@ -13,6 +13,7 @@
   import { theme, type Theme } from '$lib/theme/theme';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
+  import { mapSettled } from '$lib/async';
   import { isMissing } from '../teacher/api';
   import {
     teachers,
@@ -39,7 +40,6 @@
   interface RiskRow {
     id: string;
     name: string;
-    salon: string;
     absences: number;
     evasions: number;
     lates: number;
@@ -167,9 +167,10 @@
       { names: string; surnames: string; presences: number; absences: number; evasions: number; lates: number; sessions: number }
     >();
     const labelOf = new Map(groups.map((g) => [g.GroupID, g.ClassLabel]));
-    // En paralelo: un salon sin reporte es vacio honesto y no frena a los
-    // demas. En serie eran N viajes encadenados por cada carga.
-    const settled = await Promise.allSettled(groups.map((g) => classReport(g.GroupID)));
+    // En paralelo con tope: un salon sin reporte es vacio honesto y no
+    // frena a los demas. En serie eran N viajes encadenados por cada carga;
+    // sin tope serían N viajes a la vez contra el servidor.
+    const settled = await mapSettled(groups, 5, (g) => classReport(g.GroupID));
     settled.forEach((result) => {
       if (result.status !== 'fulfilled') return;
       const report = result.value;
@@ -214,7 +215,6 @@
       .map(([id, s]) => ({
         id,
         name: `${s.surnames}, ${s.names}`.trim().replace(/^,/, '').trim() || id,
-        salon: '',
         absences: s.absences,
         evasions: s.evasions,
         lates: s.lates,
@@ -308,7 +308,7 @@
   });
 
   $: q = search.trim().toLowerCase();
-  $: visibleRisk = risk.filter((r) => (q ? `${r.name} ${r.salon}`.toLowerCase().includes(q) : true));
+  $: visibleRisk = risk.filter((r) => (q ? r.name.toLowerCase().includes(q) : true));
   $: openTasks = tasks.filter((t) => !t.done).length;
 
   $: marksTotal = totals.presences + totals.absences + totals.evasions + totals.lates;
@@ -574,7 +574,6 @@
                           <span class="rank">{String(i + 1).padStart(2, '0')}</span>
                           <span class="avatar" aria-hidden="true">{initials(row.name)}</span>
                           <span class="who"><strong>{row.name}</strong></span>
-                          {#if row.salon}<span class="salonpill">{row.salon}</span>{/if}
                           <span class="countchip">{row.absences} {$t.admin.colAbsences}</span>
                           <span class="countchip" class:alert={row.evasions > 0}>{row.evasions} {$t.admin.colEvasions}</span>
                           <span class="rateblock">
@@ -1050,7 +1049,6 @@
   .prow.on {
     border-color: var(--ink);
   }
-  .prow .salonpill,
   .prow .countchip {
     display: none;
   }

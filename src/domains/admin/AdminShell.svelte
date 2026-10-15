@@ -20,6 +20,7 @@
     | 'users'
     | 'list'
     | 'calendar'
+    | 'eye'
     | 'warn';
 
   // Una sola fuente para las dos navegaciones (lateral en escritorio,
@@ -29,7 +30,7 @@
     { key: 'docentes' as Key, href: '/admin/docentes', icon: 'users' as IconName, label: $t.nav.teachers },
     { key: 'estudiantes' as Key, href: '/admin/estudiantes', icon: 'list' as IconName, label: $t.nav.students },
     { key: 'horario' as Key, href: '/admin/horario', icon: 'calendar' as IconName, label: $t.nav.schedule },
-    { key: 'auditoria' as Key, href: '/admin/auditoria', icon: 'book' as IconName, label: $t.audit.navLabel }
+    { key: 'auditoria' as Key, href: '/admin/auditoria', icon: 'eye' as IconName, label: $t.audit.navLabel }
   ];
 </script>
 

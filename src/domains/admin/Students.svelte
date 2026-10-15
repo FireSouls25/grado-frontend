@@ -13,6 +13,7 @@
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
+  import { mapSettled } from '$lib/async';
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;
@@ -85,7 +86,8 @@
   }
 
   async function loadReports() {
-    const settled = await Promise.allSettled(groups.map((g) => classReport(g.GroupID)));
+    // Mismo tope que el Resumen: N salones sin N viajes simultáneos.
+    const settled = await mapSettled(groups, 5, (g) => classReport(g.GroupID));
     const next: Record<string, ClassReport> = {};
     settled.forEach((result, i) => {
       if (result.status === 'fulfilled' && result.value) next[groups[i].GroupID] = result.value;

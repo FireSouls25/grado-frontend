@@ -26,6 +26,9 @@ export interface TeacherClass {
   Weekday: number;
   Start: string;
   End: string;
+  /** Salón físico. Opcional: el endpoint actual aún no lo trae y la
+   *  tarjeta lo omite en vez de inventarlo. */
+  Room?: string;
 }
 
 /** Weekly schedule entries for a weekday. Pending: GET /v1/teachers/me/schedule. */

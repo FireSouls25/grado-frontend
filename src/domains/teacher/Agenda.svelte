@@ -62,13 +62,13 @@
         return;
       }
       backendMissing = false;
-      // El salón no viene en el horario: no se inventa. El endpoint
-      // futuro traerá `Room`; mientras tanto la tarjeta lo omite.
+      // El salón no viene en el horario todavía: Room es opcional en
+      // TeacherClass y la tarjeta lo omite mientras tanto.
       baseList = [...classes]
         .sort((a, b) => a.Start.localeCompare(b.Start))
         .map((c) => ({
           ...c,
-          Room: (c as { Room?: string }).Room ?? '',
+          Room: c.Room ?? '',
           Grade: c.ClassLabel
         }));
     } catch (err) {
