@@ -29,13 +29,16 @@
 
   async function loadGroups() {
     if (year === optionsYear) return;
-    optionsYear = year;
+    // Captura el año pedido: si el usuario cambia de año mientras el fetch
+    // sigue en vuelo, la respuesta vieja se descarta y no pisa las opciones.
+    const requested = year;
     loading = true;
     loadError = null;
     try {
       // guarded: 401 va a login y 403 a atras/home, igual que las demas
       // pantallas; un 404 sigue siendo lista vacia honesta.
-      const data = await guarded(() => groupsByYear(year));
+      const data = await guarded(() => groupsByYear(requested));
+      if (requested !== year) return;
       if (data === null) {
         salonOptions = [];
         return;
@@ -44,12 +47,16 @@
         .map((g) => g.ClassLabel)
         .sort((a, b) => a.localeCompare(b, 'es'));
       if (!salon && salonOptions.length > 0) salon = salonOptions[0];
+      // Solo se marca como cargado tras éxito: en error optionsYear queda
+      // sin tocar para que el reintento no haga early-return.
+      optionsYear = requested;
     } catch (err) {
+      if (requested !== year) return;
       // Un 404 es lista vacía honesta; el resto se muestra con reintento.
       salonOptions = [];
       if (!(err instanceof ApiError && isMissing(err))) loadError = err;
     } finally {
-      loading = false;
+      if (requested === year) loading = false;
     }
   }
 

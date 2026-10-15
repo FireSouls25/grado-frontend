@@ -10,6 +10,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import { auditRecent, type AuditEntry } from './api';
+  import { auditActionClass, shortId } from '$lib/audit';
   import { guarded } from '$lib/nav';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
@@ -62,14 +63,6 @@
       minute: '2-digit'
     });
   }
-
-  function shortId(value: string): string {
-    return value ? value.slice(0, 8) : '—';
-  }
-
-  function actionClass(a: AuditEntry['Action']): string {
-    return a === 'create' || a === 'update' || a === 'mark' ? 'write' : 'read';
-  }
 </script>
 
 <AdminShell active="auditoria" year={currentYear}>
@@ -112,7 +105,7 @@
       <ul class="rows">
         {#each visible as e (e.ID)}
           <li>
-            <span class={`pill ${actionClass(e.Action)}`}>{$t.studentDetail.actionLabel[e.Action]}</span>
+            <span class={`pill ${auditActionClass(e.Action)}`}>{$t.studentDetail.actionLabel[e.Action]}</span>
             <div class="what">
               <strong>{$t.studentDetail.resourceLabel[e.Resource]}</strong>
               <small>{moment(e.HappenedAt)}</small>

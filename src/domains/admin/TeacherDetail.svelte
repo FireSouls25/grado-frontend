@@ -98,7 +98,7 @@
   }
 
   async function saveEdit() {
-    if (!detail) return;
+    if (!detail || saving) return;
     editFeedback = '';
     editError = '';
     if (!form.Names.trim() || !form.Surnames.trim() || !form.DocumentID.trim()) {
@@ -111,8 +111,15 @@
     }
     saving = true;
     try {
-      detail = { ...detail, ...form };
-      await updateTeacher(id, form);
+      // Sin optimismo: la ficha solo cambia con lo que el servidor confirma.
+      // Si falla, detail queda intacto y el error se muestra en el formulario.
+      const updated = await updateTeacher(id, form);
+      detail = {
+        ...detail,
+        ...updated,
+        Subjects: updated.Subjects ?? detail.Subjects,
+        Groups: updated.Groups ?? detail.Groups
+      };
       editing = false;
       editFeedback = $t.teacherDetail.saved;
     } catch (err) {
@@ -124,16 +131,20 @@
 
   // Retirar es reversible y conserva el historial: por eso "desactivar" y
   // no "eliminar" (el backend no borra docentes).
+  let toggling = false;
   async function toggleActive() {
-    if (!detail) return;
+    if (!detail || toggling) return;
     const next = !detail.Active;
     editFeedback = '';
+    toggling = true;
     try {
       const updated = await updateTeacher(id, { Active: next });
       detail = { ...detail, Active: updated.Active };
       editFeedback = next ? $t.teacherDetail.reactivated : $t.teacherDetail.retired;
     } catch (err) {
       editFeedback = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      toggling = false;
     }
   }
 </script>
@@ -149,7 +160,7 @@
       <div class="toolbar">
         {#if editFeedback}<p class="flash" role="status">{editFeedback}</p>{/if}
         <button type="button" class="mini" on:click={startEdit}>{$t.teacherDetail.editAction}</button>
-        <button type="button" class="mini" on:click={toggleActive}>
+        <button type="button" class="mini" on:click={toggleActive} disabled={toggling}>
           {detail.Active ? $t.teacherDetail.retireAction : $t.teacherDetail.reactivateAction}
         </button>
       </div>

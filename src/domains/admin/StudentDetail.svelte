@@ -19,6 +19,7 @@
     type AuditEntry
   } from './api';
   import type { StudentProfile, Warning } from '$lib/api/types';
+  import { auditActionClass, shortId } from '$lib/audit';
   import { guarded } from '$lib/nav';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
@@ -137,16 +138,8 @@
     });
   }
 
-  function shortId(value: string): string {
-    return value ? value.slice(0, 8) : '—';
-  }
-
   function gravityClass(g: Warning['Gravity']): string {
     return g === 'severe' ? 'grave' : g === 'moderate' ? 'medio' : 'leve';
-  }
-
-  function actionClass(a: AuditEntry['Action']): string {
-    return a === 'create' || a === 'update' || a === 'mark' ? 'write' : 'read';
   }
 
   function conditionText(c: { Has: boolean; Detail: string }): string {
@@ -174,14 +167,6 @@
   function resourceLabel(r: AuditEntry['Resource']): string {
     return $t.studentDetail.resourceLabel[r];
   }
-
-  const guardianRows = (g: StudentProfile['Mother']) => [
-    { label: $t.studentDetail.guardianNames, value: g.Names },
-    { label: $t.studentDetail.guardianDocument, value: g.DocumentID },
-    { label: $t.studentDetail.guardianPhone, value: g.Phone },
-    { label: $t.studentDetail.guardianOccupation, value: g.Occupation },
-    { label: $t.studentDetail.guardianAddress, value: g.Address }
-  ];
 
   $: hasContactData = profile
     ? [profile.Phone, profile.Email, profile.Address].some(Boolean)
@@ -389,7 +374,7 @@
               <ul class="tlist">
                 {#each trail as e (e.ID)}
                   <li>
-                    <span class={`pill ${actionClass(e.Action)}`}>{actionLabel(e.Action)}</span>
+                    <span class={`pill ${auditActionClass(e.Action)}`}>{actionLabel(e.Action)}</span>
                     <div class="ttext">
                       <strong>{resourceLabel(e.Resource)}</strong>
                       <small>{moment(e.HappenedAt)} · {$t.studentDetail.byLabel} {shortId(e.SubjectID)}</small>

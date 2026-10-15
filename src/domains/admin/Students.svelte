@@ -144,7 +144,7 @@
   // endpoint nuevo) y se descarga como archivo.
   function csvCell(value: string | number): string {
     const raw = String(value ?? '');
-    return /[";\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
+    return /[";\r\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
   }
 
   function exportCsv() {
@@ -169,14 +169,18 @@
     );
     const csv = [header.map(csvCell).join(';'), ...rows].join('\r\n');
     // BOM para que Excel reconozca UTF-8 y no rompa los acentos.
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    const scope = picked ? picked.ClassLabel : 'todos';
+    // Sanea el salón para que nunca rompa el nombre de archivo.
+    const scope = (picked ? picked.ClassLabel : 'todos').replace(/[\\/:*?"<>|]/g, '-');
     link.href = url;
     link.download = `asistencia-${scope}-${year}.csv`;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    link.remove();
+    // Revoca diferido: inmediato puede cancelar la descarga en Safari/Firefox.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     feedback = $t.admin.exported;
   }
 
