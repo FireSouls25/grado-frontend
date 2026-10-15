@@ -33,12 +33,12 @@ export interface TeacherClass {
 
 /** Weekly schedule entries for a weekday. Pending: GET /v1/teachers/me/schedule. */
 export async function daySchedule(weekday: number): Promise<TeacherClass[]> {
-  return api.get<TeacherClass[]>(`/v1/teachers/me/schedule?weekday=${weekday}`);
+  return (await api.get<TeacherClass[]>(`/v1/teachers/me/schedule?weekday=${weekday}`)) ?? [];
 }
 
 export async function classRoster(groupID: string): Promise<RosterEntry[]> {
-  return api.get<RosterEntry[]>(
-    `/v1/classes/${encodeURIComponent(groupID)}/roster`
+  return (
+    (await api.get<RosterEntry[]>(`/v1/classes/${encodeURIComponent(groupID)}/roster`)) ?? []
   );
 }
 
@@ -76,5 +76,5 @@ export interface WarningSnapshot {
 }
 
 export async function issueWarnings(draft: WarningDraft): Promise<Warning[]> {
-  return api.post<Warning[]>('/v1/warnings/batch', draft);
+  return (await api.post<Warning[]>('/v1/warnings/batch', draft)) ?? [];
 }

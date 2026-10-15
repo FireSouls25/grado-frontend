@@ -1,4 +1,5 @@
 import { api } from '$lib/api/client';
+import { ApiError } from '$lib/api/types';
 import type { Me, StudentProfile, Warning } from '$lib/api/types';
 
 // Endpoints that exist in the backend today.
@@ -6,7 +7,14 @@ export async function me(): Promise<Me> {
   return api.get<Me>('/v1/me');
 }
 
+/** Un cuerpo `null` con 200 equivale a 404: el recurso no existe.
+ *  Así los llamados pintan "no encontrado" en vez de colgarse. */
+function missing(resource: string): ApiError {
+  return new ApiError(404, { error: { code: 'http.err_not_found', message: `${resource} no encontrado.` } });
+}
+
 // --- Pending backend endpoints (próxima fase) ---------------------------
+// Same honesty rule as the teacher domain: any error means "no data yet".
 // Same honesty rule as the teacher domain: any error means "no data yet".
 
 export interface TeacherSummary {
@@ -40,16 +48,20 @@ export interface YearGroup {
   StudentCount?: number;
 }
 
+// Go serializa los slices vacíos como `null`: cada lista se normaliza aquí
+// para que las pantallas nunca hagan `.map`/`.length` sobre null.
 export async function teachers(): Promise<TeacherSummary[]> {
-  return api.get<TeacherSummary[]>('/v1/teachers');
+  return (await api.get<TeacherSummary[]>('/v1/teachers')) ?? [];
 }
 
 export async function teacherDetail(id: string): Promise<TeacherDetail> {
-  return api.get<TeacherDetail>(`/v1/teachers/${encodeURIComponent(id)}`);
+  const d = await api.get<TeacherDetail>(`/v1/teachers/${encodeURIComponent(id)}`);
+  if (!d) throw missing('Docente');
+  return { ...d, Subjects: d.Subjects ?? [], Groups: d.Groups ?? [] };
 }
 
 export async function subjects(): Promise<Subject[]> {
-  return api.get<Subject[]>('/v1/subjects');
+  return (await api.get<Subject[]>('/v1/subjects')) ?? [];
 }
 
 export async function assignSubject(teacherID: string, subjectID: string): Promise<unknown> {
@@ -84,7 +96,9 @@ export async function createStudent(input: NewStudent): Promise<{ ID: string }> 
 
 /** Full profile of one student: 25 fields the class report never carries. */
 export async function studentProfile(id: string): Promise<StudentProfile> {
-  return api.get<StudentProfile>(`/v1/students/${encodeURIComponent(id)}`);
+  const p = await api.get<StudentProfile>(`/v1/students/${encodeURIComponent(id)}`);
+  if (!p) throw missing('Estudiante');
+  return p;
 }
 
 /** Replaces the student profile. The id comes from the path and the status
@@ -104,16 +118,16 @@ export async function updateTeacher(
 
 /** The student's own warning history, with the frozen snapshot per entry. */
 export async function studentWarnings(id: string): Promise<Warning[]> {
-  return api.get<Warning[]>(`/v1/students/${encodeURIComponent(id)}/warnings`);
+  return (await api.get<Warning[]>(`/v1/students/${encodeURIComponent(id)}/warnings`)) ?? [];
 }
 
 /** Audit trail access: who read or wrote student data (admin only). */
 export async function auditRecent(limit = 50): Promise<AuditEntry[]> {
-  return api.get<AuditEntry[]>(`/v1/audit?limit=${limit}`);
+  return (await api.get<AuditEntry[]>(`/v1/audit?limit=${limit}`)) ?? [];
 }
 
 export async function auditForStudent(studentID: string): Promise<AuditEntry[]> {
-  return api.get<AuditEntry[]>(`/v1/audit?studentID=${encodeURIComponent(studentID)}`);
+  return (await api.get<AuditEntry[]>(`/v1/audit?studentID=${encodeURIComponent(studentID)}`)) ?? [];
 }
 
 export interface AuditEntry {
@@ -160,7 +174,7 @@ interface RawGroup {
 }
 
 export async function groupsByYear(year: number): Promise<YearGroup[]> {
-  const raw = await api.get<RawGroup[]>(`/v1/classes?year=${year}`);
+  const raw = (await api.get<RawGroup[]>(`/v1/classes?year=${year}`)) ?? [];
   return raw.map((g) => ({
     GroupID: g.ID,
     Grade: g.Grade,
@@ -186,8 +200,12 @@ export interface ClassReport {
   Totals: { Sessions: number; Presences: number; Absences: number; Evasions: number; Lates: number };
 }
 
+const EMPTY_TOTALS = { Sessions: 0, Presences: 0, Absences: 0, Evasions: 0, Lates: 0 };
+
 export async function classReport(groupID: string): Promise<ClassReport> {
-  return api.get<ClassReport>(`/v1/statistics/class/${encodeURIComponent(groupID)}`);
+  const r = await api.get<ClassReport>(`/v1/statistics/class/${encodeURIComponent(groupID)}`);
+  if (!r) return { ClassGroupID: groupID, Sessions: 0, Students: [], Totals: { ...EMPTY_TOTALS } };
+  return { ...r, Students: r.Students ?? [], Totals: r.Totals ?? { ...EMPTY_TOTALS } };
 }
 
 export interface StudentSessionEntry {
@@ -216,8 +234,10 @@ export interface StudentReport {
 
 // Full cross-year report of one student (admin-only in the backend).
 // 404 today means "no data yet": callers paint an honest empty.
-export async function studentReport(studentID: string): Promise<StudentReport> {
-  return api.get<StudentReport>(`/v1/statistics/student/${encodeURIComponent(studentID)}`);
+export async function studentReport(studentID: string): Promise<StudentReport | null> {
+  const r = await api.get<StudentReport>(`/v1/statistics/student/${encodeURIComponent(studentID)}`);
+  if (!r) return null;
+  return { ...r, Sessions: r.Sessions ?? [] };
 }
 
 export interface RecentWarning {
@@ -235,7 +255,7 @@ export interface RecentWarning {
 // Latest llamados. No such route in the backend yet: callers treat
 // isMissing as an honest empty, never as an error screen.
 export async function warningsRecent(limit = 20): Promise<RecentWarning[]> {
-  return api.get<RecentWarning[]>(`/v1/warnings/recent?limit=${limit}`);
+  return (await api.get<RecentWarning[]>(`/v1/warnings/recent?limit=${limit}`)) ?? [];
 }
 
 export interface RecentIncident {
@@ -248,7 +268,7 @@ export interface RecentIncident {
 // Latest fault/incident records. Pending backend contract: same
 // honest-empty rule as warningsRecent.
 export async function incidentsRecent(limit = 20): Promise<RecentIncident[]> {
-  return api.get<RecentIncident[]>(`/v1/incidents/recent?limit=${limit}`);
+  return (await api.get<RecentIncident[]>(`/v1/incidents/recent?limit=${limit}`)) ?? [];
 }
 
 export interface DashboardSummary {
@@ -273,5 +293,13 @@ export interface DashboardSummary {
 // Agregado real del backend (`?year=` obligatorio). Todo campo puede
 // venir vacío: la consola pinta vacíos honestos, nunca ceros falsos.
 export async function dashboardSummary(year: number): Promise<DashboardSummary> {
-  return api.get<DashboardSummary>(`/v1/dashboard/summary?year=${year}`);
+  const d = await api.get<DashboardSummary>(`/v1/dashboard/summary?year=${year}`);
+  if (!d) throw missing('Resumen');
+  return {
+    ...d,
+    MarksLast7d: d.MarksLast7d ?? { Presences: 0, Absences: 0, Evasions: 0, Lates: 0 },
+    WarningsLast7d: d.WarningsLast7d ?? { Mild: 0, Moderate: 0, Severe: 0 },
+    TopRisk: d.TopRisk ?? [],
+    RecentWarnings: d.RecentWarnings ?? []
+  };
 }

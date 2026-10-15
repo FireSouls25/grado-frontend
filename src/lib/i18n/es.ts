@@ -491,6 +491,8 @@ export const es = {
     reportSessions: (count: number) =>
       count === 1 ? '1 sesión' : `${count} sesiones`,
     reportEmpty: 'Sin lista pasada todavía para este salón.',
+    groupEmptyTitle: 'Este salón aún no tiene nómina',
+    groupEmptyBody: 'Cuando se matriculen estudiantes o el docente pase lista, la nómina aparecerá aquí.',
     scheduleSoon: 'La asignación de bloques llega próximamente.',
     navWarnings: 'Llamados'
   },

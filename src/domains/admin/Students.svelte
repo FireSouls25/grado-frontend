@@ -32,6 +32,7 @@
   let warns: RecentWarning[] = [];
   let teacherList: TeacherSummary[] = [];
   let reports: Record<string, ClassReport> = {};
+  let reportsDone = false;
   let q2 = '';
   let minAbs = '';
   let minLate = '';
@@ -52,6 +53,8 @@
   async function load() {
     failed = false;
     loadError = null;
+    reports = {};
+    reportsDone = false;
     try {
       const data = await guarded(() => groupsByYear(year));
       if (data === null) {
@@ -87,12 +90,15 @@
 
   async function loadReports() {
     // Mismo tope que el Resumen: N salones sin N viajes simultáneos.
+    // reportsDone marca el fin del intento (éxito o vacío): sin él, un
+    // salón sin reporte dejaba "Cargando nóminas…" para siempre.
     const settled = await mapSettled(groups, 5, (g) => classReport(g.GroupID));
     const next: Record<string, ClassReport> = {};
     settled.forEach((result, i) => {
       if (result.status === 'fulfilled' && result.value) next[groups[i].GroupID] = result.value;
     });
     reports = next;
+    reportsDone = true;
   }
 
   async function loadWarns() {
@@ -204,7 +210,8 @@
     .filter((s) => (fWarn === 'yes' ? s.calls > 0 : true))
     .sort((a, b) => a.rate - b.rate);
   $: hasAnyStudents = allRoster.length > 0;
-  $: loadingReports = groups.length > 0 && Object.keys(reports).length === 0;
+  $: loadingReports = groups.length > 0 && !reportsDone;
+  $: pickedEmpty = picked !== null && !reportLoading && visibleRoster.length === 0;
 
   async function save() {
     feedback = '';
@@ -250,6 +257,9 @@
         {$t.admin.newStudent}
       </button>
     </div>
+    {#if picked}
+      <button type="button" class="back back-top" on:click={() => (picked = null)}>‹ {$t.admin.backSalons}</button>
+    {/if}
   </div>
 
   <div class="sheet">
@@ -283,9 +293,7 @@
       />
       <span class="count" role="status">{$t.admin.rosterCount(visibleRoster.length)}</span>
     </div>
-    {#if picked}
-      <button type="button" class="back" on:click={() => (picked = null)}>‹ {$t.admin.backSalons}</button>
-    {:else}
+    {#if !picked}
       <div class="salonlist" role="group" aria-label={$t.admin.studentsTitle}>
         {#each groups as g (g.GroupID)}
           {@const dir = directorOf(g.ClassLabel)}
@@ -299,7 +307,7 @@
               <strong>{g.ClassLabel}</strong>
               <small>{dir ? `${dir.Surnames} ${dir.Names}`.trim() : $t.admin.noDirector}</small>
             </span>
-            <span class="sub">{known ? $t.admin.groupStudents(reports[g.GroupID].Students.length) : '—'}</span>
+            <span class="sub">{known ? $t.admin.groupStudents(reports[g.GroupID]?.Students.length ?? 0) : '—'}</span>
             <span class="go" aria-hidden="true"><Icon name="next" /></span>
           </button>
         {/each}
@@ -318,6 +326,8 @@
         <p class="muted">{$t.admin.loadingRoster}</p>
       {:else if picked && reportLoading}
         <p class="muted">{$t.admin.loadingGroups}</p>
+      {:else if pickedEmpty}
+        <EmptyState icon="users" title={$t.admin.groupEmptyTitle} body={$t.admin.groupEmptyBody} />
       {:else if visibleRoster.length === 0}
         <EmptyState icon="list" title={hasAnyStudents ? $t.admin.rosterEmptySearch : $t.admin.reportEmpty} />
       {:else}
@@ -503,6 +513,10 @@
     font-weight: 700;
     font-size: 0.84rem;
     margin-bottom: 10px;
+  }
+  .back-top {
+    margin-top: 10px;
+    margin-bottom: 0;
   }
   .back:active {
     transform: scale(0.97);

@@ -88,7 +88,7 @@
   onMount(load);
 
   $: q = search.trim().toLowerCase();
-  $: subjectOptions = [...new Set(Object.values(details).flatMap((d) => d.Subjects.map((s) => s.SubjectName)))].sort((a, b) =>
+  $: subjectOptions = [...new Set(Object.values(details).flatMap((d) => (d.Subjects ?? []).map((s) => s.SubjectName)))].sort((a, b) =>
     a.localeCompare(b, 'es')
   );
   $: groupOptions = [...new Set(list.map((teacher) => teacher.HomeroomClassID).filter(Boolean))].sort((a, b) =>
@@ -104,7 +104,7 @@
     if (fRole === 'plain' && teacher.HomeroomClassID) return false;
     if (fGroup && teacher.HomeroomClassID !== fGroup) return false;
     if (fSubject) {
-      const names = details[teacher.ID]?.Subjects.map((s) => s.SubjectName) ?? [];
+      const names = details[teacher.ID]?.Subjects?.map((s) => s.SubjectName) ?? [];
       if (!names.includes(fSubject)) return false;
     }
     return true;

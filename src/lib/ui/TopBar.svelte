@@ -4,10 +4,12 @@
 
   export let title: string;
   export let showBack = false;
+  // Optativo: `centered` centra el título (acciones fijadas a la derecha).
+  export let centered = false;
   export let onBack: () => void = () => history.back();
 </script>
 
-<header class="topbar">
+<header class="topbar" class:centered>
   <div class="left">
     {#if showBack}
       <button class="icon-btn" type="button" on:click={onBack} aria-label={$t.a11y.back}>
@@ -39,6 +41,21 @@
     gap: 4px;
     min-width: 0;
   }
+  /* El botón de atrás comparte caja y centro con el texto: sin esto el
+     SVG se alinea a la línea base y el chevron queda unos px por encima. */
+  .left .icon-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-pill);
+    color: var(--muted);
+  }
+  .left .icon-btn :global(svg) {
+    display: block;
+  }
   .left h1 {
     font-size: 1.35rem;
     white-space: nowrap;
@@ -58,5 +75,14 @@
     justify-content: center;
     border-radius: var(--radius-pill);
     color: var(--muted);
+  }
+  /* Título centrado (atrás + texto al medio): las acciones se fijan a la
+     derecha para no desplazar el centro. */
+  .topbar.centered {
+    justify-content: center;
+  }
+  .topbar.centered .actions {
+    position: absolute;
+    right: 0;
   }
 </style>
