@@ -366,25 +366,36 @@
         <EmptyState icon="list" title={hasAnyStudents ? $t.admin.rosterEmptySearch : $t.admin.reportEmpty} />
       {:else}
         {#if picked && report}<p class="muted">{$t.admin.reportSessions(report.Sessions)}</p>{/if}
+        <ul class="colhead" aria-hidden="true">
+          <li>
+            <span>{$t.admin.colStudent}</span>
+            <span>{$t.admin.colAbsencesLong}</span>
+            <span>{$t.admin.colEvasionsLong}</span>
+            <span>{$t.admin.markLate}</span>
+            <span>{$t.admin.colRate}</span>
+          </li>
+        </ul>
         <ul class="ledger">
           {#each visibleRoster as s (s.StudentID + s.group)}
             <li>
               <button
                 type="button"
-                class="stu"
+                class="stu cols"
                 on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.StudentID)}`)}
                 aria-label={`${$t.studentDetail.title}: ${s.Surnames} ${s.Names}`}
               >
                 <span class="who">
                   <strong>{s.Surnames} {s.Names}</strong>
-                  <small>
-                    {#if !picked}<span class="countchip">{s.group}</span>{/if}
-                    <span class="countchip">{s.Absences} {$t.admin.colAbsences}</span>
-                    <span class="countchip" class:alert={s.Evasions > 0}>{s.Evasions} {$t.admin.colEvasions}</span>
-                    <span class="countchip" class:alert={s.Lates > 0}>{s.Lates} {$t.admin.markLate}</span>
-                    {#if s.calls > 0}<span class="countchip warn">{$t.admin.callsCount(s.calls)}</span>{/if}
-                  </small>
+                  {#if !picked || s.calls > 0}
+                    <small>
+                      {#if !picked}<span class="countchip">{s.group}</span>{/if}
+                      {#if s.calls > 0}<span class="countchip warn">{$t.admin.callsCount(s.calls)}</span>{/if}
+                    </small>
+                  {/if}
                 </span>
+                <span class="c-stat"><strong>{s.Absences}</strong></span>
+                <span class="c-stat" class:alert={s.Evasions > 0}><strong>{s.Evasions}</strong></span>
+                <span class="c-stat" class:alert={s.Lates > 0}><strong>{s.Lates}</strong></span>
                 <span class="rateblock">
                   <strong class:low={s.rate < 85}>{s.rate}%</strong>
                   <span class="rbar"><span class:low={s.rate < 85} style={`width:${s.rate}%`}></span></span>
@@ -726,10 +737,6 @@
     color: var(--ink-soft);
     white-space: nowrap;
   }
-  .countchip.alert {
-    background: var(--g-grave-bg);
-    color: var(--g-grave-ink);
-  }
   .countchip.warn {
     background: var(--accent-soft);
     color: var(--accent);
@@ -796,6 +803,60 @@
     transition:
       background-color 0.15s ease,
       transform 0.1s ease;
+  }
+  /* Columnas alineadas: nombre + 3 conteos + tasa. */
+  .stu.cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(3, minmax(40px, auto)) minmax(64px, auto);
+    gap: 6px 12px;
+  }
+  .colhead {
+    display: none;
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0 14px;
+  }
+  .colhead li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(3, minmax(40px, auto)) minmax(64px, auto);
+    gap: 6px 12px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .colhead li span:not(:first-child) {
+    text-align: center;
+  }
+  .colhead li span:last-child {
+    text-align: right;
+  }
+  @media (min-width: 700px) {
+    .colhead {
+      display: block;
+    }
+    .stu.cols {
+      grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(90px, 0.5fr)) minmax(110px, 0.7fr);
+    }
+  }
+  .c-stat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .c-stat strong {
+    font-variant-numeric: tabular-nums;
+    font-size: 1.05rem;
+    color: var(--ink-soft);
+  }
+  @media (min-width: 700px) {
+    .c-stat strong {
+      font-size: 1.25rem;
+    }
+  }
+  .c-stat.alert strong {
+    color: var(--g-grave-ink);
   }
   .stu:hover {
     background: var(--surface-2);

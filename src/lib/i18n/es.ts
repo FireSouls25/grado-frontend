@@ -532,6 +532,8 @@ export const es = {
     colSalon: 'Salón',
     colAbsences: 'Inasist.',
     colEvasions: 'Evas.',
+    colAbsencesLong: 'Inasistencias',
+    colEvasionsLong: 'Evasiones',
     colRate: 'Tasa',
     rateBelow: (delta: number) => `${delta} del 85%`,
     rateAbove: (delta: number) => `+${delta} sobre 85%`,
