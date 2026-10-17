@@ -124,6 +124,15 @@
 
   $: orderedWarnings = [...warnings].sort((a, b) => b.HappenedAt.localeCompare(a.HappenedAt));
 
+  const WARN_CAP = 4;
+  const SESSION_CAP = 6;
+  let expandedWarn = false;
+  let expandedSessions = false;
+
+  $: mildCount = warnings.filter((w) => w.Gravity === 'mild').length;
+  $: moderateCount = warnings.filter((w) => w.Gravity === 'moderate').length;
+  $: severeCount = warnings.filter((w) => w.Gravity === 'severe').length;
+
   async function loadWarnings() {
     try {
       warnings = (await guarded(() => studentWarnings(studentID))) ?? [];
@@ -247,6 +256,8 @@
 
   function startEdit() {
     if (!profile) return;
+    // La API serializa slices vacíos como null: normalizar antes de
+    // copiar, o el editor no abre (y el guardado fallaría igual).
     form = {
       ...profile,
       Mother: { ...profile.Mother },
@@ -255,7 +266,7 @@
       Vision: { ...profile.Vision },
       Hearing: { ...profile.Hearing },
       SpecialistReport: { ...profile.SpecialistReport },
-      Siblings: profile.Siblings.map((s) => ({ ...s }))
+      Siblings: (profile.Siblings ?? []).map((s) => ({ ...s }))
     };
     editError = '';
     editFeedback = '';
@@ -334,34 +345,34 @@
       <div class="grid">
         <aside class="card">
           <div class="idblock">
-            {#if photoUrl}
-              <img class="photo" src={photoUrl} alt={fullName} />
-            {:else}
-              <span class="avatar" aria-hidden="true">{initials}</span>
-            {/if}
+            <div class="photocol">
+              {#if photoUrl}
+                <img class="photo" src={photoUrl} alt={fullName} />
+              {:else}
+                <span class="avatar big" aria-hidden="true">{initials}</span>
+              {/if}
+              <button type="button" class="link" on:click={() => photoInput?.click()}>
+                {$t.studentDetail.photoChange}
+              </button>
+              {#if photoUrl}
+                <button type="button" class="link danger" on:click={removePhoto}>
+                  {$t.studentDetail.photoRemove}
+                </button>
+              {/if}
+              <input
+                bind:this={photoInput}
+                type="file"
+                accept="image/*"
+                hidden
+                aria-hidden="true"
+                tabindex="-1"
+                on:change={onPhotoPicked}
+              />
+            </div>
             <div>
               <strong>{fullName}</strong>
               <small>{profile.DocumentID || $t.common.noData}</small>
             </div>
-          </div>
-          <div class="photobar">
-            <button type="button" class="link" on:click={() => photoInput?.click()}>
-              {$t.studentDetail.photoChange}
-            </button>
-            {#if photoUrl}
-              <button type="button" class="link danger" on:click={removePhoto}>
-                {$t.studentDetail.photoRemove}
-              </button>
-            {/if}
-            <input
-              bind:this={photoInput}
-              type="file"
-              accept="image/*"
-              hidden
-              aria-hidden="true"
-              tabindex="-1"
-              on:change={onPhotoPicked}
-            />
           </div>
           {#if photoError}<p class="flash error" role="alert">{photoError}</p>{/if}
 
@@ -445,15 +456,20 @@
         </aside>
 
         <div class="col">
-          <section class="card">
+          <section class="card warncard">
             <div class="card-head">
               <h2>{$t.studentDetail.warningsTitle}</h2>
               <span class="count">{warnings.length}</span>
             </div>
+            <div class="sevsum" aria-label={$t.studentDetail.warningsTitle}>
+              <span class="sev leve">{$t.roster.warnGravityMild} · {mildCount}</span>
+              <span class="sev medio">{$t.roster.warnGravityModerate} · {moderateCount}</span>
+              <span class="sev grave">{$t.roster.warnGravitySevere} · {severeCount}</span>
+            </div>
             {#if warnings.length === 0}
               <EmptyState icon="warn" title={$t.studentDetail.noWarningsTitle} body={$t.studentDetail.noWarningsBody} />
             {:else}
-              <ul class="wlist">
+              <ul class="wlist scrollbox" class:capped={!expandedWarn}>
                 {#each orderedWarnings as w (w.ID)}
                   <li>
                     <span class={`sev ${gravityClass(w.Gravity)}`}>{severityLabel(w.Gravity)}</span>
@@ -469,10 +485,15 @@
                   </li>
                 {/each}
               </ul>
+              {#if warnings.length > WARN_CAP}
+                <button type="button" class="link more" on:click={() => (expandedWarn = !expandedWarn)}>
+                  {expandedWarn ? $t.studentDetail.showLess : `${$t.studentDetail.showAll} (${warnings.length})`}
+                </button>
+              {/if}
             {/if}
           </section>
 
-          <section class="card">
+          <section class="card reportcard">
             <div class="card-head">
               <h2>{$t.studentDetail.reportTitle}</h2>
               {#if report}<span class="count">{$t.studentDetail.sessionsLabel(report.Sessions.length)}</span>{/if}
@@ -487,13 +508,10 @@
                 <div class="kpi"><small>{$t.admin.markAbsence}</small><strong>{report.Absences}</strong></div>
                 <div class="kpi"><small>{$t.admin.markEvasion}</small><strong>{report.Evasions}</strong></div>
                 <div class="kpi"><small>{$t.admin.markLate}</small><strong>{report.Lates}</strong></div>
-                <div class="kpi"><small>{$t.roster.warnGravityMild}</small><strong>{report.WarningsMild}</strong></div>
-                <div class="kpi"><small>{$t.roster.warnGravityModerate}</small><strong>{report.WarningsModerate}</strong></div>
-                <div class="kpi"><small>{$t.roster.warnGravitySevere}</small><strong>{report.WarningsSevere}</strong></div>
               </div>
               {#if report.Sessions.length > 0}
                 <h3 class="sub">{$t.studentDetail.sessionsTitle}</h3>
-                <ul class="slist">
+                <ul class="slist scrollbox" class:capped={!expandedSessions}>
                   {#each report.Sessions as s (s.SessionID)}
                     <li>
                       <span>{longDate(s.Date)}</span>
@@ -502,6 +520,11 @@
                     </li>
                   {/each}
                 </ul>
+                {#if report.Sessions.length > SESSION_CAP}
+                  <button type="button" class="link more" on:click={() => (expandedSessions = !expandedSessions)}>
+                    {expandedSessions ? $t.studentDetail.showLess : `${$t.studentDetail.showAll} (${report.Sessions.length})`}
+                  </button>
+                {/if}
               {/if}
             {/if}
           </section>
@@ -593,6 +616,10 @@
     align-items: center;
     gap: 12px;
     margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .pagehead {
+    margin-bottom: 20px;
   }
   .mini {
     display: inline-flex;
@@ -681,9 +708,14 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: 320px minmax(0, 1fr);
-    gap: 16px;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 20px;
     align-items: start;
+  }
+  @media (max-width: 899px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
   }
   .col {
     display: flex;
@@ -740,10 +772,44 @@
     justify-content: center;
     font-weight: 800;
   }
+  .avatar.big {
+    width: 88px;
+    height: 88px;
+    font-size: 1.9rem;
+    border-radius: 28px;
+  }
+  .photo {
+    flex: none;
+    width: 88px;
+    height: 88px;
+    border-radius: 28px;
+    object-fit: cover;
+    border: 1px solid var(--line);
+  }
+  .photocol {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .link {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.82rem;
+    min-height: 36px;
+    padding: 4px 0;
+    text-align: left;
+  }
+  .link.danger {
+    color: var(--g-grave-ink);
+  }
+  .link.more {
+    margin-top: 10px;
+  }
   .facts {
     display: flex;
     flex-direction: column;
-    gap: 10px;
     margin: 0;
   }
   .facts > div {
@@ -751,15 +817,22 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .facts > div:last-child {
+    border-bottom: none;
   }
   .facts dt {
     color: var(--muted);
-    font-size: 0.82rem;
+    font-size: 0.84rem;
+    flex: none;
   }
   .facts dd {
     margin: 0;
-    font-size: 0.88rem;
-    font-weight: 600;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--ink);
     text-align: right;
     word-break: break-word;
   }
@@ -769,6 +842,36 @@
     margin: 18px 0 10px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+  }
+  .sub2 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin: 14px 0 2px;
+  }
+  .yr {
+    display: inline-block;
+    background: var(--tint);
+    color: var(--ink-soft);
+    border-radius: 999px;
+    padding: 1px 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-right: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .sevsum {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .scrollbox.capped {
+    max-height: 300px;
+    overflow: hidden;
+  }
+  .scrollbox:not(.capped) {
+    max-height: 340px;
+    overflow-y: auto;
   }
   .note {
     color: var(--muted);
@@ -910,9 +1013,9 @@
     /* Fuera la consola: solo la ficha, formal y sin chrome. */
     :global(.console > .side),
     :global(.console > .mnav),
-    :global(.topbar .actions),
+    :global(.topbar),
     .toolbar,
-    .photobar,
+    .photocol .link,
     .pagehead .title,
     .pagehead .eyebrow {
       display: none !important;
@@ -960,10 +1063,27 @@
     }
     .card {
       box-shadow: none;
+    }
+    .kpi,
+    .wlist li,
+    .slist li,
+    .tlist li {
       break-inside: avoid;
     }
     /* La bitácora es interna: nunca sale en el PDF familiar. */
     .trailcard {
+      display: none !important;
+    }
+    /* Llamados y asistencia: página dedicada con TODO el historial. */
+    .warncard,
+    .reportcard {
+      break-before: page;
+    }
+    .scrollbox {
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    .more {
       display: none !important;
     }
   }

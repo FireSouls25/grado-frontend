@@ -248,6 +248,8 @@ export const es = {
     editTitle: 'Editar estudiante',
     caregiverTitle: 'Acudiente',
     viewProfile: 'Ver perfil',
+    showAll: 'Ver todo',
+    showLess: 'Ver menos',
     caregiverRequired: 'El nombre del acudiente es obligatorio.',
     saved: 'Ficha actualizada.',
     classLabel: 'Curso',
