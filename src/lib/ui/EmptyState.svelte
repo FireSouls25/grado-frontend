@@ -7,6 +7,7 @@
     | 'list'
     | 'warn'
     | 'book'
+    | 'cap'
     | 'search' = 'users';
   export let title: string;
   export let body = '';

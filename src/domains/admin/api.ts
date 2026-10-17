@@ -29,7 +29,89 @@ export interface TeacherSummary {
 export interface Subject {
   ID: string;
   Name: string;
+  Code: string;
+  Description: string;
+  Grades: number[];
+  Color: string;
   Active: boolean;
+}
+
+export interface SubjectAssignment {
+  ID: string;
+  TeacherID: string;
+  SubjectID: string;
+  StartedAt: string;
+  EndedAt: string;
+}
+
+/** Catalog ordered alphabetically. Teachers read it to name agenda items. */
+export async function listSubjects(): Promise<Subject[]> {
+  return (await api.get<Subject[]>('/v1/subjects')) ?? [];
+}
+
+/** One catalog entry. */
+export async function subjectDetail(id: string): Promise<Subject> {
+  const s = await api.get<Subject>(`/v1/subjects/${encodeURIComponent(id)}`);
+  if (!s) throw missing('Materia');
+  return { ...s, Grades: s.Grades ?? [] };
+}
+
+export interface SubjectInput {
+  Name: string;
+  Code: string;
+  Description: string;
+  Grades: number[];
+  Color: string;
+}
+
+/** Creates a catalog entry. The service assigns the ID and forces active. */
+export async function createSubject(input: SubjectInput): Promise<Subject> {
+  return api.post<Subject>('/v1/subjects', input);
+}
+
+/** Replaces a catalog entry, including Active (retire = active false). */
+export async function updateSubject(id: string, input: SubjectInput & { Active: boolean }): Promise<Subject> {
+  return api.put<Subject>(`/v1/subjects/${encodeURIComponent(id)}`, input);
+}
+
+/** Deletes a catalog entry. Blocked (400) while assignment history or
+ *  schedule entries reference it — retire instead. */
+export async function deleteSubject(id: string): Promise<void> {
+  return api.del(`/v1/subjects/${encodeURIComponent(id)}`);
+}
+
+/** Who taught a subject and when: the timeline on the materia detail. */
+export async function subjectAssignments(id: string): Promise<SubjectAssignment[]> {
+  return (
+    (await api.get<SubjectAssignment[]>(`/v1/subjects/${encodeURIComponent(id)}/assignments`)) ?? []
+  );
+}
+
+/** A teacher's full assignment timeline: what the teacher ficha shows. */
+export async function teacherAssignments(id: string): Promise<SubjectAssignment[]> {
+  return (
+    (await api.get<SubjectAssignment[]>(`/v1/teachers/${encodeURIComponent(id)}/assignments`)) ?? []
+  );
+}
+
+/** Starts a timeline entry. startedAt is YYYY-MM-DD (defaults to today
+ *  in the UI; the backend requires it). */
+export async function assignSubject(
+  teacherID: string,
+  subjectID: string,
+  startedAt: string
+): Promise<SubjectAssignment> {
+  return api.post<SubjectAssignment>('/v1/assignments', { teacherID, subjectID, startedAt });
+}
+
+/** Closes an open timeline entry at endedAt (YYYY-MM-DD). History kept. */
+export async function endAssignment(id: string, endedAt: string): Promise<SubjectAssignment> {
+  return api.post<SubjectAssignment>(`/v1/assignments/${encodeURIComponent(id)}/end`, { endedAt });
+}
+
+/** Deletes a timeline entry, for corrections only. */
+export async function removeAssignment(id: string): Promise<void> {
+  return api.del(`/v1/assignments/${encodeURIComponent(id)}`);
 }
 
 export interface TeacherDetail extends TeacherSummary {
@@ -61,11 +143,7 @@ export async function teacherDetail(id: string): Promise<TeacherDetail> {
 }
 
 export async function subjects(): Promise<Subject[]> {
-  return (await api.get<Subject[]>('/v1/subjects')) ?? [];
-}
-
-export async function assignSubject(teacherID: string, subjectID: string): Promise<unknown> {
-  return api.post('/v1/assignments', { teacherID, subjectID });
+  return listSubjects();
 }
 
 export interface NewStudent {

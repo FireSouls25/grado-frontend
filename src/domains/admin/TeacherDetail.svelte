@@ -11,7 +11,16 @@
   import Icon from '$lib/ui/Icon.svelte';
   import AdminShell from './AdminShell.svelte';
   import { paletteFor } from '$lib/ui/palette';
-  import { teacherDetail, subjects, assignSubject, updateTeacher, type TeacherDetail } from './api';
+  import {
+    teacherDetail,
+    subjects,
+    assignSubject,
+    teacherAssignments,
+    updateTeacher,
+    type TeacherDetail,
+    type Subject,
+    type SubjectAssignment
+  } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -35,44 +44,85 @@
         state = 'error';
         return;
       }
-      // Subjects/Groups come from pending endpoints (/v1/subjects,
-      // /v1/assignments): the backend profile has neither yet. Default
-      // to honest empties instead of crashing on undefined.length.
+      // Subjects/Groups come from their own endpoints (/v1/subjects,
+      // /v1/teachers/{id}/assignments): the backend profile carries
+      // neither, so both load independently below.
       detail = { ...data, Subjects: data.Subjects ?? [], Groups: data.Groups ?? [] };
       state = 'ready';
     } catch (err) {
       loadError = err;
       state = err instanceof ApiError && isMissing(err) ? 'ready' : 'error';
+      return;
     }
+    // La línea de tiempo de materias no bloquea la ficha: si falla,
+    // la tarjeta pinta vacío honesto.
+    void loadTimeline();
+  }
+
+  let timeline: SubjectAssignment[] = [];
+
+  async function loadTimeline() {
+    try {
+      const [entries, subs] = await Promise.all([
+        guarded(() => teacherAssignments(id)),
+        guarded(() => subjects())
+      ]);
+      timeline = entries ?? [];
+      catalog = subs ?? [];
+      if (detail) {
+        detail = {
+          ...detail,
+          Subjects: timeline
+            .filter((a) => !a.EndedAt || a.EndedAt.startsWith('0001'))
+            .map((a) => ({
+              SubjectID: a.SubjectID,
+              SubjectName: subjectNameOf(a.SubjectID),
+              From: a.StartedAt
+            }))
+        };
+      }
+    } catch {
+      timeline = [];
+    }
+  }
+
+  function subjectNameOf(subjectID: string): string {
+    return catalog.find((s) => s.ID === subjectID)?.Name ?? subjectID.slice(0, 8);
   }
 
   onMount(load);
 
-  async function assign(subjectID: string, subjectName: string) {
+  async function assign(subjectID: string) {
     feedback = '';
+    if (!assignStart) {
+      feedback = $t.subject.startLabel + '…';
+      return;
+    }
     try {
-      await assignSubject(id, subjectID);
-      if (detail) {
-        detail = {
-          ...detail,
-          Subjects: [...detail.Subjects, { SubjectID: subjectID, SubjectName: subjectName, From: '' }]
-        };
-      }
+      await assignSubject(id, subjectID, assignStart);
       assignOpen = false;
+      void loadTimeline();
     } catch (err) {
       feedback = err instanceof ApiError ? err.message : $t.admin.assignFailed;
     }
   }
 
-  let catalog: { ID: string; Name: string }[] = [];
+  let catalog: Subject[] = [];
+  let assignStart = todayISO();
   async function openAssign() {
     feedback = '';
+    assignStart = todayISO();
     try {
       catalog = await subjects();
     } catch {
       catalog = [];
     }
     assignOpen = true;
+  }
+
+  function todayISO(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   // Edición del perfil: el backend aplica solo los campos enviados, así que
@@ -221,13 +271,14 @@
 
 <Sheet open={assignOpen} title={$t.admin.assignSubjectTitle} onClose={() => (assignOpen = false)}>
   {#if feedback}<p class="flash" role="alert">{feedback}</p>{/if}
+  <label class="datelabel">{$t.subject.startLabel}<input type="date" bind:value={assignStart} /></label>
   {#if catalog.length === 0}
     <p class="muted">{$t.admin.noCatalog}</p>
   {:else}
     <ul class="catalog">
       {#each catalog as s (s.ID)}
         <li>
-          <button type="button" on:click={() => assign(s.ID, s.Name)}>
+          <button type="button" on:click={() => assign(s.ID)}>
             <Icon name="book" /><span>{s.Name}</span>
           </button>
         </li>
@@ -446,6 +497,22 @@
   }
   .catalog button:active {
     transform: scale(0.98);
+  }
+  .datelabel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .datelabel input {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    font-size: 0.92rem;
+    width: 100%;
   }
   .flash {
     background: var(--chip-pink-bg);
