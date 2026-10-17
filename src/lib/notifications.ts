@@ -97,7 +97,12 @@ function createEngine() {
     const seen = loadSeen();
     update((s) => {
       const known = new Map(s.notices.map((n) => [n.id, n]));
-      for (const item of items) known.set(item.id, item);
+      for (const item of items) {
+        // Las alertas derivadas se regeneran cada ciclo: conservan su
+        // primer aviso para no revivir el badge eternamente.
+        const prev = known.get(item.id);
+        known.set(item.id, prev ? { ...item, at: prev.at } : item);
+      }
       const notices = [...known.values()].sort((a, b) => b.at - a.at).slice(0, 50);
       return { notices, unread: notices.filter((n) => n.at > seen).length, loading: s.loading };
     });
