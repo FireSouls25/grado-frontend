@@ -26,19 +26,9 @@
 
 ## Pendiente del backend (para encender el flujo docente)
 
-Estos endpoints son los que el frontend ya llama y el backend aún no
-expone; fallan suave a vacíos honestos (`isMissing()`) y se encienden
-solos cuando existan:
-
-- `GET /v1/teachers/me/schedule?weekday=N` — clases del día
-- `GET /v1/classes/{groupID}/roster` — nómina del salón
-- `POST /v1/sessions/open` — abrir llamado a lista
-- `GET /v1/classes?year=N` — salones por año (lo usa el dominio admin)
-- `GET /v1/incidents/recent` — incidentes recientes (la pestaña
-  Historial lo muestra vacío mientras no exista)
-- `GET /v1/dashboard/summary?year=N` — agregados del panel Resumen
-- `POST /v1/users` — alta de cuenta (la tabla `users` ya existe; falta
-  el endpoint). El frontend ya tolera su ausencia como "cuenta pendiente"
+Solo queda la bitácora: `GET /v1/audit` (y escrituras de auditoría)
+aún no existe; la pantalla Bitácora pinta vacío honesto (`isMissing()`)
+y se enciende sola cuando exista.
 
 Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `GET /v1/teachers/{id}`, `GET /v1/subjects`, `GET /v1/subjects/{id}`,
@@ -52,7 +42,10 @@ Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `POST /v1/sessions/{id}/marks`,
 `GET /v1/statistics/class/{groupID}`, `GET /v1/statistics/student/{id}`,
 `GET /v1/students/{id}`, `GET /v1/students/{id}/warnings`,
-`POST /v1/warnings/batch`, `GET /v1/warnings/recent`, `GET /v1/audit`.
+`POST /v1/warnings/batch`, `GET /v1/warnings/recent`,
+`GET /v1/incidents/recent`, `GET /v1/classes?year=N`,
+`GET /v1/classes/{groupID}/roster`, `GET /v1/teachers/me/schedule`,
+`POST /v1/sessions/open`, `GET /v1/dashboard/summary`, `POST /v1/users`.
 
 Notas de los endpoints de edición:
 
