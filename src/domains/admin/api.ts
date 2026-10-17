@@ -261,7 +261,7 @@ export interface AuditEntry {
   ID: string;
   SubjectID: string;
   Action: 'read' | 'create' | 'update' | 'delete' | 'mark';
-  Resource: 'student' | 'warning' | 'session' | 'report' | 'schedule' | 'subject' | 'assignment';
+  Resource: 'student' | 'warning' | 'session' | 'report' | 'schedule' | 'subject' | 'assignment' | 'group';
   ResourceID: string;
   Status: number;
   HappenedAt: string;
@@ -309,6 +309,28 @@ export async function groupsByYear(year: number): Promise<YearGroup[]> {
     ClassLabel: `${g.Grade}-${g.GroupNo}`,
     SchoolYear: year
   }));
+}
+
+export interface NewClassGroup {
+  year: number;
+  grade: number;
+  groupNo: number;
+}
+
+/** Creates a class-group (salón). Duplicates within the year fail 400
+ *  with a stable code; unknown years 404. */
+export async function createClassGroup(input: NewClassGroup): Promise<YearGroup> {
+  const g = await api.post<{ ID: string; SchoolYearID: string; Grade: number; GroupNo: number }>(
+    '/v1/classes',
+    { year: input.year, grade: input.grade, groupNo: input.groupNo }
+  );
+  return {
+    GroupID: g.ID,
+    Grade: g.Grade,
+    GroupNo: g.GroupNo,
+    ClassLabel: `${g.Grade}-${g.GroupNo}`,
+    SchoolYear: input.year
+  };
 }
 
 export interface ClassReport {

@@ -58,6 +58,7 @@
   let teacherEntries: ScheduleEntry[] = [];
 
   $: editingId = entry?.ID ?? null;
+  $: groupLocked = !entry && presetGroupID !== '' && groups.some((g) => g.GroupID === presetGroupID);
 
   // Al abrir se parte del bloque (edición) o de los presets (creación).
   $: if (open) {
@@ -143,9 +144,9 @@
   $: groupClashes = collisions.filter((e) => e.ClassGroupID === groupID);
   $: unassigned = subjectID !== '' && teacherID !== '' && !assignedIDs.includes(teacherID);
 
-  $: dayNames = [...$t.admin.scheduleWeekdays, ...$t.admin.scheduleWeekend];
-  $: dayLabel = (w: number) => dayNames[w === 0 ? 6 : w - 1] ?? '';
   $: groupLabel = (id: string) => groups.find((g) => g.GroupID === id)?.ClassLabel ?? id.slice(0, 8);
+  $: dayLabel = (w: number) => dayNames[w === 0 ? 6 : w - 1] ?? '';
+  $: dayNames = [...$t.admin.scheduleWeekdays, ...$t.admin.scheduleWeekend];
   $: subjectOf = (id: string) => subjects.find((s) => s.ID === id);
   $: teacherName = (id: string) => {
     const found = teachers.find((x) => x.ID === id);
@@ -206,7 +207,7 @@
 </script>
 
 <Sheet
-  open
+  open={open}
   title={entry ? $t.admin.entryEditTitle : $t.admin.entryAddTitle}
   onClose={() => {
     phase = 'edit';
@@ -248,13 +249,19 @@
     </div>
   {:else}
     <div class="form">
-      <Dropdown
-        label={$t.admin.entryGroup}
-        value={groupID}
-        disabled={presetGroupID !== '' && !entry}
-        options={[{ value: '', label: '—' }, ...groups.map((g) => ({ value: g.GroupID, label: g.ClassLabel }))]}
+      {#if groupLocked}
+        <div class="locked">
+          <span class="cap">{$t.admin.entryGroup}</span>
+          <span class="lockval">{groupLabel(groupID)}</span>
+        </div>
+      {:else}
+        <Dropdown
+          label={$t.admin.entryGroup}
+          value={groupID}
+          options={[{ value: '', label: '—' }, ...groups.map((g) => ({ value: g.GroupID, label: g.ClassLabel }))]}
         on:select={(e) => (groupID = e.detail)}
       />
+      {/if}
       <Dropdown
         label={$t.admin.entrySubject}
         value={subjectID}
@@ -389,6 +396,27 @@
   .hint.warn {
     color: var(--g-grave-ink);
     font-weight: 600;
+  }
+  .locked {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .locked .cap {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .lockval {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    font-weight: 700;
+    font-size: 0.92rem;
   }
   .summary {
     list-style: none;

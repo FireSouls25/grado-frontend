@@ -306,7 +306,8 @@ export const es = {
       report: 'Informe',
       schedule: 'Bloque de horario',
       subject: 'Materia',
-      assignment: 'Asignación'
+      assignment: 'Asignación',
+      group: 'Salón'
     }
   },
   audit: {
@@ -454,6 +455,11 @@ export const es = {
     scheduleManualBody:
       'El horario no se genera solo: cada bloque lo coloca el administrador eligiendo docente y materia.',
     newStudent: 'Nuevo estudiante',
+    newSalon: 'Nuevo salón',
+    newSalonTitle: 'Nuevo salón',
+    salonGradeLabel: 'Grado (1 a 11)',
+    salonGroupLabel: 'Número del grupo',
+    createdSalon: 'Salón creado.',
     newTeacher: 'Nuevo docente',
     formNames: 'Nombres',
     formSurnames: 'Apellidos',

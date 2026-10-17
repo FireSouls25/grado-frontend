@@ -7,9 +7,10 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
+  import Toast from '$lib/ui/Toast.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
-  import { groupsByYear, createStudent, classReport, warningsRecent, teachers, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
+  import { groupsByYear, createStudent, createClassGroup, classReport, warningsRecent, teachers, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -27,6 +28,12 @@
   let saving = false;
   let feedback = '';
   let form = freshForm();
+  let creatingSalon = false;
+  let savingSalon = false;
+  let salonFeedback = '';
+  let toast = '';
+  let salonGrade = '';
+  let salonGroup = '';
   let report: ClassReport | null = null;
   let reportLoading = false;
   let warns: RecentWarning[] = [];
@@ -213,6 +220,30 @@
   $: loadingReports = groups.length > 0 && !reportsDone;
   $: pickedEmpty = picked !== null && !reportLoading && visibleRoster.length === 0;
 
+  async function saveSalon() {
+    salonFeedback = '';
+    const grade = Number(salonGrade);
+    const groupNo = Number(salonGroup);
+    if (!Number.isInteger(grade) || grade < 1 || grade > 11 || !Number.isInteger(groupNo) || groupNo < 1) {
+      salonFeedback = $t.admin.formRequired;
+      return;
+    }
+    savingSalon = true;
+    try {
+      const created = await createClassGroup({ year, grade, groupNo });
+      await load();
+      picked = groups.find((g) => g.GroupID === created.GroupID) ?? created;
+      salonGrade = '';
+      salonGroup = '';
+      creatingSalon = false;
+      toast = $t.admin.createdSalon;
+    } catch (err) {
+      salonFeedback = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      savingSalon = false;
+    }
+  }
+
   async function save() {
     feedback = '';
     saving = true;
@@ -252,6 +283,9 @@
       <strong>{year}</strong>
       <button type="button" class="icon-btn" on:click={() => changeYear(1)} aria-label={$t.a11y.nextYear}>
         <Icon name="next" />
+      </button>
+      <button type="button" class="new ghost-new" on:click={() => { creatingSalon = true; salonFeedback = ''; }}>
+        {$t.admin.newSalon}
       </button>
       <button type="button" class="new" on:click={() => { creating = true; feedback = ''; }}>
         {$t.admin.newStudent}
@@ -365,6 +399,20 @@
   </div>
 </AdminShell>
 
+<Sheet open={creatingSalon} title={$t.admin.newSalonTitle} onClose={() => (creatingSalon = false)}>
+  <form class="form" on:submit|preventDefault={saveSalon}>
+    <p class="muted">{year}</p>
+    <div class="row2">
+      <label>{$t.admin.salonGradeLabel}<input bind:value={salonGrade} inputmode="numeric" pattern="[0-9]*" autocomplete="off" /></label>
+      <label>{$t.admin.salonGroupLabel}<input bind:value={salonGroup} inputmode="numeric" pattern="[0-9]*" autocomplete="off" /></label>
+    </div>
+    {#if salonFeedback}<p class="flash" role="status">{salonFeedback}</p>{/if}
+    <button class="primary" type="submit" disabled={savingSalon}>
+      {savingSalon ? '…' : $t.admin.formCreate}
+    </button>
+  </form>
+</Sheet>
+
 <Sheet open={creating} title={$t.admin.newStudent} onClose={() => (creating = false)}>
   <form class="form" on:submit|preventDefault={save}>
     <div class="row2">
@@ -386,6 +434,8 @@
     </button>
   </form>
 </Sheet>
+
+<Toast message={toast} onClose={() => (toast = '')} />
 
 <style>
   .pagehead {
@@ -445,6 +495,11 @@
   }
   .new:active {
     transform: scale(0.97);
+  }
+  .ghost-new {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink);
   }
   .form {
     display: flex;
