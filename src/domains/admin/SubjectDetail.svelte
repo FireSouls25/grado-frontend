@@ -220,7 +220,7 @@
       return;
     }
     try {
-      await assignSubject(subject.ID, assignTeacher, assignStart);
+      await assignSubject(assignTeacher, subject.ID, assignStart);
       assigning = false;
       void loadTimeline();
     } catch (err) {
