@@ -221,6 +221,25 @@ export async function createStudent(input: NewStudent): Promise<{ ID: string }> 
   return api.post<{ ID: string }>('/v1/students', { ...input, Birthdate: birthdate });
 }
 
+export interface StudentPhoto {
+  data: string;
+  contentType: string;
+}
+
+/** Stored photo as a data URL, or null when the student has none. */
+export async function studentPhoto(id: string): Promise<StudentPhoto | null> {
+  try {
+    return await api.get<StudentPhoto>(`/v1/students/${encodeURIComponent(id)}/photo`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+/** Stores (or clears, when empty) the student photo. */
+export async function uploadPhoto(id: string, data: string): Promise<void> {
+  await api.put(`/v1/students/${encodeURIComponent(id)}/photo`, { data });
+}
 /** Full profile of one student: 25 fields the class report never carries. */
 export async function studentProfile(id: string): Promise<StudentProfile> {
   const p = await api.get<StudentProfile>(`/v1/students/${encodeURIComponent(id)}`);

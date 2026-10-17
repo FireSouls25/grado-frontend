@@ -16,6 +16,8 @@
     studentReport,
     studentWarnings,
     updateStudent,
+    studentPhoto,
+    uploadPhoto,
     type AuditEntry
   } from './api';
   import type { StudentProfile, Warning } from '$lib/api/types';
@@ -28,6 +30,11 @@
   $: studentID = decodeURIComponent(params.id ?? '');
 
   const currentYear = new Date().getFullYear();
+  const printDate = new Date().toLocaleDateString('es-CO', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  });
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let loadError: unknown = null;
@@ -36,6 +43,9 @@
   let report: Awaited<ReturnType<typeof studentReport>> | null = null;
   let reportDenied = false;
   let trail: AuditEntry[] = [];
+  let photoUrl: string | null = null;
+  let photoError = '';
+  let photoInput: HTMLInputElement | null = null;
 
   async function load() {
     state = 'loading';
@@ -60,7 +70,59 @@
     void loadWarnings();
     void loadReport();
     void loadTrail();
+    void loadPhoto();
   }
+
+  async function loadPhoto() {
+    photoUrl = null;
+    try {
+      const photo = await guarded(() => studentPhoto(studentID));
+      if (photo) photoUrl = `data:${photo.contentType};base64,${photo.data}`;
+    } catch (err) {
+      console.warn('student photo unavailable', err);
+      photoUrl = null;
+    }
+  }
+
+  async function onPhotoPicked(e: Event) {
+    photoError = '';
+    const file = (e.currentTarget as HTMLInputElement).files?.[0];
+    if (photoInput) photoInput.value = '';
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      photoError = $t.studentDetail.photoTooLarge;
+      return;
+    }
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      await uploadPhoto(studentID, dataUrl);
+      photoUrl = dataUrl;
+    } catch (err) {
+      photoError = err instanceof ApiError ? err.message : $t.common.loadError;
+    }
+  }
+
+  async function removePhoto() {
+    photoError = '';
+    try {
+      await uploadPhoto(studentID, '');
+      photoUrl = null;
+    } catch (err) {
+      photoError = err instanceof ApiError ? err.message : $t.common.loadError;
+    }
+  }
+
+  function warningYear(w: Warning): number | null {
+    const d = new Date(w.HappenedAt);
+    return Number.isNaN(d.getTime()) ? null : d.getFullYear();
+  }
+
+  $: orderedWarnings = [...warnings].sort((a, b) => b.HappenedAt.localeCompare(a.HappenedAt));
 
   async function loadWarnings() {
     try {
@@ -246,9 +308,20 @@
         <button type="button" class="mini" on:click={startEdit}>
           <Icon name="settings" /> {$t.studentDetail.editAction}
         </button>
+        <button type="button" class="mini" on:click={() => window.print()}>
+          <Icon name="print" /> {$t.studentDetail.exportPdf}
+        </button>
       </div>
     {/if}
   </div>
+
+  {#if profile}
+    <div class="print-head" aria-hidden="true">
+      <p class="print-school">{$t.admin.schoolName}</p>
+      <h1>{fullName}</h1>
+      <p class="muted">{$t.studentDetail.title} · {printDate}</p>
+    </div>
+  {/if}
 
   <div class="sheet">
     {#if state === 'loading'}
@@ -261,12 +334,36 @@
       <div class="grid">
         <aside class="card">
           <div class="idblock">
-            <span class="avatar" aria-hidden="true">{initials}</span>
+            {#if photoUrl}
+              <img class="photo" src={photoUrl} alt={fullName} />
+            {:else}
+              <span class="avatar" aria-hidden="true">{initials}</span>
+            {/if}
             <div>
               <strong>{fullName}</strong>
               <small>{profile.DocumentID || $t.common.noData}</small>
             </div>
           </div>
+          <div class="photobar">
+            <button type="button" class="link" on:click={() => photoInput?.click()}>
+              {$t.studentDetail.photoChange}
+            </button>
+            {#if photoUrl}
+              <button type="button" class="link danger" on:click={removePhoto}>
+                {$t.studentDetail.photoRemove}
+              </button>
+            {/if}
+            <input
+              bind:this={photoInput}
+              type="file"
+              accept="image/*"
+              hidden
+              aria-hidden="true"
+              tabindex="-1"
+              on:change={onPhotoPicked}
+            />
+          </div>
+          {#if photoError}<p class="flash error" role="alert">{photoError}</p>{/if}
 
           <dl class="facts">
             <div><dt>{$t.studentDetail.classLabel}</dt><dd>{profile.ClassID || '—'}</dd></div>
@@ -303,6 +400,48 @@
           {#if profile.DiversityCondition}
             <p class="note">{$t.studentDetail.diversityLabel}: {profile.DiversityCondition}</p>
           {/if}
+
+          <h2 class="sub">{$t.studentDetail.familyTitle}</h2>
+          {#each [
+            { title: $t.studentDetail.motherTitle, g: profile.Mother },
+            { title: $t.studentDetail.fatherTitle, g: profile.Father },
+            { title: $t.studentDetail.caregiverTitle, g: profile.Caregiver }
+          ] as row}
+            {#if row.g && (row.g.Names || row.g.DocumentID || row.g.Phone)}
+              <h3 class="sub2">{row.title}</h3>
+              <dl class="facts">
+                {#if row.g.Names}<div><dt>{$t.studentDetail.guardianNames}</dt><dd>{row.g.Names}</dd></div>{/if}
+                {#if row.g.DocumentID}<div><dt>{$t.studentDetail.guardianDocument}</dt><dd>{row.g.DocumentID}</dd></div>{/if}
+                {#if row.g.Phone}<div><dt>{$t.studentDetail.guardianPhone}</dt><dd>{row.g.Phone}</dd></div>{/if}
+                {#if row.g.Occupation}<div><dt>{$t.studentDetail.guardianOccupation}</dt><dd>{row.g.Occupation}</dd></div>{/if}
+                {#if row.g.Address}<div><dt>{$t.studentDetail.guardianAddress}</dt><dd>{row.g.Address}</dd></div>{/if}
+              </dl>
+            {/if}
+          {/each}
+          {#if profile.LivesWith}
+            <p class="note">{$t.studentDetail.livesWithLabel}: {profile.LivesWith}</p>
+          {/if}
+          {#if (profile.Siblings ?? []).length > 0}
+            <h3 class="sub2">{$t.studentDetail.siblingsTitle}</h3>
+            <ul class="siblist">
+              {#each profile.Siblings ?? [] as s}
+                <li>{s.Name}{#if s.ClassID} · {s.ClassID}{/if}</li>
+              {/each}
+            </ul>
+          {/if}
+
+          <h2 class="sub">{$t.studentDetail.schoolTitle}</h2>
+          <dl class="facts">
+            <div>
+              <dt>{$t.studentDetail.statusLabel}</dt>
+              <dd>{profile.IsNew ? $t.studentDetail.isNewYes : $t.studentDetail.isNewNo}</dd>
+            </div>
+            {#if profile.PreviousSchool}<div><dt>{$t.studentDetail.previousSchoolLabel}</dt><dd>{profile.PreviousSchool}</dd></div>{/if}
+            {#if profile.TransferReason}<div><dt>{$t.studentDetail.transferReasonLabel}</dt><dd>{profile.TransferReason}</dd></div>{/if}
+          </dl>
+          {#if (profile.RepeatCount ?? 0) > 0}
+            <p class="note">{$t.studentDetail.repeatCountLabel(profile.RepeatCount)}</p>
+          {/if}
         </aside>
 
         <div class="col">
@@ -315,13 +454,14 @@
               <EmptyState icon="warn" title={$t.studentDetail.noWarningsTitle} body={$t.studentDetail.noWarningsBody} />
             {:else}
               <ul class="wlist">
-                {#each warnings as w (w.ID)}
+                {#each orderedWarnings as w (w.ID)}
                   <li>
                     <span class={`sev ${gravityClass(w.Gravity)}`}>{severityLabel(w.Gravity)}</span>
                     <div class="wtext">
                       <strong>{w.Title}</strong>
                       {#if w.Description}<p>{w.Description}</p>{/if}
                       <small>
+                        {#if warningYear(w) !== null}<span class="yr">{$t.studentDetail.warningYear(warningYear(w) ?? 0)}</span>{/if}
                         {moment(w.HappenedAt)}
                         {#if w.Snapshot?.CaregiverName} · {$t.studentDetail.caregiverLabel}: {w.Snapshot.CaregiverName}{/if}
                       </small>
@@ -366,7 +506,7 @@
             {/if}
           </section>
 
-          <section class="card">
+          <section class="card trailcard">
             <div class="card-head">
               <h2>{$t.studentDetail.trailTitle}</h2>
               <span class="count">{trail.length}</span>
@@ -392,6 +532,9 @@
       </div>
     {/if}
   </div>
+  {#if profile}
+    <p class="print-foot" aria-hidden="true">{$t.studentDetail.printNote} · {printDate}</p>
+  {/if}
 </AdminShell>
 
 <Sheet open={editing && form !== null} title={$t.studentDetail.editTitle} onClose={() => (editing = false)}>
@@ -754,5 +897,74 @@
   .slist .muted {
     color: var(--muted);
     flex: 1;
+  }
+  .print-head,
+  .print-foot {
+    display: none;
+  }
+  @media print {
+    @page {
+      size: A4;
+      margin: 16mm;
+    }
+    /* Fuera la consola: solo la ficha, formal y sin chrome. */
+    :global(.console > .side),
+    :global(.console > .mnav),
+    :global(.topbar .actions),
+    .toolbar,
+    .photobar,
+    .pagehead .title,
+    .pagehead .eyebrow {
+      display: none !important;
+    }
+    .pagehead {
+      margin-bottom: 4px;
+    }
+    .print-head {
+      display: block;
+      border-bottom: 2px solid #111;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .print-head h1 {
+      font-size: 1.6rem;
+      margin: 2px 0;
+    }
+    .print-school {
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .print-foot {
+      display: block;
+      margin-top: 16px;
+      padding-top: 8px;
+      border-top: 1px solid #999;
+      font-size: 0.75rem;
+      color: #555;
+    }
+    .sheet {
+      background: none;
+      border: 0;
+      padding: 0;
+    }
+    .grid {
+      display: flex;
+      flex-direction: column;
+    }
+    .grid > aside,
+    .grid > .col {
+      width: 100%;
+      min-width: 0;
+    }
+    .card {
+      box-shadow: none;
+      break-inside: avoid;
+    }
+    /* La bitácora es interna: nunca sale en el PDF familiar. */
+    .trailcard {
+      display: none !important;
+    }
   }
 </style>

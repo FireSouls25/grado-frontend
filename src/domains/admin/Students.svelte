@@ -386,6 +386,7 @@
               >
                 <span class="who">
                   <strong>{s.Surnames} {s.Names}</strong>
+                  <span class="seemore">{$t.studentDetail.viewProfile} ›</span>
                   {#if !picked || s.calls > 0}
                     <small>
                       {#if !picked}<span class="countchip">{s.group}</span>{/if}
@@ -877,6 +878,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .seemore {
+    color: var(--accent);
+    font-size: 0.76rem;
+    font-weight: 700;
   }
   .ledger .who small {
     color: var(--muted);
