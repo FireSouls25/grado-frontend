@@ -33,8 +33,6 @@ solos cuando existan:
 - `GET /v1/teachers/me/schedule?weekday=N` — clases del día
 - `GET /v1/classes/{groupID}/roster` — nómina del salón
 - `POST /v1/sessions/open` — abrir llamado a lista
-- `GET /v1/subjects` y `POST /v1/assignments` — catálogo/asignación de
-  materias (usados por la ficha docente)
 - `GET /v1/classes?year=N` — salones por año (lo usa el dominio admin)
 - `GET /v1/incidents/recent` — incidentes recientes (la pestaña
   Historial lo muestra vacío mientras no exista)
@@ -43,7 +41,10 @@ solos cuando existan:
   el endpoint). El frontend ya tolera su ausencia como "cuenta pendiente"
 
 Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
-`GET /v1/teachers/{id}`, `POST /v1/students`, `PUT /v1/students/{id}`,
+`GET /v1/teachers/{id}`, `GET /v1/subjects`, `GET /v1/subjects/{id}`,
+`POST /v1/subjects`, `PUT /v1/subjects/{id}`,
+`DELETE /v1/subjects/{id}`, `GET /v1/subjects/{id}/assignments`,
+`POST /v1/assignments`, `POST /v1/students`, `PUT /v1/students/{id}`,
 `POST /v1/teachers`, `PUT /v1/teachers/{id}`,
 `POST /v1/sessions/{id}/marks`,
 `GET /v1/statistics/class/{groupID}`, `GET /v1/statistics/student/{id}`,
