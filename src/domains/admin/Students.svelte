@@ -804,11 +804,13 @@
       background-color 0.15s ease,
       transform 0.1s ease;
   }
-  /* Columnas alineadas: nombre + 3 conteos + tasa. */
+  /* Columnas alineadas: nombre + 3 conteos + tasa. Pistas fijas
+     compartidas (nunca `auto` por contenido): palabras anchas en la
+     cabecera y dígitos en las filas medirían distinto. */
   .stu.cols {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(3, minmax(40px, auto)) minmax(64px, auto);
-    gap: 6px 12px;
+    grid-template-columns: minmax(0, 1fr) repeat(3, 44px) 84px;
+    gap: 6px 10px;
   }
   .colhead {
     display: none;
@@ -818,8 +820,8 @@
   }
   .colhead li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(3, minmax(40px, auto)) minmax(64px, auto);
-    gap: 6px 12px;
+    grid-template-columns: minmax(0, 1fr) repeat(3, 44px) 84px;
+    gap: 6px 10px;
     color: var(--muted);
     font-size: 0.7rem;
     font-weight: 700;
@@ -836,8 +838,9 @@
     .colhead {
       display: block;
     }
-    .stu.cols {
-      grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(90px, 0.5fr)) minmax(110px, 0.7fr);
+    .stu.cols,
+    .colhead li {
+      grid-template-columns: minmax(0, 1fr) repeat(3, 120px) 150px;
     }
   }
   .c-stat {
@@ -883,8 +886,8 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
-    flex: none;
-    min-width: 76px;
+    width: 100%;
+    min-width: 0;
   }
   .rateblock strong {
     font-variant-numeric: tabular-nums;
