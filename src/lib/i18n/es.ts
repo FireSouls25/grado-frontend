@@ -308,6 +308,17 @@ export const es = {
       group: 'Salón'
     }
   },
+  notifications: {
+    title: 'Avisos',
+    markAllRead: 'Marcar leídos',
+    emptyTitle: 'Sin avisos',
+    emptyBody: 'Cuando haya actividad o algo requiera tu atención, aparecerá aquí.',
+    deniedSuffix: ' · denegado',
+    bareSubjectsTitle: 'Materias sin docente',
+    scheduleChangedTitle: 'Tu horario cambió',
+    scheduleChangedBody: (count: number, day: string) =>
+      count === 1 ? `1 clase el ${day}` : `${count} clases el ${day}`
+  },
   audit: {
     title: 'Bitácora de accesos',
     navLabel: 'Bitácora',
