@@ -114,6 +114,55 @@ export async function removeAssignment(id: string): Promise<void> {
   return api.del(`/v1/assignments/${encodeURIComponent(id)}`);
 }
 
+export interface ScheduleEntry {
+  ID: string;
+  ClassGroupID: string;
+  TeacherID: string;
+  SubjectID: string;
+  Weekday: number;
+  Start: number;
+  End: number;
+}
+
+export interface ScheduleInput {
+  classGroupID: string;
+  teacherID: string;
+  subjectID: string;
+  weekday: number;
+  start: string;
+  end: string;
+}
+
+/** Weekly slots filtered by teacher and/or salon, optionally one weekday.
+ *  At least one of teacherID/classGroupID is required (no full dump). */
+export async function scheduleEntries(filter: {
+  teacherID?: string;
+  classGroupID?: string;
+  weekday?: number;
+}): Promise<ScheduleEntry[]> {
+  const q = new URLSearchParams();
+  if (filter.teacherID) q.set('teacherID', filter.teacherID);
+  if (filter.classGroupID) q.set('classGroupID', filter.classGroupID);
+  if (filter.weekday !== undefined) q.set('weekday', String(filter.weekday));
+  return (await api.get<ScheduleEntry[]>(`/v1/schedule?${q.toString()}`)) ?? [];
+}
+
+/** Places one weekly slot. Overlaps, out-of-hours and untaught pairings
+ *  fail with stable 400 codes the editor renders inline. */
+export async function createEntry(input: ScheduleInput): Promise<ScheduleEntry> {
+  return api.post<ScheduleEntry>('/v1/schedule', input);
+}
+
+/** Replaces one weekly slot, re-checking everything. */
+export async function updateEntry(id: string, input: ScheduleInput): Promise<ScheduleEntry> {
+  return api.put<ScheduleEntry>(`/v1/schedule/${encodeURIComponent(id)}`, input);
+}
+
+/** Removes one weekly slot. */
+export async function deleteEntry(id: string): Promise<void> {
+  return api.del(`/v1/schedule/${encodeURIComponent(id)}`);
+}
+
 export interface TeacherDetail extends TeacherSummary {
   Phone: string;
   Email: string;

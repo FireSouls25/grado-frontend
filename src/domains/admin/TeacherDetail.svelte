@@ -16,11 +16,20 @@
     subjects,
     assignSubject,
     teacherAssignments,
+    subjectAssignments,
+    teachers,
+    scheduleEntries,
+    groupsByYear,
     updateTeacher,
     type TeacherDetail,
     type Subject,
-    type SubjectAssignment
+    type SubjectAssignment,
+    type ScheduleEntry,
+    type TeacherSummary,
+    type YearGroup
   } from './api';
+  import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
+  import { WEEK_ORDER, rangeLabel } from '$lib/schedule';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -57,7 +66,55 @@
     // La línea de tiempo de materias no bloquea la ficha: si falla,
     // la tarjeta pinta vacío honesto.
     void loadTimeline();
+    void loadClasses();
   }
+
+  let teacherEntries: ScheduleEntry[] = [];
+  let groupsAll: YearGroup[] = [];
+  let sheetTeachers: TeacherSummary[] = [];
+  let classSheetOpen = false;
+  let editingEntry: ScheduleEntry | null = null;
+
+  async function loadClasses() {
+    try {
+      const [entries, fetchedGroups, fetchedTeachers, subs] = await Promise.all([
+        guarded(() => scheduleEntries({ teacherID: id })),
+        guarded(() => groupsByYear(currentYear)),
+        guarded(() => teachers()),
+        guarded(() => subjects())
+      ]);
+      teacherEntries = (entries ?? []).sort(
+        (a, b) => a.Weekday - b.Weekday || a.Start - b.Start
+      );
+      groupsAll = fetchedGroups ?? [];
+      sheetTeachers = fetchedTeachers ?? [];
+      catalog = subs ?? catalog;
+    } catch {
+      teacherEntries = [];
+    }
+  }
+
+  async function fetchAssigned(subjectID: string): Promise<string[]> {
+    try {
+      const timeline = await subjectAssignments(subjectID);
+      return timeline.filter((a) => !a.EndedAt || a.EndedAt.startsWith('0001')).map((a) => a.TeacherID);
+    } catch {
+      return [];
+    }
+  }
+
+  async function fetchTeacherEntries(): Promise<ScheduleEntry[]> {
+    return teacherEntries;
+  }
+
+  $: classDayNames = [...$t.admin.scheduleWeekdays, ...$t.admin.scheduleWeekend];
+  $: classDayLabel = (w: number) => classDayNames[w === 0 ? 6 : w - 1] ?? '';
+  $: classGroupLabel = (gid: string) =>
+    groupsAll.find((g) => g.GroupID === gid)?.ClassLabel ?? gid.slice(0, 8);
+  $: subjectMeta = (sid: string) => {
+    const s = catalog.find((x) => x.ID === sid);
+    return { name: s?.Name ?? sid.slice(0, 8), color: s?.Color || 'var(--muted)' };
+  };
 
   let timeline: SubjectAssignment[] = [];
 
@@ -265,6 +322,47 @@
         </ul>
       {/if}
     </section>
+
+    <section class="card" aria-label={$t.admin.teacherClassesTitle}>
+      <div class="row-head">
+        <h2>{$t.admin.teacherClassesTitle}</h2>
+        <button
+          type="button"
+          class="mini"
+          on:click={() => {
+            editingEntry = null;
+            classSheetOpen = true;
+          }}
+        >
+          {$t.admin.entryAdd}
+        </button>
+      </div>
+      {#if teacherEntries.length === 0}
+        <EmptyState icon="calendar" title={$t.admin.noClassesTitle} body={$t.admin.noClassesBody} />
+      {:else}
+        <ul class="classes">
+          {#each teacherEntries as e (e.ID)}
+            <li>
+              <button
+                type="button"
+                class="cls"
+                on:click={() => {
+                  editingEntry = e;
+                  classSheetOpen = true;
+                }}
+              >
+                <span class="dot" style={`background:${subjectMeta(e.SubjectID).color}`}></span>
+                <span class="clsmain">
+                  <strong>{subjectMeta(e.SubjectID).name}</strong>
+                  <small>{classGroupLabel(e.ClassGroupID)} · {classDayLabel(e.Weekday)}</small>
+                </span>
+                <span class="time">{rangeLabel(e.Start, e.End)}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
   {/if}
   </div>
 </AdminShell>
@@ -286,6 +384,25 @@
     </ul>
   {/if}
 </Sheet>
+
+<!-- Mismo editor que el tablero: una sola vía para que ambas vistas coincidan. -->
+<ScheduleEntrySheet
+  open={classSheetOpen}
+  entry={editingEntry}
+  groups={groupsAll}
+  subjects={catalog}
+  teachers={sheetTeachers}
+  presetTeacherID={id}
+  contextEntries={teacherEntries}
+  {fetchAssigned}
+  {fetchTeacherEntries}
+  onSaved={() => {
+    classSheetOpen = false;
+    editingEntry = null;
+    void loadClasses();
+  }}
+  onClose={() => (classSheetOpen = false)}
+/>
 
 <Sheet open={editing} title={$t.teacherDetail.editTitle} onClose={() => (editing = false)}>
   <form class="form" on:submit|preventDefault={saveEdit}>
@@ -497,6 +614,59 @@
   }
   .catalog button:active {
     transform: scale(0.98);
+  }
+  .classes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cls {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 14px;
+    min-height: 56px;
+  }
+  .cls:active {
+    transform: scale(0.99);
+  }
+  .dot {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+  }
+  .clsmain {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .clsmain strong {
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .clsmain small {
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+  .time {
+    flex: none;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
   }
   .datelabel {
     display: flex;
