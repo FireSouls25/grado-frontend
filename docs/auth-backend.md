@@ -2,42 +2,43 @@
 
 Documentación de referencia. No se modificó `school-backend/`.
 
-## Estado real (tras el commit backend "Add user auth")
+## Estado real (login con tokens)
 
 - **Sí existe** la capability `users`: tabla `users` con `username`,
-  `email`, `password_hash` (bcrypt), `active`. Ver
+  `email`, `password_hash` (bcrypt), `active` y `teacher_id`. Ver
   `school-backend/docs/users.md`.
 - `User.ID` **es** el subject que consume el sistema de roles.
-- **No existe todavía** ningún endpoint de login/token: no hay
-  `POST /v1/login`, ni `logout`, ni `refresh`, ni uso de `Authorization`.
-  La identidad sigue viajando en el header `X-Subject-ID`.
+- **Sí existe** `POST /v1/login {identifier, password}` →
+  `200 {token, expiresAt, subject, roles, home}` (HS256, 12h por
+  defecto). Identificador desconocido, clave errada y cuenta inactiva
+  comparten el 401 `users.err_invalid_credentials`.
+- Throttling: 10 intentos por identificador+IP y minuto (429
+  `http.err_rate_limited`).
+- La identidad viaja como `Authorization: Bearer <token>`; el header
+  `X-Subject-ID` solo se acepta en desarrollo (y tests), nunca en
+  producción.
 - El admin raíz se crea al arrancar con `BOOTSTRAP_ADMIN_USERNAME` +
   `BOOTSTRAP_ADMIN_PASSWORD` (+ `BOOTSTRAP_ADMIN_EMAIL` opcional), y su
-  rol admin se re-asegura en cada boot. `SEED_ADMINS` / `SEED_TEACHERS`
-  siguen funcionando para Roles sobre UUIDs de subjects.
-- `users.Service` (`Authenticate`, `Create`, `SetPassword`, `SetActive`)
-  ya existe y está testeado: lo que falta es la capa HTTP.
+  rol admin se re-asegura en cada boot. En producción `AUTH_SECRET` es
+  obligatorio (el arranque falla sin él); en desarrollo vacío significa
+  secreto aleatorio por arranque.
+- Los roles ya viven en Postgres (`role_grants`): sobreviven reinicios.
 
-## Qué sigue en el login del frontend (mockup)
+## Login del frontend (real, sin mockup)
 
-- `src/domains/auth/accounts.ts` sigue siendo el directorio dev
-  (`admin`, `carlos.mendoza`); la contraseña se compara en el cliente y
-  nunca viaja al backend.
-- `session.ts` guarda solo el id del sujeto; `client.ts` manda
-  `X-Subject-ID`. No hay soporte de token en código.
-- Hueco conocido: escribir un UUID crudo como identificador crea una
-  cuenta con contraseña vacía y `checkDevPassword` la acepta.
+- `Login.svelte` llama `POST /v1/login`; el mock `accounts.ts` se
+  eliminó: no quedan credenciales en el cliente.
+- `session.ts` guarda el token (`grado.token`); `client.ts` manda
+  `Authorization: Bearer`. El vencimiento cae a `/login` vía
+  `guarded()` (401).
 
-## Cuando exista `POST /v1/login` (cambios solo de frontend)
+## Pendiente (fase de login, sin tocar)
 
-1. `accounts.ts`: borrar el directorio dev.
-2. `Login.svelte`: sustituir `resolveDevAccount`/`checkDevPassword` por
-   `POST /v1/login {"identifier","password"}`; mapear
-   `users.err_invalid_credentials` a un mensaje único.
-3. `session.ts`: guardar token + expiración (`grado.token`).
-4. `client.ts`: `Authorization: Bearer <token>`; mantener
-   `X-Subject-ID` solo con `VITE_DEV_SUBJECT_ID` (modo dev).
-5. `guarded()` en `lib/nav.ts` no cambia: `401`/`403` ya están resueltos.
+- `POST /v1/refresh` y revocación (denylist): hoy logout es descartar
+  el token en el cliente y el vencimiento lo invalida en el servidor.
+- Nombre del docente en la cabecera y alta con docente por HTTP.
+- Auditoría y throttling distribuido del login (pendientes de Ley 1581;
+  el throttling actual es en memoria, por instancia).
 
 ## Bloqueos de dominio docente en el backend (pendientes, sin tocar)
 

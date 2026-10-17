@@ -30,8 +30,6 @@ export const es = {
     signingIn: 'Entrando…',
     missingCredentials: 'Escribe tu usuario y tu contraseña para continuar.',
     invalidPassword: 'La contraseña no coincide. Intenta de nuevo.',
-    unknownAccount:
-      'No encontramos esa cuenta. Revisa tu correo o usuario.',
     features: [
       {
         title: 'Lista en segundos',

@@ -43,8 +43,8 @@ Colores solo vía `var(--*)` (global.css); textos UI solo vía `t` (es.ts).
 ## API desde el principio
 
 Base en `VITE_API_URL` (`.env`, sensible fuera del repo; `.env.example`
-documenta las claves). El cliente envía `X-Subject-ID` desde la sesión
-(`VITE_DEV_SUBJECT_ID` solo como conveniencia dev) y traduce errores al
+documenta las claves). El cliente envía `Authorization: Bearer <token>`
+desde la sesión (login real contra `POST /v1/login`) y traduce errores al
 contrato del backend: 401 → login, 403 → atrás o home del rol
 (`lib/nav.ts`). Endpoints usados hoy: `GET /v1/me`. Los de horario,
 lista, apertura de sesión y lote de llamados aún no existen en el

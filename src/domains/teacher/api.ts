@@ -7,6 +7,21 @@ export async function me(): Promise<Me> {
   return api.get<Me>('/v1/me');
 }
 
+export interface LoginResult {
+  token: string;
+  expiresAt: string;
+  subject: string;
+  roles: string[];
+  home: string;
+}
+
+/** Real login: credentials travel to the backend, which verifies the
+ *  bcrypt hash server-side and returns a bearer for later calls.
+ *  Unknown identifier and wrong password share one 401 code. */
+export async function login(identifier: string, password: string): Promise<LoginResult> {
+  return api.post<LoginResult>('/v1/login', { identifier, password });
+}
+
 /** True when the backend has no such route yet (draft phase). Callers
  *  render honest empty states instead of error screens. */
 export function isMissing(err: unknown): boolean {

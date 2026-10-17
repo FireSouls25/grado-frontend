@@ -1,41 +1,41 @@
 import { ApiError } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_URL as string;
-const DEV_SUBJECT = import.meta.env.VITE_DEV_SUBJECT_ID as string | undefined;
 
-const SUBJECT_KEY = 'grado.subject';
+const TOKEN_KEY = 'grado.token';
 
 // Requests give up after this long: the server may be unreachable, and a
 // pending fetch would leave the page on its skeleton for good.
 const REQUEST_TIMEOUT_MS = 15000;
 
-/** Persisted session subject id (set at login, cleared at sign-out). */
-export function getSubject(): string {
+/** Persisted login token (set at login, cleared at sign-out). Empty means
+ *  logged out. The backend resolves identity and roles from it. */
+export function getToken(): string {
   try {
-    return localStorage.getItem(SUBJECT_KEY) ?? DEV_SUBJECT ?? '';
+    return localStorage.getItem(TOKEN_KEY) ?? '';
   } catch {
-    return DEV_SUBJECT ?? '';
+    return '';
   }
 }
 
-export function setSubject(id: string): void {
+export function setToken(token: string): void {
   try {
-    if (id) localStorage.setItem(SUBJECT_KEY, id);
-    else localStorage.removeItem(SUBJECT_KEY);
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
   } catch {
     /* ignore */
   }
 }
 
-export function clearSubject(): void {
-  setSubject('');
+export function clearToken(): void {
+  setToken('');
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
-  const subject = getSubject();
-  if (subject) headers.set('X-Subject-ID', subject);
+  const token = getToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
 
   // A hung request is a failure too: without a deadline the skeleton spins
   // forever when the server is up but unreachable.

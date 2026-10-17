@@ -11,10 +11,10 @@
   `undefined` en runtime.
 - Desarrollo en navegador: el backend debe permitir el origen dev
   (`ALLOWED_ORIGINS=http://127.0.0.1:1420,http://localhost:1420`), o los
-  fetch con `X-Subject-ID` mueren en preflight y todo se ve como error de
-  red. En Tauri el origen será el del webview (`tauri.localhost`).
-- Identidad: header `X-Subject-ID` desde la sesión (login la guarda,
-  `VITE_DEV_SUBJECT_ID` solo para desarrollo).
+  fetch mueren en preflight y todo se ve como error de red. En Tauri
+  el origen será el del webview (`tauri.localhost`).
+- Identidad: `Authorization: Bearer <token>` desde la sesión (login
+  real contra `POST /v1/login`; el token vive en `grado.token`).
 - `ApiError { code, status }`: `code` es la clave estable del backend
   (`http.err_forbidden`, …), `message` ya viene en español.
 - `guarded()` implementa el contrato del backend: 401 → `/login`,
@@ -69,8 +69,11 @@ Notas de los endpoints de edición:
 
 ## Autenticación
 
-Hoy no hay login: la identidad es el header `X-Subject-ID` y la
-contraseña solo se valida en el cliente (`domains/auth/accounts.ts`).
-`docs/auth-backend.md` documenta el estado real de `users`, el flujo de
-identidad actual (`BOOTSTRAP_ADMIN_*`, `SEED_*`, `POST /v1/roles`) y la
-spec del login pendiente.
+Login real: `POST /v1/login {identifier, password}` verifica bcrypt en
+el servidor y devuelve `{token, expiresAt, subject, roles, home}`.
+El cliente guarda el token (`grado.token`) y lo envía como
+`Authorization: Bearer`. Identificador y contraseña comparten un único
+401 (`users.err_invalid_credentials`); el vencimiento redirige a
+`/login` vía `guarded()`. `docs/auth-backend.md` documenta el estado
+real de `users`, throttling y lo que sigue pendiente (refresh,
+revocación).
