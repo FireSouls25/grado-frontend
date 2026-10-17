@@ -38,6 +38,7 @@
   export let presetGroupID = '';
   export let presetTeacherID = '';
   export let presetWeekday: number | null = null;
+  export let presetStartMin: number | null = null;
   export let contextEntries: ScheduleEntry[] = [];
   export let fetchAssigned: (subjectID: string) => Promise<string[]> = async () => [];
   export let fetchTeacherEntries: (teacherID: string) => Promise<ScheduleEntry[]> = async () => [];
@@ -74,7 +75,7 @@
     subjectID = entry?.SubjectID ?? '';
     teacherID = entry?.TeacherID ?? presetTeacherID;
     weekday = entry?.Weekday ?? presetWeekday ?? 1;
-    start = toClock(entry?.Start ?? SCHOOL_START_MIN);
+    start = toClock(entry?.Start ?? presetStartMin ?? SCHOOL_START_MIN);
     durationMin = entry ? entry.End - entry.Start : MIN_DURATION_MIN;
     durationMin = clampDuration(toMinutes(start) || SCHOOL_START_MIN, durationMin);
     await loadAssigned();

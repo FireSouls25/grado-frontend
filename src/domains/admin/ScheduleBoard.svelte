@@ -12,7 +12,7 @@
   import { groupsByYear, listSubjects, teachers, subjectAssignments, scheduleEntries } from './api';
   import type { YearGroup, Subject, TeacherSummary, ScheduleEntry } from './api';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
-  import { WEEK_ORDER, rangeLabel } from '$lib/schedule';
+  import { WEEK_ORDER, rangeLabel, toClock, SCHOOL_END_MIN, MIN_DURATION_MIN } from '$lib/schedule';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { isMissing } from '../teacher/api';
@@ -34,6 +34,7 @@
   let sheetOpen = false;
   let editingEntry: ScheduleEntry | null = null;
   let sheetDay: number | null = null;
+  let sheetStart: number | null = null;
   const yearOptions = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
   $: pickedGroup = groups.find((g) => g.ClassLabel === salon) ?? null;
@@ -62,9 +63,14 @@
     return (await guarded(() => scheduleEntries({ teacherID }))) ?? [];
   }
 
-  function openAdd(day: number | null = null) {
+  function openAdd(day: number | null = null, startMin: number | null = null) {
     editingEntry = null;
     sheetDay = day;
+    // La última media hora no cabe en 1 h: arranca una hora antes del cierre.
+    sheetStart =
+      startMin !== null && startMin + MIN_DURATION_MIN > SCHOOL_END_MIN
+        ? SCHOOL_END_MIN - MIN_DURATION_MIN
+        : startMin;
     sheetOpen = true;
   }
 
@@ -82,10 +88,12 @@
 
   $: boardDays = [...$t.admin.scheduleWeekdays, ...$t.admin.scheduleWeekend];
   $: dayLabel = (w: number) => boardDays[w === 0 ? 6 : w - 1] ?? '';
-  $: entriesByDay = (w: number) =>
-    entries
-      .filter((e) => e.Weekday === w)
-      .sort((a, b) => a.Start - b.Start || a.End - b.End);
+  $: dayCol = (w: number) => WEEK_ORDER.indexOf(w) + 2;
+  // Media-horas 07:00–14:00: la fila n empieza en 420+n*30.
+  $: halfRows = Array.from({ length: 14 }, (_, i) => i);
+  $: hours = [7, 8, 9, 10, 11, 12, 13];
+  $: hourLabel = (h: number) => (h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`);
+  $: rowOf = (min: number) => Math.round((min - 420) / 30) + 2;
   $: subjectOf = (id: string) => subjectsList.find((s) => s.ID === id);
   $: teacherName = (id: string) => {
     const found = teacherList.find((x) => x.ID === id);
@@ -198,32 +206,42 @@
     </div>
     {#if entriesError}
       <ErrorState error={entriesError} onRetry={() => pickedGroup && loadEntries(pickedGroup.GroupID)} />
-    {:else if entries.length === 0}
-      <EmptyState icon="calendar" title={$t.admin.boardEmptyTitle} body={$t.admin.boardEmptyBody} />
     {:else}
-      <div class="week">
-        {#each WEEK_ORDER as w}
-          {@const dayEntries = entriesByDay(w)}
-          {#if dayEntries.length > 0}
-            <section class="daycol" aria-label={dayLabel(w)}>
-              <h3>{dayLabel(w)}</h3>
-              <ul>
-                {#each dayEntries as e (e.ID)}
-                  <li>
-                    <button type="button" class="slot" on:click={() => openEdit(e)}>
-                      <span class="dot" style={`background:${subjectOf(e.SubjectID)?.Color || 'var(--muted)'}`}></span>
-                      <span class="slotmain">
-                        <strong>{subjectOf(e.SubjectID)?.Name ?? $t.common.noData}</strong>
-                        <small>{teacherName(e.TeacherID)}</small>
-                      </span>
-                      <span class="time">{rangeLabel(e.Start, e.End)}</span>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            </section>
-          {/if}
-        {/each}
+      <div class="gridwrap">
+        <div class="grid" role="grid" aria-label={`${$t.admin.scheduleTitle} ${pickedGroup.ClassLabel} ${year}`}>
+          <div class="corner" aria-hidden="true"></div>
+          {#each WEEK_ORDER as w}
+            <div class="day" role="columnheader">{dayLabel(w)}</div>
+          {/each}
+          {#each hours as h}
+            <div class="hour" style={`grid-row: ${(h - 7) * 2 + 2} / span 2`}>{hourLabel(h)}</div>
+          {/each}
+          {#each WEEK_ORDER as w}
+            {#each halfRows as s}
+              <button
+                type="button"
+                class="cell"
+                style={`grid-column: ${dayCol(w)}; grid-row: ${s + 2};`}
+                aria-label={`${dayLabel(w)} ${toClock(420 + s * 30)}`}
+                on:click={() => openAdd(w, 420 + s * 30)}
+              ></button>
+            {/each}
+          {/each}
+          {#each entries as e (e.ID)}
+            {@const subj = subjectOf(e.SubjectID)}
+            <button
+              type="button"
+              class="block"
+              style={`grid-column: ${dayCol(e.Weekday)}; grid-row: ${rowOf(e.Start)} / span ${Math.max(1, Math.round((e.End - e.Start) / 30))}; --block: ${subj?.Color || 'var(--muted)'};`}
+              aria-label={`${subj?.Name ?? $t.common.noData} ${teacherName(e.TeacherID)} ${dayLabel(e.Weekday)} ${rangeLabel(e.Start, e.End)}`}
+              on:click={() => openEdit(e)}
+            >
+              <strong>{subj?.Name ?? '—'}</strong>
+              <small>{rangeLabel(e.Start, e.End)}</small>
+              <small class="t">{teacherName(e.TeacherID)}</small>
+            </button>
+          {/each}
+        </div>
       </div>
     {/if}
   {/if}
@@ -238,6 +256,7 @@
     teachers={teacherList}
     presetGroupID={pickedGroup?.GroupID ?? ''}
     presetWeekday={sheetDay}
+    presetStartMin={sheetStart}
     contextEntries={entries}
     {fetchAssigned}
     {fetchTeacherEntries}
@@ -311,70 +330,97 @@
     width: 15px;
     height: 15px;
   }
-  .week {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  .gridwrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--card);
+    box-shadow: var(--shadow);
   }
-  .daycol h3 {
+  .grid {
+    display: grid;
+    grid-template-columns: 56px repeat(7, minmax(104px, 1fr));
+    grid-template-rows: auto repeat(14, 32px);
+    gap: 4px;
+    padding: 12px;
+    min-width: 680px;
+  }
+  .corner {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .day {
+    text-align: center;
+    font-weight: 700;
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--muted);
-    margin-bottom: 6px;
+    padding: 4px 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .daycol ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  .hour {
+    grid-column: 1;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 2px 6px 0 0;
+  }
+  .cell {
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px dashed transparent;
+    min-height: 0;
+  }
+  .cell:hover {
+    border-color: var(--line);
+    background: var(--tint);
+  }
+  .block {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-  }
-  .slot {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1px;
     text-align: left;
-    background: var(--card);
+    min-height: 0;
+    overflow: hidden;
+    padding: 4px 8px 4px 10px;
+    border-radius: 10px;
     border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 14px;
-    min-height: 56px;
+    border-left: 5px solid var(--block);
+    background: color-mix(in srgb, var(--block) 16%, var(--card));
   }
-  .slot:active {
+  .block:active {
     transform: scale(0.99);
   }
-  .dot {
-    flex: none;
-    width: 14px;
-    height: 14px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-  }
-  .slotmain {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .slotmain strong {
-    font-size: 0.9rem;
+  .block strong {
+    font-size: 0.8rem;
+    line-height: 1.1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
   }
-  .slotmain small {
+  .block small {
+    font-size: 0.68rem;
     color: var(--muted);
-    font-size: 0.76rem;
-  }
-  .time {
-    flex: none;
-    font-size: 0.8rem;
-    font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .block small.t {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
   .overlay.static {
     position: static;

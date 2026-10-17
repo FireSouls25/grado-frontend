@@ -46,7 +46,7 @@ Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `GET /v1/incidents/recent`, `GET /v1/classes?year=N`,
 `GET /v1/classes/{groupID}/roster`, `GET /v1/teachers/me/schedule`,
 `POST /v1/sessions/open`, `GET /v1/dashboard/summary`, `POST /v1/users`,
-`GET /v1/audit`.
+`GET /v1/audit`, `POST /v1/classes`.
 
 Notas de los endpoints de edición:
 
