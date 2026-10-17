@@ -41,9 +41,10 @@ Documentación de referencia. No se modificó `school-backend/`.
 
 ## Bloqueos de dominio docente en el backend (pendientes, sin tocar)
 
-- **Vínculo `users.User` ↔ `Teacher.ID`**: sin él no se puede resolver
-  "mi horario" (`GET /v1/teachers/me/schedule`) ni el nombre del docente
-  en la cabecera.
+- **Vínculo `users.User` ↔ `Teacher.ID`: existe** (`TeacherID` + link
+  en seed + resolución en `GET /v1/teachers/me/schedule`). Falta
+  exponerlo por HTTP (alta con docente y vincular/desvincular) y el
+  nombre del docente en la cabecera, que llega con el login real.
 - **Roles en Postgres**: hoy viven en memoria, se pierden al reiniciar.
 - **Alta de cuentas por HTTP**: `POST /v1/users` y `POST /v1/roles`
   (este último ya existe pero el frontend aún no lo llama).

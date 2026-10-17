@@ -302,7 +302,10 @@ export const es = {
       student: 'Ficha del estudiante',
       warning: 'Llamados de atención',
       session: 'Llamada a lista',
-      report: 'Informe'
+      report: 'Informe',
+      schedule: 'Bloque de horario',
+      subject: 'Materia',
+      assignment: 'Asignación'
     }
   },
   audit: {

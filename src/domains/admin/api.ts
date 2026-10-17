@@ -261,7 +261,7 @@ export interface AuditEntry {
   ID: string;
   SubjectID: string;
   Action: 'read' | 'create' | 'update' | 'mark';
-  Resource: 'student' | 'warning' | 'session' | 'report';
+  Resource: 'student' | 'warning' | 'session' | 'report' | 'schedule' | 'subject' | 'assignment';
   ResourceID: string;
   Status: number;
   HappenedAt: string;

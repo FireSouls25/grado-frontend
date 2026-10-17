@@ -26,9 +26,9 @@
 
 ## Pendiente del backend (para encender el flujo docente)
 
-Solo queda la bitácora: `GET /v1/audit` (y escrituras de auditoría)
-aún no existe; la pantalla Bitácora pinta vacío honesto (`isMissing()`)
-y se enciende sola cuando exista.
+Nada pendiente: todos los endpoints que el frontend llama existen.
+Lo que falta es producto nuevo, no huecos (login con token, lecturas
+propias del docente, notificaciones).
 
 Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `GET /v1/teachers/{id}`, `GET /v1/subjects`, `GET /v1/subjects/{id}`,
@@ -45,7 +45,8 @@ Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `POST /v1/warnings/batch`, `GET /v1/warnings/recent`,
 `GET /v1/incidents/recent`, `GET /v1/classes?year=N`,
 `GET /v1/classes/{groupID}/roster`, `GET /v1/teachers/me/schedule`,
-`POST /v1/sessions/open`, `GET /v1/dashboard/summary`, `POST /v1/users`.
+`POST /v1/sessions/open`, `GET /v1/dashboard/summary`, `POST /v1/users`,
+`GET /v1/audit`.
 
 Notas de los endpoints de edición:
 
@@ -58,8 +59,9 @@ Notas de los endpoints de edición:
 
 ## Bloqueos para el dominio docente (documentados)
 
-- Falta el vínculo `users.User` ↔ `Teacher.ID`: sin él no hay
-  `GET /v1/teachers/me/schedule` ni nombre del docente.
+- `GET /v1/teachers/me/schedule` ya resuelve por el vínculo
+  `users.TeacherID` (ver `docs/auth-backend.md`); el nombre del docente
+  en la cabecera sigue pendiente del login real.
 - Falta `POST /v1/login` (la capability `users` ya tiene `Authenticate`,
   pero no hay endpoint ni token). Ver `docs/auth-backend.md`.
 - `POST /v1/roles` ya existe (admin) pero el frontend aún no lo invoca
