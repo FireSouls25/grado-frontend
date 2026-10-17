@@ -17,6 +17,7 @@
   export let searchable = false;
   export let searchPlaceholder = '';
   export let emptyLabel = '—';
+  export let disabled = false;
 
   const dispatch = createEventDispatcher<{ select: string }>();
 
@@ -67,7 +68,14 @@
 
 <div class="drop" bind:this={box}>
   <span class="cap">{label}</span>
-  <button type="button" class="face" aria-haspopup="listbox" aria-expanded={open} on:click={() => (open ? close() : openMenu())}>
+  <button
+    type="button"
+    class="face"
+    aria-haspopup="listbox"
+    aria-expanded={open}
+    disabled={disabled}
+    on:click={() => (open ? close() : openMenu())}
+  >
     <span class="val">{current ? current.label : placeholder}</span>
     <span class="chev" class:up={open} aria-hidden="true"><Icon name="next" /></span>
   </button>
@@ -134,6 +142,9 @@
   }
   .face:active {
     transform: scale(0.99);
+  }
+  .face:disabled {
+    opacity: 0.6;
   }
   .val {
     flex: 1;

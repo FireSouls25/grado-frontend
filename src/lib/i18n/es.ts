@@ -296,6 +296,7 @@ export const es = {
       read: 'Lectura',
       create: 'Creación',
       update: 'Actualización',
+      delete: 'Eliminación',
       mark: 'Asistencia'
     },
     resourceLabel: {
@@ -333,6 +334,7 @@ export const es = {
     gradeFilterAll: 'Todos los grados',
     gradeLabel: (g: number) => `Grado ${g}`,
     gradesLabel: 'Grados donde se dicta',
+    gradesTitle: 'Grados',
     gradesHint: 'Elige al menos un grado de 1 a 11.',
     allGrades: 'Todos',
     countLabel: (count: number) =>

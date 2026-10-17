@@ -155,9 +155,15 @@
                   <strong>{s.Name}</strong>
                   <small>
                     {#if s.Code}<span class="codechip">{s.Code}</span>{/if}
-                    <span>{$t.subject.gradesSummary(s.Grades ?? [])}</span>
                     {#if !s.Active}<span class="retired">{$t.teacherDetail.retired}</span>{/if}
                   </small>
+                  {#if (s.Grades ?? []).length > 0}
+                    <ul class="gradechips" aria-label={$t.subject.gradesTitle}>
+                      {#each s.Grades ?? [] as g}
+                        <li>{g}</li>
+                      {/each}
+                    </ul>
+                  {/if}
                 </span>
                 <span class="go" aria-hidden="true"><Icon name="next" /></span>
               </button>
@@ -328,19 +334,22 @@
   }
   .dot {
     flex: none;
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
     border-radius: 999px;
-    border: 1px solid var(--line);
+    border: 2px solid var(--line);
+    box-shadow: inset 0 0 0 2px var(--card);
   }
   .row .who {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
+    gap: 2px;
   }
   .row strong {
-    font-size: 1.1rem;
+    font-size: 1.18rem;
+    letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -370,6 +379,29 @@
     padding: 2px 10px;
     font-size: 0.72rem;
     font-weight: 700;
+  }
+  .gradechips {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .gradechips li {
+    min-width: 38px;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    font-weight: 700;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
   }
   .go {
     flex: none;

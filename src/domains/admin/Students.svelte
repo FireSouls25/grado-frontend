@@ -375,7 +375,7 @@
       <label>{$t.admin.formDocument}<input bind:value={form.DocumentID} placeholder={$t.admin.formDocumentPlaceholder} inputmode="numeric" pattern="[0-9]*" autocomplete="off" /></label>
       <label>{$t.admin.formClass}<input bind:value={form.ClassID} placeholder={$t.admin.formClassPlaceholder} autocomplete="off" /></label>
     </div>
-    <label>{$t.admin.formBirthdate}<input type="date" bind:value={form.Birthdate} /></label>
+    <label>{$t.admin.formBirthdate}<input type="date" lang="es-CO" bind:value={form.Birthdate} /></label>
     <div class="row2">
       <label>{$t.admin.formCaregiverName}<input bind:value={form.CaregiverName} autocomplete="off" /></label>
       <label>{$t.admin.formCaregiverPhone}<input bind:value={form.CaregiverPhone} inputmode="tel" autocomplete="off" /></label>

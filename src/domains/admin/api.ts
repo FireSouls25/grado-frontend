@@ -260,7 +260,7 @@ export async function auditForStudent(studentID: string): Promise<AuditEntry[]> 
 export interface AuditEntry {
   ID: string;
   SubjectID: string;
-  Action: 'read' | 'create' | 'update' | 'mark';
+  Action: 'read' | 'create' | 'update' | 'delete' | 'mark';
   Resource: 'student' | 'warning' | 'session' | 'report' | 'schedule' | 'subject' | 'assignment';
   ResourceID: string;
   Status: number;

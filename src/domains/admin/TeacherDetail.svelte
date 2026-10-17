@@ -369,7 +369,7 @@
 
 <Sheet open={assignOpen} title={$t.admin.assignSubjectTitle} onClose={() => (assignOpen = false)}>
   {#if feedback}<p class="flash" role="alert">{feedback}</p>{/if}
-  <label class="datelabel">{$t.subject.startLabel}<input type="date" bind:value={assignStart} /></label>
+  <label class="datelabel">{$t.subject.startLabel}<input type="date" lang="es-CO" bind:value={assignStart} /></label>
   {#if catalog.length === 0}
     <p class="muted">{$t.admin.noCatalog}</p>
   {:else}

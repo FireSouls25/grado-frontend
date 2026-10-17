@@ -81,6 +81,7 @@
           { value: 'read', label: $t.studentDetail.actionLabel.read },
           { value: 'create', label: $t.studentDetail.actionLabel.create },
           { value: 'update', label: $t.studentDetail.actionLabel.update },
+          { value: 'delete', label: $t.studentDetail.actionLabel.delete },
           { value: 'mark', label: $t.studentDetail.actionLabel.mark }
         ]}
         on:select={(e) => (filter = e.detail as typeof filter)}

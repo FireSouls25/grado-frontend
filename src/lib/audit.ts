@@ -10,7 +10,9 @@ export function shortId(value: string): string {
   return value ? value.slice(0, 8) : '—';
 }
 
-/** Las escrituras (create/update/mark) resaltan; las lecturas van tenues. */
+/** Las escrituras (create/update/delete/mark) resaltan; las lecturas van tenues. */
 export function auditActionClass(action: AuditAction): string {
-  return action === 'create' || action === 'update' || action === 'mark' ? 'write' : 'read';
+  return action === 'create' || action === 'update' || action === 'delete' || action === 'mark'
+    ? 'write'
+    : 'read';
 }

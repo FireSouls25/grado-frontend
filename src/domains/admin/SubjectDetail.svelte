@@ -10,6 +10,8 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
+  import Toast from '$lib/ui/Toast.svelte';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
   import {
     subjectDetail,
     updateSubject,
@@ -43,7 +45,7 @@
   let editing = false;
   let saving = false;
   let editError = '';
-  let editFeedback = '';
+  let toast = '';
   let form = { Name: '', Code: '', Description: '', Grades: [] as number[], Color: SWATCHES[0] };
 
   let assigning = false;
@@ -58,6 +60,7 @@
   let removing: SubjectAssignment | null = null;
   let deleting = false;
   let deleteError = '';
+  let toggleError = '';
   let actionBusy = false;
 
   function todayISO(): string {
@@ -129,7 +132,6 @@
       Color: subject.Color || SWATCHES[0]
     };
     editError = '';
-    editFeedback = '';
     editing = true;
   }
 
@@ -142,7 +144,6 @@
   async function saveEdit() {
     if (!subject) return;
     editError = '';
-    editFeedback = '';
     if (!form.Name.trim() || form.Grades.length === 0) {
       editError = $t.subject.required;
       return;
@@ -162,7 +163,7 @@
         Active: subject.Active
       });
       editing = false;
-      editFeedback = $t.subject.saved;
+      toast = $t.subject.saved;
     } catch (err) {
       editError = err instanceof ApiError ? err.message : $t.common.loadError;
     } finally {
@@ -173,7 +174,7 @@
   async function toggleActive() {
     if (!subject || actionBusy) return;
     actionBusy = true;
-    editFeedback = '';
+    toggleError = '';
     try {
       subject = await updateSubject(subjectID, {
         Name: subject.Name,
@@ -183,9 +184,9 @@
         Color: subject.Color ?? '',
         Active: !subject.Active
       });
-      editFeedback = $t.subject.saved;
+      toast = $t.subject.saved;
     } catch (err) {
-      editFeedback = err instanceof ApiError ? err.message : $t.common.loadError;
+      toggleError = err instanceof ApiError ? err.message : $t.common.loadError;
     } finally {
       actionBusy = false;
     }
@@ -266,7 +267,7 @@
     <h1 class="title">{subject?.Name ?? $t.subject.title}</h1>
     {#if subject}
       <div class="toolbar">
-        {#if editFeedback}<p class="flash" role="status">{editFeedback}</p>{/if}
+        {#if toggleError}<p class="flash error" role="alert">{toggleError}</p>{/if}
         <button type="button" class="mini" on:click={startEdit}>{$t.subject.editAction}</button>
         <button type="button" class="mini" on:click={toggleActive} disabled={actionBusy}>
           {subject.Active ? $t.subject.retireAction : $t.subject.reactivateAction}
@@ -296,7 +297,16 @@
           {#if !subject.Active}<span class="retired">{$t.subject.retiredNote}</span>{/if}
         </div>
         {#if subject.Description}<p class="desc">{subject.Description}</p>{/if}
-        <p class="muted">{$t.subject.gradesSummary(subject.Grades ?? [])}</p>
+        <h2 class="sub">{$t.subject.gradesTitle}</h2>
+        {#if (subject.Grades ?? []).length === 0}
+          <p class="muted">{$t.common.noData}</p>
+        {:else}
+          <ul class="gradeboxes" aria-label={$t.subject.gradesTitle}>
+            {#each subject.Grades ?? [] as g}
+              <li>{g}</li>
+            {/each}
+          </ul>
+        {/if}
       </section>
 
       <section class="card" aria-label={$t.subject.assignedTitle}>
@@ -337,6 +347,7 @@
       </section>
     {/if}
   </div>
+<Toast message={toast} onClose={() => (toast = '')} />
 </AdminShell>
 
 <Sheet open={editing} title={$t.subject.editTitle} onClose={() => (editing = false)}>
@@ -384,16 +395,18 @@
 
 <Sheet open={assigning} title={$t.subject.assignTitle} onClose={() => (assigning = false)}>
   <form class="form" on:submit|preventDefault={saveAssign}>
-    <label>
-      {$t.subject.teacherLabel}
-      <select bind:value={assignTeacher}>
-        <option value="">—</option>
-        {#each teacherList as teacher (teacher.ID)}
-          <option value={teacher.ID}>{teacher.Surnames} {teacher.Names}</option>
-        {/each}
-      </select>
-    </label>
-    <label>{$t.subject.startLabel}<input type="date" bind:value={assignStart} /></label>
+    <Dropdown
+      label={$t.subject.teacherLabel}
+      value={assignTeacher}
+      searchable
+      searchPlaceholder={$t.subject.teacherLabel}
+      options={teacherList.map((teacher) => ({
+        value: teacher.ID,
+        label: `${teacher.Surnames} ${teacher.Names}`.trim()
+      }))}
+      on:select={(e) => (assignTeacher = e.detail)}
+    />
+    <label>{$t.subject.startLabel}<input type="date" lang="es-CO" bind:value={assignStart} /></label>
     {#if assignError}<p class="flash error" role="alert">{assignError}</p>{/if}
     <div class="actions">
       <button class="ghost" type="button" on:click={() => (assigning = false)}>{$t.common.cancel}</button>
@@ -404,7 +417,7 @@
 
 <Sheet open={ending !== null} title={$t.subject.endTitle} onClose={() => (ending = null)}>
   <form class="form" on:submit|preventDefault={saveEnd}>
-    <label>{$t.subject.startLabel}<input type="date" bind:value={endDate} /></label>
+    <label>{$t.subject.startLabel}<input type="date" lang="es-CO" bind:value={endDate} /></label>
     {#if endError}<p class="flash error" role="alert">{endError}</p>{/if}
     <div class="actions">
       <button class="ghost" type="button" on:click={() => (ending = null)}>{$t.common.cancel}</button>
@@ -545,6 +558,30 @@
     margin-top: 10px;
     font-size: 0.92rem;
   }
+  .sub {
+    font-size: 0.85rem;
+    margin-top: 14px;
+  }
+  .gradeboxes {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+    gap: 8px;
+  }
+  .gradeboxes li {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    font-weight: 700;
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+  }
   .muted {
     color: var(--muted);
     font-size: 0.92rem;
@@ -626,8 +663,7 @@
     font-weight: 600;
   }
   .form input,
-  .form textarea,
-  .form select {
+  .form textarea {
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);

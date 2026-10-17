@@ -2,6 +2,7 @@
   import { t } from '$lib/i18n';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Icon from '$lib/ui/Icon.svelte';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
   import {
     createEntry,
     updateEntry,
@@ -247,47 +248,42 @@
     </div>
   {:else}
     <div class="form">
-      <label>
-        {$t.admin.entryGroup}
-        <select bind:value={groupID} disabled={presetGroupID !== '' && !entry}>
-          <option value="">—</option>
-          {#each groups as g (g.GroupID)}
-            <option value={g.GroupID}>{g.ClassLabel}</option>
-          {/each}
-        </select>
-      </label>
-      <label>
-        {$t.admin.entrySubject}
-        <select bind:value={subjectID}>
-          <option value="">—</option>
-          {#each subjects.filter((s) => s.Active) as s (s.ID)}
-            <option value={s.ID}>{s.Name}</option>
-          {/each}
-        </select>
-      </label>
-      <label>
-        {$t.admin.entryTeacher}
-        <select bind:value={teacherID}>
-          <option value="">—</option>
-          {#each teachers as teacher (teacher.ID)}
-            <option value={teacher.ID}>
-              {teacher.Surnames} {teacher.Names}{assignedIDs.length > 0 && !assignedIDs.includes(teacher.ID) ? ' · +' : ''}
-            </option>
-          {/each}
-        </select>
-      </label>
+      <Dropdown
+        label={$t.admin.entryGroup}
+        value={groupID}
+        disabled={presetGroupID !== '' && !entry}
+        options={[{ value: '', label: '—' }, ...groups.map((g) => ({ value: g.GroupID, label: g.ClassLabel }))]}
+        on:select={(e) => (groupID = e.detail)}
+      />
+      <Dropdown
+        label={$t.admin.entrySubject}
+        value={subjectID}
+        options={[{ value: '', label: '—' }, ...subjects
+          .filter((s) => s.Active)
+          .map((s) => ({ value: s.ID, label: s.Name }))]}
+        on:select={(e) => (subjectID = e.detail)}
+      />
+      <Dropdown
+        label={$t.admin.entryTeacher}
+        value={teacherID}
+        searchable
+        searchPlaceholder={$t.admin.entryTeacher}
+        options={[{ value: '', label: '—' }, ...teachers.map((teacher) => ({
+          value: teacher.ID,
+          label: `${teacher.Surnames} ${teacher.Names}`.trim()
+        }))]}
+        on:select={(e) => (teacherID = e.detail)}
+      />
       {#if unassigned}
         <p class="hint warn">{$t.admin.unassignedWarn}</p>
       {/if}
       <div class="row2">
-        <label>
-          {$t.admin.entryDay}
-          <select bind:value={weekday}>
-            {#each WEEK_ORDER as w}
-              <option value={w}>{dayLabel(w)}</option>
-            {/each}
-          </select>
-        </label>
+        <Dropdown
+          label={$t.admin.entryDay}
+          value={String(weekday)}
+          options={WEEK_ORDER.map((w) => ({ value: String(w), label: dayLabel(w) }))}
+          on:select={(e) => (weekday = Number(e.detail))}
+        />
         <label>
           {$t.admin.entryStart}
           <input
@@ -339,8 +335,7 @@
     font-size: 0.82rem;
     font-weight: 600;
   }
-  .form input,
-  .form select {
+  .form input {
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);

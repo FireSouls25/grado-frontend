@@ -407,7 +407,7 @@
       </div>
       <div class="row2">
         <label>{$t.admin.formBirthdate}
-          <input type="date" value={form.Birthdate ? form.Birthdate.slice(0, 10) : ''}
+          <input type="date" lang="es-CO" value={form.Birthdate ? form.Birthdate.slice(0, 10) : ''}
             on:change={(e) => {
               const v = (e.currentTarget as HTMLInputElement).value;
               form!.Birthdate = v ? `${v}T00:00:00Z` : '0001-01-01T00:00:00Z';
