@@ -174,7 +174,9 @@
   function onDropSubject(e: DragEvent, day: number, startMin: number) {
     e.preventDefault();
     dropTarget = null;
-    const subjectID = dragSubject ?? e.dataTransfer?.getData('text/subject-id') ?? '';
+    // El payload del propio gesto manda: dragSubject es solo respaldo
+    // (puede quedar rancio si un arrastre anterior no cerró bien).
+    const subjectID = e.dataTransfer?.getData('text/subject-id') || dragSubject || '';
     dragSubject = null;
     if (!subjectID) return;
     keptGhost = { subjectID, day, start: startMin, duration: 60 };
@@ -236,6 +238,14 @@
 
   function onDragEnterCell(day: number, start: number) {
     dropTarget = { day, start };
+  }
+
+  // Salir de una celda a otra dispara dragleave en la parrilla: solo se
+  // limpia si el puntero de verdad abandonó la parrilla.
+  function onGridDragLeave(e: DragEvent) {
+    const next = e.relatedTarget as Node | null;
+    if (next && (e.currentTarget as HTMLElement).contains(next)) return;
+    dropTarget = null;
   }
 
   function openEdit(e: ScheduleEntry) {
@@ -377,7 +387,7 @@
       <ErrorState error={entriesError} onRetry={() => pickedGroup && loadEntries(pickedGroup.GroupID)} />
     {:else}
       <div class="gridwrap">
-        <div class="grid" role="grid" tabindex={-1} aria-label={`${$t.admin.scheduleTitle} ${pickedGroup.ClassLabel} ${year}`} on:dragleave={() => (dropTarget = null)}>
+        <div class="grid" role="grid" tabindex={-1} aria-label={`${$t.admin.scheduleTitle} ${pickedGroup.ClassLabel} ${year}`} on:dragleave={onGridDragLeave}>
           <div class="corner" aria-hidden="true"></div>
           {#each WEEK_ORDER as w}
             <div class="day" role="columnheader">{dayLabel(w)}</div>
@@ -921,7 +931,8 @@
     max-width: 100%;
   }
   .block.ghost {
-    opacity: 0.85;
+    z-index: 2;
+    opacity: 0.9;
     border-style: dashed;
     border-width: 2px;
     border-color: var(--accent);
@@ -937,13 +948,13 @@
       transform: scale(0.97);
     }
     to {
-      opacity: 0.85;
+      opacity: 0.9;
       transform: none;
     }
   }
   @keyframes ghostout {
     from {
-      opacity: 0.85;
+      opacity: 0.9;
     }
     to {
       opacity: 0;
