@@ -174,9 +174,44 @@
   function onDropSubject(e: DragEvent, day: number, startMin: number) {
     e.preventDefault();
     dropTarget = null;
-    const subjectID = e.dataTransfer?.getData('text/subject-id') ?? '';
+    const subjectID = dragSubject ?? e.dataTransfer?.getData('text/subject-id') ?? '';
+    dragSubject = null;
     if (!subjectID) return;
+    keptGhost = { subjectID, day, start: startMin, duration: 60 };
+    ghostFading = false;
     openAdd(day, startMin, subjectID);
+  }
+
+  function previewGhost(p: { subjectID: string; weekday: number; startMin: number; durationMin: number }) {
+    // El primer fogonazo del popup trae valores por defecto: nunca
+    // pisa un buen fantasma con materia vacía.
+    if (!keptGhost || !p.subjectID || !Number.isFinite(p.startMin) || !Number.isFinite(p.durationMin)) return;
+    const next = {
+      subjectID: p.subjectID,
+      day: p.weekday,
+      start: p.startMin,
+      duration: Math.max(60, p.durationMin)
+    };
+    if (
+      keptGhost.subjectID !== next.subjectID ||
+      keptGhost.day !== next.day ||
+      keptGhost.start !== next.start ||
+      keptGhost.duration !== next.duration
+    ) {
+      keptGhost = next;
+    }
+  }
+
+  function closeEntrySheet() {
+    sheetOpen = false;
+    // Solo se desvanece si el fantasma es de una creación cancelada.
+    if (!editingEntry && keptGhost) {
+      ghostFading = true;
+      setTimeout(() => {
+        keptGhost = null;
+        ghostFading = false;
+      }, 240);
+    }
   }
 
   function onDragOverCell(e: DragEvent) {
@@ -187,6 +222,17 @@
   // La parrilla reacciona mientras arrastras: la celda bajo el cursor
   // se enciende para mostrar dónde encajará el bloque (día + inicio).
   let dropTarget: { day: number; start: number } | null = null;
+  // Materia en vuelo (dragstart la deja; dataTransfer no se lee en hover).
+  let dragSubject: string | null = null;
+  // Fantasma con snap por hora: sigue al cursor, se queda en el popup,
+  // cambia en vivo con sus campos y se desvanece al cancelar.
+  let keptGhost: { subjectID: string; day: number; start: number; duration: number } | null = null;
+  let ghostFading = false;
+  $: liveGhost =
+    dragSubject && dropTarget
+      ? { subjectID: dragSubject, day: dropTarget.day, start: dropTarget.start, duration: 60 }
+      : null;
+  $: ghost = liveGhost ?? keptGhost;
 
   function onDragEnterCell(day: number, start: number) {
     dropTarget = { day, start };
@@ -202,6 +248,8 @@
     sheetOpen = false;
     editingEntry = null;
     sheetSubject = null;
+    keptGhost = null;
+    ghostFading = false;
     if (pickedGroup) await loadEntries(pickedGroup.GroupID);
   }
 
@@ -209,7 +257,6 @@
   $: dayLabel = (w: number) => boardDays[w === 0 ? 6 : w - 1] ?? '';
   $: dayCol = (w: number) => WEEK_ORDER.indexOf(w) + 2;
   // Media-horas 07:00–14:00: la fila n empieza en 420+n*30.
-  $: halfRows = Array.from({ length: 14 }, (_, i) => i);
   $: hours = [7, 8, 9, 10, 11, 12, 13];
   $: hourLabel = (h: number) => (h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`);
   $: rowOf = (min: number) => Math.round((min - 420) / 30) + 2;
@@ -339,20 +386,33 @@
             <div class="hour" style={`grid-row: ${(h - 7) * 2 + 2} / span 2`}>{hourLabel(h)}</div>
           {/each}
           {#each WEEK_ORDER as w}
-            {#each halfRows as s}
+            {#each hours as h}
+              {@const cellStart = 420 + (h - 7) * 60}
               <button
                 type="button"
                 class="cell"
-                class:droptarget={dropTarget?.day === w && dropTarget?.start === 420 + s * 30}
-                style={`grid-column: ${dayCol(w)}; grid-row: ${s + 2};`}
-                aria-label={`${dayLabel(w)} ${toClock(420 + s * 30)}`}
-                on:click={() => openAdd(w, 420 + s * 30)}
+                class:droptarget={dropTarget?.day === w && dropTarget?.start === cellStart}
+                style={`grid-column: ${dayCol(w)}; grid-row: ${(h - 7) * 2 + 2} / span 2;`}
+                aria-label={`${dayLabel(w)} ${toClock(cellStart)}`}
+                on:click={() => openAdd(w, cellStart)}
                 on:dragover={onDragOverCell}
-                on:dragenter={() => onDragEnterCell(w, 420 + s * 30)}
-                on:drop={(e) => onDropSubject(e, w, 420 + s * 30)}
+                on:dragenter={() => onDragEnterCell(w, cellStart)}
+                on:drop={(e) => onDropSubject(e, w, cellStart)}
               ></button>
             {/each}
           {/each}
+          {#if ghost}
+            {@const gsubj = subjectOf(ghost.subjectID)}
+            <div
+              class="block ghost"
+              class:fadeout={ghostFading}
+              style={`grid-column: ${dayCol(ghost.day)}; grid-row: ${rowOf(ghost.start)} / span ${Math.max(2, Math.round(ghost.duration / 30))}; --block: ${gsubj?.Color || 'var(--accent)'};`}
+              aria-hidden="true"
+            >
+              <strong>{gsubj?.Name ?? '—'}</strong>
+              <small>{rangeLabel(ghost.start, ghost.start + ghost.duration)}</small>
+            </div>
+          {/if}
           {#each entries as e (e.ID)}
             {@const subj = subjectOf(e.SubjectID)}
             <button
@@ -388,7 +448,8 @@
     {fetchAssigned}
     {fetchTeacherEntries}
     onSaved={onSaved}
-    onClose={() => (sheetOpen = false)}
+    onPreview={previewGhost}
+    onClose={closeEntrySheet}
   />
 
   <section class="subjects" aria-label={$t.subject.title}>
@@ -409,7 +470,14 @@
             class="sub"
             style={tint(s.Color ?? '')}
             draggable="true"
-            on:dragstart={(e) => e.dataTransfer?.setData('text/subject-id', s.ID)}
+            on:dragstart={(e) => {
+              e.dataTransfer?.setData('text/subject-id', s.ID);
+              dragSubject = s.ID;
+            }}
+            on:dragend={() => {
+              dragSubject = null;
+              dropTarget = null;
+            }}
             title={s.Description || s.Name}
           >
             <span class="subtext">
@@ -851,6 +919,36 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+  }
+  .block.ghost {
+    opacity: 0.85;
+    border-style: dashed;
+    border-width: 2px;
+    border-color: var(--accent);
+    pointer-events: none;
+    animation: ghostin 0.15s ease both;
+  }
+  .block.ghost.fadeout {
+    animation: ghostout 0.22s ease both;
+  }
+  @keyframes ghostin {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+    to {
+      opacity: 0.85;
+      transform: none;
+    }
+  }
+  @keyframes ghostout {
+    from {
+      opacity: 0.85;
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.97);
+    }
   }
   .overlay.static {
     position: static;

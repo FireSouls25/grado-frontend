@@ -45,6 +45,15 @@
   export let fetchTeacherEntries: (teacherID: string) => Promise<ScheduleEntry[]> = async () => [];
   export let onSaved: () => void = () => {};
   export let onClose: () => void = () => {};
+  // Vista previa en vivo para el fantasma del tablero: materia, día,
+  // inicio y duración actuales del formulario.
+  export let onPreview:
+    | ((p: { subjectID: string; weekday: number; startMin: number; durationMin: number }) => void)
+    | null = null;
+
+  $: if (open && onPreview && startValid) {
+    onPreview({ subjectID, weekday, startMin, durationMin });
+  }
 
   let phase: 'edit' | 'confirm' | 'delete' = 'edit';
   let groupID = '';
