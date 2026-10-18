@@ -230,6 +230,10 @@ export async function deleteEntry(id: string): Promise<void> {
 export interface TeacherDetail extends TeacherSummary {
   Phone: string;
   Email: string;
+  Address: string;
+  Birthplace: string;
+  Birthdate: string;
+  MedicalConditions: string;
   Subjects: { SubjectID: string; SubjectName: string; From: string }[];
   Groups: { GroupID: string; ClassLabel: string; SubjectName: string }[];
 }
@@ -318,6 +322,26 @@ export async function teacherPhoto(id: string): Promise<StudentPhoto | null> {
 /** Stores (or clears, when empty) the teacher photo. */
 export async function uploadTeacherPhoto(id: string, data: string): Promise<void> {
   await api.put(`/v1/teachers/${encodeURIComponent(id)}/photo`, { data });
+}
+
+export interface TeacherSessionRow {
+  ID: string;
+  Date: string;
+  ClassLabel: string;
+  Period: number;
+  Subject: string;
+  Students: number;
+  Absences: number;
+}
+
+/** Roll calls taken by one teacher, newest first. */
+export async function teacherSessionsTaken(id: string): Promise<TeacherSessionRow[]> {
+  return (await api.get<TeacherSessionRow[]>(`/v1/teachers/${encodeURIComponent(id)}/sessions`)) ?? [];
+}
+
+/** Llamados issued from the logins linked to one teacher, newest first. */
+export async function teacherWarningsMade(id: string): Promise<RecentWarning[]> {
+  return (await api.get<RecentWarning[]>(`/v1/teachers/${encodeURIComponent(id)}/warnings-made`)) ?? [];
 }
 
 export interface TeacherRollRow {

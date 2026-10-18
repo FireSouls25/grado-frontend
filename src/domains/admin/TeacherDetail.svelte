@@ -9,6 +9,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
   import AdminShell from './AdminShell.svelte';
   import { paletteFor } from '$lib/ui/palette';
   import {
@@ -18,6 +19,8 @@
     teacherHistory,
     teacherPhoto,
     uploadTeacherPhoto,
+    teacherSessionsTaken,
+    teacherWarningsMade,
     teachers,
     scheduleEntries,
     groupsByYear,
@@ -29,6 +32,8 @@
     type TeacherSummary,
     type YearGroup,
     type TeacherHistory,
+    type TeacherSessionRow,
+    type RecentWarning,
   } from './api';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
   import { WEEK_ORDER, rangeLabel } from '$lib/schedule';
@@ -105,8 +110,100 @@
     monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + delta, 1);
     void loadHistory();
   }
+
+  const MONTH_NAMES = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+  $: monthOptions = MONTH_NAMES.map((label, i) => ({ value: String(i), label }));
+  $: yearOptions = (() => {
+    const y = new Date().getFullYear();
+    const out: { value: string; label: string }[] = [];
+    for (let k = y - 5; k <= y + 1; k++) out.push({ value: String(k), label: String(k) });
+    return out;
+  })();
+
+  function setMonth(m: number) {
+    if (!Number.isInteger(m) || m < 0 || m > 11) return;
+    monthCursor = new Date(monthCursor.getFullYear(), m, 1);
+    void loadHistory();
+  }
+
+  function setYear(y: number) {
+    if (!Number.isInteger(y)) return;
+    monthCursor = new Date(y, monthCursor.getMonth(), 1);
+    void loadHistory();
+  }
   function statusName(s: string): string {
     return s === 'absent' ? $t.troll.statusAbsent : s === 'late' ? $t.troll.statusLate : s === 'present' ? $t.troll.statusPresent : '—';
+  }
+
+  // Activity made by the teacher: roll calls taken + llamados issued.
+  let sessionsMade: TeacherSessionRow[] = [];
+  let warningsMade: RecentWarning[] = [];
+
+  async function loadActivity() {
+    try {
+      const [s, w] = await Promise.all([
+        guarded(() => teacherSessionsTaken(id)),
+        guarded(() => teacherWarningsMade(id))
+      ]);
+      sessionsMade = s ?? [];
+      warningsMade = w ?? [];
+    } catch {
+      sessionsMade = [];
+      warningsMade = [];
+    }
+  }
+
+  function ageOf(value: string): number | null {
+    if (!value || value.startsWith('0001')) return null;
+    const born = new Date(value);
+    if (Number.isNaN(born.getTime())) return null;
+    const now = new Date();
+    let years = now.getFullYear() - born.getFullYear();
+    const before =
+      now.getMonth() < born.getMonth() ||
+      (now.getMonth() === born.getMonth() && now.getDate() < born.getDate());
+    if (before) years -= 1;
+    return years >= 0 && years < 130 ? years : null;
+  }
+
+  function longDate(value: string): string {
+    if (!value || value.startsWith('0001')) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+
+  $: teacherAge = detail ? ageOf(detail.Birthdate) : null;
+
+  $: groupsWithSubjects = (() => {
+    const byGroup = new Map<string, { label: string; subjects: { id: string; name: string }[] }>();
+    for (const e of teacherEntries) {
+      let g = byGroup.get(e.ClassGroupID);
+      if (!g) {
+        g = { label: classGroupLabel(e.ClassGroupID), subjects: [] };
+        byGroup.set(e.ClassGroupID, g);
+      }
+      if (!g.subjects.some((s) => s.id === e.SubjectID)) {
+        g.subjects.push({ id: e.SubjectID, name: subjectMeta(e.SubjectID).name });
+      }
+    }
+    return [...byGroup.values()];
+  })();
+
+  function momentTs(value: string): string {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString('es-CO', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   function shortDay(value: string): string {
@@ -169,6 +266,7 @@
     void loadClasses();
     void loadHistory();
     void loadPhoto();
+    void loadActivity();
   }
 
   let teacherEntries: ScheduleEntry[] = [];
@@ -219,29 +317,6 @@
     const s = catalog.find((x) => x.ID === sid);
     return { name: s?.Name ?? sid.slice(0, 8), color: s?.Color || 'var(--muted)' };
   };
-
-  $: derivedSubjects = (() => {
-    const seen = new Map<string, { id: string; name: string; color: string }>();
-    for (const e of teacherEntries) {
-      if (!seen.has(e.SubjectID)) {
-        const meta = subjectMeta(e.SubjectID);
-        seen.set(e.SubjectID, { id: e.SubjectID, name: meta.name, color: meta.color });
-      }
-    }
-    return [...seen.values()];
-  })();
-
-  function tint(color: string): string {
-    if (!/^#[0-9a-fA-F]{6}$/.test(color)) return '';
-    return `background:${color}1A;border-color:${color}59`;
-  }
-  $: derivedGroups = (() => {
-    const seen = new Map<string, string>();
-    for (const e of teacherEntries) {
-      if (!seen.has(e.ClassGroupID)) seen.set(e.ClassGroupID, classGroupLabel(e.ClassGroupID));
-    }
-    return [...seen.entries()].map(([id, label]) => ({ id, label }));
-  })();
 
   let catalog: Subject[] = [];
 
@@ -343,55 +418,108 @@
   {:else if state === 'error' || !detail}
     <ErrorState error={loadError} onRetry={load} />
   {:else}
-    <section class="card profile" aria-label={$t.admin.teacherDetailTitle}>
-      <div class="idblock">
-        <div class="photocol">
-          {#if photoUrl}
-            <img class="photo" src={photoUrl} alt={`${detail.Surnames} ${detail.Names}`} />
-          {:else}
-            <span class="avatar big" aria-hidden="true">
-              {`${detail.Surnames} ${detail.Names}`.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
-            </span>
+    <div class="grid">
+      <aside>
+        <section class="card profile" aria-label={$t.admin.teacherDetailTitle}>
+          <div class="idblock">
+            <div class="photocol">
+              {#if photoUrl}
+                <img class="photo" src={photoUrl} alt={`${detail.Surnames} ${detail.Names}`} />
+              {:else}
+                <span class="avatar big" aria-hidden="true">
+                  {`${detail.Surnames} ${detail.Names}`.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+                </span>
+              {/if}
+              <button type="button" class="link" on:click={() => photoInput?.click()}>
+                {$t.troll.photoChange}
+              </button>
+              {#if photoUrl}
+                <button type="button" class="link danger" on:click={removePhoto}>
+                  {$t.troll.photoRemove}
+                </button>
+              {/if}
+              <input
+                bind:this={photoInput}
+                type="file"
+                accept="image/*"
+                hidden
+                aria-hidden="true"
+                tabindex="-1"
+                on:change={onPhotoPicked}
+              />
+            </div>
+            <div>
+              <h2>{detail.Surnames} {detail.Names}</h2>
+              <p>{detail.DocumentID || $t.common.noData}</p>
+            </div>
+          </div>
+          {#if photoError}<p class="flash error" role="alert">{photoError}</p>{/if}
+          <h3 class="sub">{$t.troll.filePersonalTitle}</h3>
+          <dl class="facts">
+            {#if longDate(detail.Birthdate)}
+              <div>
+                <dt>{$t.troll.fileBirthLabel}</dt>
+                <dd>{longDate(detail.Birthdate)}{teacherAge !== null ? ` · ${$t.troll.fileAgeLabel(teacherAge)}` : ''}</dd>
+              </div>
+            {/if}
+            {#if detail.Birthplace}
+              <div>
+                <dt>{$t.studentDetail.birthplaceLabel}</dt>
+                <dd>{detail.Birthplace}</dd>
+              </div>
+            {/if}
+          </dl>
+          <h3 class="sub">{$t.troll.fileContactTitle}</h3>
+          <dl class="facts">
+            {#if detail.Phone}
+              <div>
+                <dt>{$t.admin.formPhone}</dt>
+                <dd>{detail.Phone}</dd>
+              </div>
+            {/if}
+            {#if detail.Address}
+              <div>
+                <dt>{$t.studentDetail.addressLabel}</dt>
+                <dd>{detail.Address}</dd>
+              </div>
+            {/if}
+            {#if detail.Email}
+              <div>
+                <dt>{$t.admin.formEmail}</dt>
+                <dd>{detail.Email}</dd>
+              </div>
+            {/if}
+          </dl>
+          {#if detail.MedicalConditions}
+            <h3 class="sub">{$t.troll.fileHealthTitle}</h3>
+            <p class="muted">{detail.MedicalConditions}</p>
           {/if}
-          <button type="button" class="link" on:click={() => photoInput?.click()}>
-            {$t.troll.photoChange}
-          </button>
-          {#if photoUrl}
-            <button type="button" class="link danger" on:click={removePhoto}>
-              {$t.troll.photoRemove}
-            </button>
-          {/if}
-          <input
-            bind:this={photoInput}
-            type="file"
-            accept="image/*"
-            hidden
-            aria-hidden="true"
-            tabindex="-1"
-            on:change={onPhotoPicked}
-          />
-        </div>
-        <div>
-          <h2>{detail.Surnames} {detail.Names}</h2>
-          <p>{detail.DocumentID}</p>
-        </div>
-      </div>
-      {#if photoError}<p class="flash error" role="alert">{photoError}</p>{/if}
-      {#if detail.Email}<p>{detail.Email}</p>{/if}
-      {#if detail.Phone}<p>{detail.Phone}</p>{/if}
-      {#if detail.HomeroomClassID}
-        <span class="chip chip-sky">{$t.admin.directs(detail.HomeroomClassID)}</span>
-      {/if}
-      {#if !detail.Active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
-    </section>
+          <div class="statusrow">
+            {#if detail.HomeroomClassID}
+              <span class="chip chip-sky">{$t.admin.directs(detail.HomeroomClassID)}</span>
+            {/if}
+            {#if !detail.Active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
+          </div>
+        </section>
+      </aside>
+      <div class="main">
 
     <section class="card" aria-label={$t.troll.historyTitle}>
       <div class="row-head">
         <h2>{$t.troll.historyTitle}</h2>
-        <div class="stepper">
-          <button type="button" class="mini" on:click={() => shiftMonth(-1)} aria-label="Mes anterior">‹</button>
-          <strong>{monthLabel(monthCursor)}</strong>
-          <button type="button" class="mini" on:click={() => shiftMonth(1)} aria-label="Mes siguiente">›</button>
+        <div class="monthpick">
+          <Dropdown
+            label={$t.troll.monthLabel}
+            value={String(monthCursor.getMonth())}
+            options={monthOptions}
+            on:select={(e) => setMonth(Number(e.detail))}
+          />
+          <Dropdown
+            label={$t.troll.yearLabel}
+            value={String(monthCursor.getFullYear())}
+            options={yearOptions}
+            on:select={(e) => setYear(Number(e.detail))}
+          />
         </div>
       </div>
       {#if hist}
@@ -436,6 +564,74 @@
       {/if}
     </section>
 
+    <section class="card" aria-label={$t.troll.fileSubjectsGroupsTitle}>
+      <h2>{$t.troll.fileSubjectsGroupsTitle}</h2>
+      {#if groupsWithSubjects.length === 0}
+        <p class="muted">{$t.troll.fileSubjectsGroupsEmpty}</p>
+      {:else}
+        <ul class="sgroups">
+          {#each groupsWithSubjects as g (g.label)}
+            <li>
+              <strong>{g.label}</strong>
+              <span class="chips">
+                {#each g.subjects as s (s.id)}
+                  <span class={`chip chip-${paletteFor(s.id)}`}>{s.name}</span>
+                {/each}
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+      <p class="muted">{$t.admin.subjectsFromSchedule}</p>
+    </section>
+    <section class="card" aria-label={$t.troll.fileSessionsTitle}>
+      <div class="row-head">
+        <h2>{$t.troll.fileSessionsTitle}</h2>
+        <span class="count" role="status">{$t.troll.fileSessionsCount(sessionsMade.length)}</span>
+      </div>
+      {#if sessionsMade.length === 0}
+        <p class="muted">{$t.troll.fileSessionsEmpty}</p>
+      {:else}
+        <ul class="takes">
+          {#each sessionsMade as s (s.ID)}
+            <li>
+              <span class="rday">{shortDay(s.Date)}</span>
+              <span class="rtext">
+                <strong>{s.ClassLabel}{s.Subject ? ` · ${s.Subject}` : ''}</strong>
+                <small>
+                  {$t.troll.takeSummary(s.Students, s.Absences)}
+                </small>
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
+    <section class="card" aria-label={$t.troll.fileWarningsMadeTitle}>
+      <div class="row-head">
+        <h2>{$t.troll.fileWarningsMadeTitle}</h2>
+        <span class="count" role="status">{$t.troll.fileWarningsMadeCount(warningsMade.length)}</span>
+      </div>
+      {#if warningsMade.length === 0}
+        <p class="muted">{$t.troll.fileWarningsMadeEmpty}</p>
+      {:else}
+        <ul class="takes">
+          {#each warningsMade as w (w.ID)}
+            <li>
+              <span class={`sev ${w.Gravity === 'mild' ? 'leve' : w.Gravity === 'moderate' ? 'medio' : 'grave'}`}>
+                {w.Gravity === 'mild' ? $t.roster.warnGravityMild : w.Gravity === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere}
+              </span>
+              <span class="rtext">
+                <strong>{w.StudentName} — {w.Title}</strong>
+                <small>{w.ClassLabel} · {momentTs(w.HappenedAt)}</small>
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
     <section class="card" aria-label={$t.troll.revisionsTitle}>
       <h2>{$t.troll.revisionsTitle}</h2>
       {#if !hist || hist.Revisions.length === 0}
@@ -459,36 +655,6 @@
       {/if}
     </section>
 
-    <section class="card" aria-label={$t.admin.subjectsTitle}>
-      <div class="row-head">
-        <h2>{$t.admin.subjectsTitle}</h2>
-      </div>
-      {#if derivedSubjects.length === 0}
-        <p class="muted">{$t.admin.noSubjects}</p>
-      {:else}
-        <div class="chips">
-          {#each derivedSubjects as s (s.id)}
-            <span class={`chip chip-${paletteFor(s.id)}`} style={tint(s.color)}>{s.name}</span>
-          {/each}
-        </div>
-      {/if}
-      <p class="muted">{$t.admin.subjectsFromSchedule}</p>
-    </section>
-
-    <section class="card" aria-label={$t.admin.groupsTitle}>
-      <h2>{$t.admin.groupsTitle}</h2>
-      {#if derivedGroups.length === 0}
-        <p class="muted">{$t.admin.noGroups}</p>
-      {:else}
-        <ul class="groups">
-          {#each derivedGroups as g (g.id)}
-            <li>
-              <strong>{g.label}</strong>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
 
     <section class="card" aria-label={$t.admin.teacherClassesTitle}>
       <div class="row-head">
@@ -532,6 +698,8 @@
         </ul>
       {/if}
     </section>
+      </div>
+    </div>
   {/if}
   </div>
 </AdminShell>
@@ -805,16 +973,13 @@
     flex-wrap: wrap;
     margin-bottom: 8px;
   }
-  .stepper {
+  .monthpick {
     display: flex;
-    align-items: center;
-    gap: 4px;
+    gap: 8px;
+    align-items: end;
   }
-  .stepper strong {
+  .monthpick > :global(*) {
     min-width: 130px;
-    text-align: center;
-    text-transform: capitalize;
-    font-size: 0.9rem;
   }
   .kpis {
     display: grid;
@@ -929,7 +1094,7 @@
     flex-wrap: wrap;
     gap: 8px;
   }
-  .groups {
+  .sgroups {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -937,7 +1102,7 @@
     flex-direction: column;
     gap: 8px;
   }
-  .groups li {
+  .sgroups li {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -945,6 +1110,116 @@
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
     padding: 10px 14px;
+    flex-wrap: wrap;
+  }
+  .sgroups li > strong {
+    min-width: 52px;
+    font-variant-numeric: tabular-nums;
+  }
+  .sgroups .chips {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .takes {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .takes li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .takes li:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .sev {
+    flex: none;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .sev.medio {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+  }
+  .sev.grave {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+  }
+  .sev.leve {
+    background: var(--chip-sky-bg);
+    color: var(--chip-sky-ink);
+  }
+  .count {
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 14px;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 899px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .facts {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+  }
+  .facts > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .facts > div:last-child {
+    border-bottom: none;
+  }
+  .facts dt {
+    color: var(--muted);
+    font-size: 0.84rem;
+    flex: none;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--ink);
+    text-align: right;
+    word-break: break-word;
+  }
+  .sub {
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin: 14px 0 2px;
+  }
+  .statusrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
   }
   .classes {
     list-style: none;
