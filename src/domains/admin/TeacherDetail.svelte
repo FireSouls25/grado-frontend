@@ -16,6 +16,8 @@
     subjects,
     subjectAssignments,
     teacherHistory,
+    teacherPhoto,
+    uploadTeacherPhoto,
     teachers,
     scheduleEntries,
     groupsByYear,
@@ -43,6 +45,53 @@
   const currentYear = new Date().getFullYear();
 
   // Attendance record: month grid with summary counts.
+  // Photo mirrors the student file: data URL or initials.
+  let photoUrl: string | null = null;
+  let photoError = '';
+  let photoInput: HTMLInputElement | null = null;
+
+  async function loadPhoto() {
+    photoUrl = null;
+    try {
+      const photo = await guarded(() => teacherPhoto(id));
+      if (photo) photoUrl = `data:${photo.contentType};base64,${photo.data}`;
+    } catch {
+      photoUrl = null;
+    }
+  }
+
+  async function onPhotoPicked(e: Event) {
+    photoError = '';
+    const file = (e.currentTarget as HTMLInputElement).files?.[0];
+    if (photoInput) photoInput.value = '';
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      photoError = $t.studentDetail.photoTooLarge;
+      return;
+    }
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      await uploadTeacherPhoto(id, dataUrl);
+      photoUrl = dataUrl;
+    } catch (err) {
+      photoError = err instanceof ApiError ? err.message : $t.common.loadError;
+    }
+  }
+
+  async function removePhoto() {
+    photoError = '';
+    try {
+      await uploadTeacherPhoto(id, '');
+      photoUrl = null;
+    } catch (err) {
+      photoError = err instanceof ApiError ? err.message : $t.common.loadError;
+    }
+  }
   let hist: TeacherHistory | null = null;
   let monthCursor = monthStart(new Date());
 
@@ -56,6 +105,16 @@
     monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + delta, 1);
     void loadHistory();
   }
+  function statusName(s: string): string {
+    return s === 'absent' ? $t.troll.statusAbsent : s === 'late' ? $t.troll.statusLate : s === 'present' ? $t.troll.statusPresent : '—';
+  }
+
+  function shortDay(value: string): string {
+    const d = new Date(`${value.slice(0, 10)}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+  }
+
   function monthRange(d: Date): { from: string; to: string } {
     const pad = (n: number) => String(n).padStart(2, '0');
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
@@ -84,6 +143,8 @@
     }
   }
 
+  onMount(load);
+
   async function load() {
     state = 'loading';
     loadError = null;
@@ -107,6 +168,7 @@
     // las tarjetas pintan vacío honesto.
     void loadClasses();
     void loadHistory();
+    void loadPhoto();
   }
 
   let teacherEntries: ScheduleEntry[] = [];
@@ -282,8 +344,39 @@
     <ErrorState error={loadError} onRetry={load} />
   {:else}
     <section class="card profile" aria-label={$t.admin.teacherDetailTitle}>
-      <h2>{detail.Surnames} {detail.Names}</h2>
-      <p>{detail.DocumentID}</p>
+      <div class="idblock">
+        <div class="photocol">
+          {#if photoUrl}
+            <img class="photo" src={photoUrl} alt={`${detail.Surnames} ${detail.Names}`} />
+          {:else}
+            <span class="avatar big" aria-hidden="true">
+              {`${detail.Surnames} ${detail.Names}`.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+            </span>
+          {/if}
+          <button type="button" class="link" on:click={() => photoInput?.click()}>
+            {$t.troll.photoChange}
+          </button>
+          {#if photoUrl}
+            <button type="button" class="link danger" on:click={removePhoto}>
+              {$t.troll.photoRemove}
+            </button>
+          {/if}
+          <input
+            bind:this={photoInput}
+            type="file"
+            accept="image/*"
+            hidden
+            aria-hidden="true"
+            tabindex="-1"
+            on:change={onPhotoPicked}
+          />
+        </div>
+        <div>
+          <h2>{detail.Surnames} {detail.Names}</h2>
+          <p>{detail.DocumentID}</p>
+        </div>
+      </div>
+      {#if photoError}<p class="flash error" role="alert">{photoError}</p>{/if}
       {#if detail.Email}<p>{detail.Email}</p>{/if}
       {#if detail.Phone}<p>{detail.Phone}</p>{/if}
       {#if detail.HomeroomClassID}
@@ -340,6 +433,29 @@
         {/if}
       {:else}
         <p class="muted">{$t.troll.historyEmpty}</p>
+      {/if}
+    </section>
+
+    <section class="card" aria-label={$t.troll.revisionsTitle}>
+      <h2>{$t.troll.revisionsTitle}</h2>
+      {#if !hist || hist.Revisions.length === 0}
+        <p class="muted">{$t.troll.revisionsEmpty}</p>
+      {:else}
+        <ul class="revs">
+          {#each hist.Revisions as r (r.Day + r.RecordedAt + r.NewStatus)}
+            <li>
+              <span class="rday">{shortDay(r.Day)}</span>
+              <span class="rtext">
+                {#if !r.OldStatus}
+                  <strong>{$t.troll.revisionFirst}: {statusName(r.NewStatus)}</strong>
+                {:else}
+                  <strong>{$t.troll.revisionChanged(statusName(r.OldStatus), statusName(r.NewStatus))}</strong>
+                {/if}
+                {#if r.Note}<small>{r.Note}</small>{/if}
+              </span>
+            </li>
+          {/each}
+        </ul>
       {/if}
     </section>
 
@@ -494,6 +610,100 @@
   .profile p {
     color: var(--muted);
     font-size: 0.92rem;
+  }
+  .idblock {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  .photocol {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .photo {
+    width: 88px;
+    height: 88px;
+    border-radius: 28px;
+    object-fit: cover;
+    border: 1px solid var(--line);
+  }
+  .avatar.big {
+    width: 88px;
+    height: 88px;
+    font-size: 1.9rem;
+    border-radius: 28px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+  }
+  .link {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.82rem;
+    min-height: 36px;
+    padding: 4px 0;
+    text-align: left;
+  }
+  .link.danger {
+    color: var(--g-grave-ink);
+  }
+  .flash.error {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: var(--radius-chip);
+    padding: 10px 14px;
+    margin-bottom: 8px;
+  }
+  .revs {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .revs li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .revs li:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .rday {
+    flex: none;
+    background: var(--tint);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .rtext {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .rtext strong {
+    font-size: 0.88rem;
+  }
+  .rtext small {
+    color: var(--muted);
+    font-size: 0.78rem;
   }
   .profile h2 {
     margin-bottom: 2px;

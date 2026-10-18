@@ -46,6 +46,17 @@ export interface TeacherHistory {
   TeacherName: string;
   Marks: TeacherHistoryMark[];
   Summary: { Present: number; Absent: number; Late: number };
+  Revisions: TeacherHistoryRevision[];
+}
+
+export interface TeacherHistoryRevision {
+  TeacherID: string;
+  Day: string;
+  OldStatus: '' | TeacherMarkStatus;
+  NewStatus: TeacherMarkStatus;
+  Note: string;
+  RecordedBy: string;
+  RecordedAt: string;
 }
 
 export async function teacherHistory(id: string, from?: string, to?: string): Promise<TeacherHistory | null> {
@@ -56,7 +67,7 @@ export async function teacherHistory(id: string, from?: string, to?: string): Pr
     `/v1/teachers/${encodeURIComponent(id)}/attendance${q ? `?${q}` : ''}`
   );
   if (!r) return null;
-  return { ...r, Marks: r.Marks ?? [], Summary: r.Summary ?? { Present: 0, Absent: 0, Late: 0 } };
+  return { ...r, Marks: r.Marks ?? [], Summary: r.Summary ?? { Present: 0, Absent: 0, Late: 0 }, Revisions: r.Revisions ?? [] };
 }
 
 export interface TeacherDayInput {
@@ -292,6 +303,52 @@ export async function studentPhoto(id: string): Promise<StudentPhoto | null> {
 /** Stores (or clears, when empty) the student photo. */
 export async function uploadPhoto(id: string, data: string): Promise<void> {
   await api.put(`/v1/students/${encodeURIComponent(id)}/photo`, { data });
+}
+
+/** Stored teacher photo as a data URL, or null when none. */
+export async function teacherPhoto(id: string): Promise<StudentPhoto | null> {
+  try {
+    return await api.get<StudentPhoto>(`/v1/teachers/${encodeURIComponent(id)}/photo`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+/** Stores (or clears, when empty) the teacher photo. */
+export async function uploadTeacherPhoto(id: string, data: string): Promise<void> {
+  await api.put(`/v1/teachers/${encodeURIComponent(id)}/photo`, { data });
+}
+
+export interface TeacherRollRow {
+  TeacherID: string;
+  TeacherName: string;
+  Day: string;
+  Status: '' | TeacherMarkStatus;
+  Note: string;
+  Recorded: boolean;
+}
+
+/** Teachers expected one day (from the weekly schedule) with their
+ *  recorded marks, if any. Unmarked rows carry an empty status. */
+export async function teacherRoll(date: string): Promise<TeacherRollRow[]> {
+  return (await api.get<TeacherRollRow[]>(`/v1/teachers/roll?date=${encodeURIComponent(date)}`)) ?? [];
+}
+
+export interface TeacherDayCard {
+  Day: string;
+  Total: number;
+  Present: number;
+  Absent: number;
+  Late: number;
+}
+
+/** One card per recorded day, newest first. */
+export async function teacherRollHistory(from?: string, to?: string): Promise<TeacherDayCard[]> {
+  const q = [`from=${encodeURIComponent(from ?? '')}`, `to=${encodeURIComponent(to ?? '')}`]
+    .filter((p) => !p.endsWith('='))
+    .join('&');
+  return (await api.get<TeacherDayCard[]>(`/v1/teachers/attendance/history${q ? `?${q}` : ''}`)) ?? [];
 }
 /** Full profile of one student: 25 fields the class report never carries. */
 export async function studentProfile(id: string): Promise<StudentProfile> {

@@ -34,6 +34,8 @@ export const routes = {
   '/llamado/:groupID': WarningNew,
   '/admin': admin(() => import('./domains/admin/Overview.svelte')),
   '/admin/docentes': admin(() => import('./domains/admin/Teachers.svelte')),
+  '/admin/docentes/lista': admin(() => import('./domains/admin/TeacherRoll.svelte')),
+  '/admin/docentes/historial': admin(() => import('./domains/admin/TeacherRollHistory.svelte')),
   '/admin/docentes/:id': admin(() => import('./domains/admin/TeacherDetail.svelte')),
   '/admin/estudiantes': admin(() => import('./domains/admin/Students.svelte')),
   '/admin/estudiantes/:id': admin(() => import('./domains/admin/StudentDetail.svelte')),

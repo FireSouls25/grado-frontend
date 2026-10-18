@@ -67,7 +67,11 @@ suave a vacíos y se encienden solos cuando el backend los exponga.
    de asistencia, materias y salones leídos del horario),
    Estudiantes por año/salón, tablero semanal estilo `reference/` con
    overlay de edición y catálogo de materias integrado (arrastrar al
-   horario). Login enruta por rol (`/v1/me` → home).
+   horario). Docentes como lista única con ficha completa (foto,
+   calendario de asistencia y deltas); lista diaria en pantalla propia
+   con esperados del horario y nada preseleccionado; historial de
+   listas por día con tarjetas expandibles. Login enruta por rol
+   (`/v1/me` → home).
 5. ✅ Login profesional (Observador Estudiantil): correo o usuario
    (`nombre.apellido`, creado por admins), contraseña con mostrar/ocultar,
    mockup de recuperación, layout dividido en escritorio. Cuentas dev en
