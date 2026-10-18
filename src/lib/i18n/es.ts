@@ -257,6 +257,7 @@ export const es = {
     metaAuthor: 'Registró',
     formTitle: 'Nuevo llamado de atención',
     formNote: 'Se guarda igual que el del docente: en el historial de cada estudiante.',
+    pickClass: 'Elige el salón…',
     fClass: 'Salón',
     fStudents: 'Estudiantes',
     fGravity: 'Gravedad',

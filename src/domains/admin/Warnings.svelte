@@ -275,17 +275,18 @@
   <Sheet open={creating} title={$t.warnings.formTitle} onClose={() => (creating = false)}>
     <p class="muted">{$t.warnings.formNote}</p>
     <form class="form" on:submit|preventDefault={save}>
-      <label>
-        <span>{$t.warnings.fClass}</span>
-        <select bind:value={fGroupID} on:change={onGroupChange}>
-          <option value="">—</option>
-          {#each groups as g (g.GroupID)}
-            <option value={g.GroupID}>{g.ClassLabel}</option>
-          {/each}
-        </select>
-      </label>
-      <fieldset>
-        <legend>{$t.warnings.fStudents}</legend>
+      <Dropdown
+        label={$t.warnings.fClass}
+        value={fGroupID}
+        placeholder={$t.warnings.pickClass}
+        options={groups.map((g) => ({ value: g.GroupID, label: g.ClassLabel }))}
+        on:select={(e) => {
+          fGroupID = String(e.detail);
+          onGroupChange();
+        }}
+      />
+      <div class="group" role="group" aria-label={$t.warnings.fStudents}>
+        <span class="glabel">{$t.warnings.fStudents}</span>
         {#if rosterLoading}
           <p class="muted">…</p>
         {:else if roster.length === 0}
@@ -293,26 +294,32 @@
         {:else}
           <div class="picklist">
             {#each roster as s (s.StudentID)}
-              <label class="pick">
-                <input type="checkbox" checked={picked.includes(s.StudentID)} on:change={() => togglePicked(s.StudentID)} />
+              {@const on = picked.includes(s.StudentID)}
+              <button type="button" class="pick" class:on aria-pressed={on} on:click={() => togglePicked(s.StudentID)}>
+                <span class="box" aria-hidden="true">{#if on}✓{/if}</span>
                 <span>{s.Names} {s.Surnames}</span>
-              </label>
+              </button>
             {/each}
           </div>
         {/if}
-      </fieldset>
+      </div>
       <div class="row2">
-        <label>
-          <span>{$t.warnings.fGravity}</span>
-          <select bind:value={fGravity}>
-            <option value="mild">{$t.roster.warnGravityMild}</option>
-            <option value="moderate">{$t.roster.warnGravityModerate}</option>
-            <option value="severe">{$t.roster.warnGravitySevere}</option>
-          </select>
-        </label>
+        <Dropdown
+          label={$t.warnings.fGravity}
+          value={fGravity}
+          options={[
+            { value: 'mild', label: $t.roster.warnGravityMild },
+            { value: 'moderate', label: $t.roster.warnGravityModerate },
+            { value: 'severe', label: $t.roster.warnGravitySevere }
+          ]}
+          on:select={(e) => {
+            const v = String(e.detail);
+            fGravity = v === 'moderate' || v === 'severe' ? v : 'mild';
+          }}
+        />
         <label>
           <span>{$t.warnings.fWhen}</span>
-          <input type="datetime-local" bind:value={fWhen} />
+          <input type="datetime-local" lang="es-CO" bind:value={fWhen} />
         </label>
       </div>
       <label>
@@ -509,7 +516,7 @@
     flex-direction: column;
     gap: 12px;
   }
-  .form label {
+  .form > label {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -517,41 +524,82 @@
     font-weight: 600;
   }
   .form input,
-  .form select,
   .form textarea {
-    min-height: 40px;
-    font-weight: 400;
-  }
-  .row2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  fieldset {
+    background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    margin: 0;
+    border-radius: var(--radius-chip);
+    padding: 12px 14px;
+    min-height: 52px;
+    width: 100%;
+    font-weight: 400;
+    font-size: 0.9rem;
+    color: var(--ink);
   }
-  legend {
+  .form textarea {
+    min-height: 0;
+    resize: vertical;
+  }
+  .form input:focus,
+  .form textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .glabel {
     font-size: 0.82rem;
     font-weight: 600;
-    padding: 0 6px;
   }
   .picklist {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    max-height: 220px;
+    gap: 6px;
+    max-height: 240px;
     overflow-y: auto;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 8px;
   }
   .pick {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 10px;
-    min-height: 40px;
-    font-weight: 400;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    min-height: 48px;
+    padding: 8px 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+  .pick.on {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .box {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    border: 2px solid var(--line);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .pick.on .box {
+    border-color: var(--accent);
   }
   .actions {
     display: flex;
