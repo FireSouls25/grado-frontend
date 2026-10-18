@@ -2,6 +2,8 @@
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
+  import Toast from '$lib/ui/Toast.svelte';
+  import { notice, dismissNotice } from '$lib/ui/notice';
 
   // Barra lateral persistente de la consola admin (docs/diseno.md).
   // Sin búsqueda: cada página filtra con la suya junto a sus tabs.
@@ -84,6 +86,7 @@
   </nav>
 
   <div class="sbody"><slot /></div>
+  <Toast message={$notice} onClose={dismissNotice} />
 </div>
 
 <style>

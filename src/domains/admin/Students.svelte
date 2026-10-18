@@ -7,7 +7,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
-  import Toast from '$lib/ui/Toast.svelte';
+  import { notify } from '$lib/ui/notice';
   import Icon from '$lib/ui/Icon.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import { groupsByYear, createStudent, createClassGroup, classReport, warningsRecent, teachers, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
@@ -31,7 +31,6 @@
   let creatingSalon = false;
   let savingSalon = false;
   let salonFeedback = '';
-  let toast = '';
   let salonGrade = '';
   let salonGroup = '';
   let report: ClassReport | null = null;
@@ -236,7 +235,7 @@
       salonGrade = '';
       salonGroup = '';
       creatingSalon = false;
-      toast = $t.admin.createdSalon;
+      notify($t.admin.createdSalon);
     } catch (err) {
       salonFeedback = err instanceof ApiError ? err.message : $t.common.loadError;
     } finally {
@@ -446,8 +445,6 @@
     </button>
   </form>
 </Sheet>
-
-<Toast message={toast} onClose={() => (toast = '')} />
 
 <style>
   .pagehead {

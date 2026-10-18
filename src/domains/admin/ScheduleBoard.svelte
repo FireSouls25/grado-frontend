@@ -11,7 +11,7 @@
   import { groupsByYear, listSubjects, createSubject, updateSubject, deleteSubject, teachers, subjectAssignments, scheduleEntries } from './api';
   import type { YearGroup, Subject, TeacherSummary, ScheduleEntry } from './api';
   import Sheet from '$lib/ui/Sheet.svelte';
-  import Toast from '$lib/ui/Toast.svelte';
+  import { notify } from '$lib/ui/notice';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
   import { WEEK_ORDER, rangeLabel, toClock, SCHOOL_END_MIN, MIN_DURATION_MIN } from '$lib/schedule';
   import { guarded } from '$lib/nav';
@@ -47,7 +47,6 @@
   let subjectForm = { id: '', name: '', desc: '', color: '' };
   let savingSubject = false;
   let subjectError = '';
-  let toast = '';
 
   function tint(color: string): string {
     if (!/^#[0-9a-fA-F]{6}$/.test(color)) return '';
@@ -98,7 +97,7 @@
           Color: subjectForm.color,
           Active: current?.Active ?? true
         });
-        toast = $t.subject.saved;
+        notify($t.subject.saved);
       } else {
         await createSubject({
           Name: subjectForm.name.trim(),
@@ -107,7 +106,7 @@
           Grades: [],
           Color: subjectForm.color
         });
-        toast = $t.subject.created;
+        notify($t.subject.created);
       }
       subjectSheet = 'closed';
       await refreshSubjects();
@@ -124,7 +123,7 @@
     try {
       await deleteSubject(subjectForm.id);
       subjectSheet = 'closed';
-      toast = $t.subject.deleted;
+      notify($t.subject.deleted);
       await refreshSubjects();
     } catch (err) {
       subjectError = err instanceof Error ? err.message : String(err);
@@ -261,12 +260,13 @@
     sheetSession += 1;
   }
 
-  async function onSaved() {
+  async function onSaved(action: 'created' | 'updated' | 'deleted') {
     sheetOpen = false;
     editingEntry = null;
     sheetSubject = null;
     keptGhost = null;
     ghostFading = false;
+    notify(action === 'deleted' ? $t.admin.entryDeleted : $t.admin.entrySaved);
     if (pickedGroup) await loadEntries(pickedGroup.GroupID);
   }
 
@@ -298,6 +298,9 @@
       if (data === null) {
         salonOptions = [];
         groups = [];
+        // Vacío honesto también cuenta como cargado: si no, volver a
+        // este año haría early-return con las listas del otro.
+        optionsYear = requested;
         return;
       }
       salonOptions = data
@@ -313,7 +316,11 @@
       // Un 404 es lista vacía honesta; el resto se muestra con reintento.
       salonOptions = [];
       groups = [];
-      if (!(err instanceof ApiError && isMissing(err))) loadError = err;
+      if (err instanceof ApiError && isMissing(err)) {
+        // Vacío honesto también cuenta como cargado: si no, volver al
+        // año anterior haría early-return con estas listas vacías.
+        optionsYear = requested;
+      } else loadError = err;
     } finally {
       if (requested === year) loading = false;
     }
@@ -325,6 +332,8 @@
 
   function onYearSelect(next: string) {
     year = Number(next) || currentYear;
+    // El salón es del año anterior: se reelige el primero del nuevo.
+    salon = '';
     void loadGroups();
   }
 
@@ -578,7 +587,6 @@
     </div>
   </Sheet>
 
-  <Toast message={toast} onClose={() => (toast = '')} />
 </AdminShell>
 
 <style>

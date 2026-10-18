@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
+  import { notify } from '$lib/ui/notice';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -431,9 +432,10 @@
   contextEntries={teacherEntries}
   {fetchAssigned}
   {fetchTeacherEntries}
-  onSaved={() => {
+  onSaved={(action) => {
     classSheetOpen = false;
     editingEntry = null;
+    notify(action === 'deleted' ? $t.admin.entryDeleted : $t.admin.entrySaved);
     void loadClasses();
   }}
   onClose={() => (classSheetOpen = false)}

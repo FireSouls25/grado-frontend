@@ -118,11 +118,14 @@ tasa bajo umbral (tinta grave + delta), no tiñendo la marca.
   lista hairline con búsqueda opcional, navegación por teclado
   (Esc/flechas/Enter) y cierre al tocar fuera. Todo texto por props,
   sin hardcode. Reemplaza `select` nativos y `datalist` en filtros.
-- **Aviso flotante** (`lib/ui/Toast.svelte`): píldora oscura con check,
-  auto-cierre a los 4s y X para adelantarlo. Solo éxitos; los errores
-  se quedan fijos junto a su formulario.
+- **Aviso flotante** (`lib/ui/Toast.svelte` + `lib/ui/notice.ts`):
+  píldora oscura con check, auto-cierre a los 4s y X para adelantarlo.
+  `notify()` global hospedado en `AdminShell`: cualquier acción de
+  consola confirma por ahí. Solo éxitos; los errores se quedan fijos
+  junto a su formulario.
 - **Rejilla de horario** (Horario admin): columnas Lun–Dom, filas de
-  media hora 07:00–14:00, bloques teñidos con el color de la materia
+  1 hora 07:00–14:00 (la media hora sigue para ubicar bloques),
+  bloques teñidos con el color de la materia
   (borde lateral sólido + fondo mezclado). Celda vacía = crear con
   día e inicio pre-fijados; bloque = editar. El catálogo vive debajo:
   arrastrar una materia a la parrilla abre la creación con docente y

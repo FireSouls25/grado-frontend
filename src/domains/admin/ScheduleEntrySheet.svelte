@@ -43,7 +43,7 @@
   export let contextEntries: ScheduleEntry[] = [];
   export let fetchAssigned: (subjectID: string) => Promise<string[]> = async () => [];
   export let fetchTeacherEntries: (teacherID: string) => Promise<ScheduleEntry[]> = async () => [];
-  export let onSaved: () => void = () => {};
+  export let onSaved: (action: 'created' | 'updated' | 'deleted') => void = () => {};
   export let onClose: () => void = () => {};
   // Vista previa en vivo para el fantasma del tablero: materia, día,
   // inicio y duración actuales del formulario.
@@ -179,7 +179,7 @@
     try {
       if (editingId) await updateEntry(editingId, input);
       else await createEntry(input);
-      onSaved();
+      onSaved(editingId ? 'updated' : 'created');
     } catch (err) {
       error = err instanceof ApiError ? err.message : $t.common.loadError;
       phase = 'edit';
@@ -194,7 +194,7 @@
     error = '';
     try {
       await deleteEntry(editingId);
-      onSaved();
+      onSaved('deleted');
     } catch (err) {
       error = err instanceof ApiError ? err.message : $t.common.loadError;
       phase = 'edit';

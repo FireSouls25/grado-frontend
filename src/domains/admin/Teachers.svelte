@@ -15,7 +15,7 @@
   import { guarded } from '$lib/nav';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
-  import Toast from '$lib/ui/Toast.svelte';
+  import { notify } from '$lib/ui/notice';
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let loadError: unknown = null;
@@ -49,7 +49,6 @@
   let roll: Record<string, { status: TeacherMarkStatus; note: string }> = {};
   let recorded = false;
   let savingRoll = false;
-  let rollToast = '';
 
   function todayLocal(): string {
     const d = new Date();
@@ -115,7 +114,7 @@
         }))
       );
       recorded = true;
-      rollToast = $t.troll.saved;
+      notify($t.troll.saved);
     } catch (err) {
       dayError = err;
       dayState = 'error';
@@ -469,7 +468,6 @@
   {/if}
   {/if}
   </div>
-  <Toast message={rollToast} onClose={() => (rollToast = '')} />
 </AdminShell>
 
 <Sheet open={creating} title={$t.admin.newTeacher} onClose={() => (creating = false)}>

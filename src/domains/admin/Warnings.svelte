@@ -7,7 +7,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
-  import Toast from '$lib/ui/Toast.svelte';
+  import { notify } from '$lib/ui/notice';
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
@@ -33,8 +33,6 @@
   let query = '';
   let gravity: '' | 'mild' | 'moderate' | 'severe' = '';
   let classLabel = '';
-
-  let toast = '';
   let creating = false;
   let saving = false;
   let formError = '';
@@ -177,7 +175,7 @@
         happenedAt: fWhen ? new Date(fWhen).toISOString() : undefined
       });
       creating = false;
-      toast = $t.warnings.saved;
+      notify($t.warnings.saved);
       await load();
     } catch (err) {
       formError = err instanceof Error ? err.message : String(err);
@@ -339,8 +337,6 @@
       </div>
     </form>
   </Sheet>
-
-  <Toast message={toast} onClose={() => (toast = '')} />
 </AdminShell>
 
 <style>
