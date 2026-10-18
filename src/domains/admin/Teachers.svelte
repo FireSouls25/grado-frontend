@@ -9,12 +9,13 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Icon from '$lib/ui/Icon.svelte';
-  import { teachers, teacherDetail, createTeacher, createUser, type TeacherSummary, type TeacherDetail } from './api';
+  import { teachers, teacherDetail, createTeacher, createUser, teacherDay, recordTeacherDay, type TeacherSummary, type TeacherDetail, type TeacherMarkStatus } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
+  import Toast from '$lib/ui/Toast.svelte';
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let loadError: unknown = null;
@@ -32,6 +33,90 @@
   let fGroup = '';
   let fRole: '' | 'director' | 'plain' = '';
   let form = freshForm();
+
+  // Daily roll: the main purpose of this view. One explicit mark per
+  // active teacher per day; untouched rows count as present on save.
+  let tab: 'roll' | 'directory' = 'roll';
+  let day = todayLocal();
+  let dayState: 'loading' | 'error' | 'ready' = 'loading';
+  let dayError: unknown = null;
+  let roll: Record<string, { status: TeacherMarkStatus; note: string }> = {};
+  let recorded = false;
+  let savingRoll = false;
+  let rollToast = '';
+
+  function todayLocal(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function prettyDay(value: string): string {
+    const d = new Date(`${value}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  $: activeTeachers = list.filter((t) => t.Active);
+  $: presentCount = activeTeachers.filter((t) => (roll[t.ID]?.status ?? 'present') === 'present').length;
+
+  async function loadDay() {
+    if (tab !== 'roll') return;
+    dayState = 'loading';
+    dayError = null;
+    try {
+      const marks = (await guarded(() => teacherDay(day))) ?? [];
+      const next: typeof roll = {};
+      for (const m of marks) next[m.TeacherID] = { status: m.Status, note: m.Note ?? '' };
+      roll = next;
+      recorded = marks.length > 0;
+      dayState = 'ready';
+    } catch (err) {
+      dayError = err;
+      dayState = 'error';
+    }
+  }
+
+  function changeDay(delta: number) {
+    const d = new Date(`${day}T12:00:00`);
+    d.setDate(d.getDate() + delta);
+    const next = d.toISOString().slice(0, 10);
+    if (next > todayLocal()) return;
+    day = next;
+    void loadDay();
+  }
+
+  function setStatus(id: string, status: TeacherMarkStatus) {
+    const prev = roll[id];
+    roll = { ...roll, [id]: { status, note: status === 'present' ? '' : (prev?.note ?? '') } };
+  }
+
+  function markAllPresent() {
+    const next: typeof roll = {};
+    for (const t of activeTeachers) next[t.ID] = { status: 'present', note: '' };
+    roll = next;
+  }
+
+  async function saveRoll() {
+    savingRoll = true;
+    try {
+      await recordTeacherDay(
+        day,
+        activeTeachers.map((t) => ({
+          teacherID: t.ID,
+          status: roll[t.ID]?.status ?? 'present',
+          note: roll[t.ID]?.note ?? ''
+        }))
+      );
+      recorded = true;
+      rollToast = $t.troll.saved;
+    } catch (err) {
+      dayError = err;
+      dayState = 'error';
+    } finally {
+      savingRoll = false;
+    }
+  }
 
   function freshForm() {
     return {
@@ -60,6 +145,7 @@
       );
       state = 'ready';
       void loadDetails();
+      void loadDay();
     } catch (err) {
       loadError = err;
       state = err instanceof ApiError && isMissing(err) ? 'ready' : 'error';
@@ -109,6 +195,10 @@
     }
     return true;
   });
+
+  $: rollVisible = activeTeachers.filter((t) =>
+    !q || `${t.Surnames} ${t.Names} ${t.DocumentID}`.toLowerCase().includes(q)
+  );
 
   function validate(): string {
     if (!form.Names.trim() || !form.Surnames.trim() || !form.DocumentID.trim()) {
@@ -193,6 +283,7 @@
         {$t.admin.newTeacher}
       </button>
     </div>
+    {#if tab === 'directory'}
     <div class="filters" role="group" aria-label={$t.admin.teachersTitle}>
       <Dropdown
         label={$t.admin.filterSubject}
@@ -218,9 +309,82 @@
       />
       <span class="count" role="status">{$t.admin.teachersCount(visible.length)}</span>
     </div>
+    {/if}
+  </div>
+
+  <div class="tabs" role="tablist" aria-label={$t.admin.teachersTitle}>
+    <button type="button" role="tab" aria-selected={tab === 'roll'} class:active={tab === 'roll'} on:click={() => { tab = 'roll'; void loadDay(); }}>
+      {$t.troll.tabRoll}
+    </button>
+    <button type="button" role="tab" aria-selected={tab === 'directory'} class:active={tab === 'directory'} on:click={() => (tab = 'directory')}>
+      {$t.troll.tabDirectory}
+    </button>
   </div>
 
   <div class="sheet">
+  {#if tab === 'roll'}
+    <div class="daybar">
+      <div class="stepper">
+        <button type="button" class="mini" on:click={() => changeDay(-1)} aria-label="−1 día">‹</button>
+        <div class="daylabel">
+          <strong>{prettyDay(day)}</strong>
+          <small class:recorded>{recorded ? $t.troll.recorded(presentCount, activeTeachers.length) : $t.troll.noRecord}</small>
+        </div>
+        <button type="button" class="mini" disabled={day >= todayLocal()} on:click={() => changeDay(1)} aria-label="+1 día">›</button>
+      </div>
+      <div class="dayactions">
+        <button type="button" class="mini" on:click={markAllPresent}>{$t.troll.markAllPresent}</button>
+        <button type="button" class="mini primary" disabled={savingRoll} on:click={saveRoll}>
+          {savingRoll ? $t.troll.saving : $t.troll.saveRoll}
+        </button>
+      </div>
+    </div>
+    {#if state === 'loading' || dayState === 'loading'}
+      <Skeleton rows={4} />
+    {:else if state === 'error'}
+      <ErrorState error={loadError} onRetry={load} />
+    {:else if dayState === 'error'}
+      <ErrorState error={dayError} onRetry={loadDay} />
+    {:else if rollVisible.length === 0}
+      <EmptyState icon="list" title={$t.admin.teachersEmptySearch} />
+    {:else}
+      <ul class="roll">
+        {#each rollVisible as teacher (teacher.ID)}
+          {@const st = roll[teacher.ID]?.status ?? 'present'}
+          <li>
+            <span class="who">
+              <span class="avatar" aria-hidden="true">{initialsOf(teacher.Surnames, teacher.Names)}</span>
+              <span class="name">{teacher.Surnames} {teacher.Names}</span>
+            </span>
+            <span class="seg" role="group" aria-label={`${teacher.Surnames} ${teacher.Names}`}>
+              <button type="button" class:present={st === 'present'} aria-pressed={st === 'present'} on:click={() => setStatus(teacher.ID, 'present')}>
+                {$t.troll.statusPresent}
+              </button>
+              <button type="button" class:absent={st === 'absent'} aria-pressed={st === 'absent'} on:click={() => setStatus(teacher.ID, 'absent')}>
+                {$t.troll.statusAbsent}
+              </button>
+              <button type="button" class:late={st === 'late'} aria-pressed={st === 'late'} on:click={() => setStatus(teacher.ID, 'late')}>
+                {$t.troll.statusLate}
+              </button>
+            </span>
+            {#if st !== 'present'}
+              <input
+                class="note"
+                type="text"
+                placeholder={$t.troll.notePlaceholder}
+                aria-label={$t.troll.noteLabel}
+                value={roll[teacher.ID]?.note ?? ''}
+                on:input={(e) => {
+                  const note = (e.currentTarget as HTMLInputElement).value;
+                  roll = { ...roll, [teacher.ID]: { status: st, note } };
+                }}
+              />
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  {:else}
   {#if state === 'loading'}
     <Skeleton rows={4} />
   {:else if state === 'error'}
@@ -271,7 +435,9 @@
       {/each}
     </ul>
   {/if}
+  {/if}
   </div>
+  <Toast message={rollToast} onClose={() => (rollToast = '')} />
 </AdminShell>
 
 <Sheet open={creating} title={$t.admin.newTeacher} onClose={() => (creating = false)}>
@@ -394,6 +560,161 @@
     border-bottom: 0;
     border-radius: 24px 24px 0 0;
     padding: 16px 16px 130px;
+  }
+  .tabs {
+    display: flex;
+    gap: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    padding: 4px;
+    margin-bottom: 12px;
+    width: fit-content;
+  }
+  .tabs button {
+    min-height: 40px;
+    padding: 0 20px;
+    border-radius: var(--radius-pill);
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .tabs button.active {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+  }
+  .daybar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .daylabel {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+  }
+  .daylabel strong {
+    font-size: 1rem;
+    text-transform: capitalize;
+  }
+  .daylabel small {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .daylabel small.recorded {
+    color: var(--chip-green-ink);
+  }
+  .dayactions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .mini {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: var(--radius-pill);
+    background: var(--tint);
+    font-weight: 700;
+    font-size: 0.82rem;
+  }
+  .mini.primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .mini:disabled {
+    opacity: 0.5;
+  }
+  .roll {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .roll li {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+  }
+  .roll .who {
+    flex: 1;
+    min-width: 180px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+  .roll .avatar {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.85rem;
+  }
+  .roll .name {
+    font-weight: 700;
+  }
+  .seg {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg button {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: var(--radius-pill);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .seg button.present {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+  }
+  .seg button.absent {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+  }
+  .seg button.late {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+  }
+  .note {
+    flex-basis: 100%;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 12px;
+    min-height: 40px;
+    font-size: 0.85rem;
+    color: var(--ink);
   }
   @media (min-width: 700px) {
     .sheet {

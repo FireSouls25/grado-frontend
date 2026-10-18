@@ -17,6 +17,59 @@ function missing(resource: string): ApiError {
 // Same honesty rule as the teacher domain: any error means "no data yet".
 // Same honesty rule as the teacher domain: any error means "no data yet".
 
+export type TeacherMarkStatus = 'present' | 'absent' | 'late';
+
+export interface TeacherDayMark {
+  TeacherID: string;
+  TeacherName: string;
+  Day: string;
+  Status: TeacherMarkStatus;
+  Note: string;
+}
+
+/** Day roll of teachers with display names, newest... in teacher order. */
+export async function teacherDay(date: string): Promise<TeacherDayMark[]> {
+  return (await api.get<TeacherDayMark[]>(`/v1/teachers/attendance?date=${encodeURIComponent(date)}`)) ?? [];
+}
+
+export interface TeacherHistoryMark {
+  TeacherID: string;
+  Day: string;
+  Status: TeacherMarkStatus;
+  Note: string;
+  RecordedBy: string;
+  RecordedAt: string;
+}
+
+export interface TeacherHistory {
+  TeacherID: string;
+  TeacherName: string;
+  Marks: TeacherHistoryMark[];
+  Summary: { Present: number; Absent: number; Late: number };
+}
+
+export async function teacherHistory(id: string, from?: string, to?: string): Promise<TeacherHistory | null> {
+  const q = [`from=${encodeURIComponent(from ?? '')}`, `to=${encodeURIComponent(to ?? '')}`]
+    .filter((p) => !p.endsWith('='))
+    .join('&');
+  const r = await api.get<TeacherHistory>(
+    `/v1/teachers/${encodeURIComponent(id)}/attendance${q ? `?${q}` : ''}`
+  );
+  if (!r) return null;
+  return { ...r, Marks: r.Marks ?? [], Summary: r.Summary ?? { Present: 0, Absent: 0, Late: 0 } };
+}
+
+export interface TeacherDayInput {
+  teacherID: string;
+  status: TeacherMarkStatus | '';
+  note?: string;
+}
+
+/** Records (or corrects) the whole day roll. Empty status means present. */
+export async function recordTeacherDay(day: string, marks: TeacherDayInput[]): Promise<TeacherDayMark[]> {
+  return (await api.post<TeacherDayMark[]>('/v1/teachers/attendance', { day, marks })) ?? [];
+}
+
 export interface TeacherSummary {
   ID: string;
   Names: string;

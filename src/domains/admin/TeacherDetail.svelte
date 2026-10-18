@@ -26,7 +26,9 @@
     type SubjectAssignment,
     type ScheduleEntry,
     type TeacherSummary,
-    type YearGroup
+    type YearGroup,
+    type TeacherHistory,
+    teacherHistory
   } from './api';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
   import { WEEK_ORDER, rangeLabel } from '$lib/schedule';
@@ -43,6 +45,48 @@
   const currentYear = new Date().getFullYear();
   let assignOpen = false;
   let feedback = '';
+
+  // Attendance record: month grid with summary counts.
+  let hist: TeacherHistory | null = null;
+  let monthCursor = monthStart(new Date());
+
+  function monthStart(d: Date): Date {
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  }
+  function monthLabel(d: Date): string {
+    return d.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  }
+  function shiftMonth(delta: number) {
+    monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + delta, 1);
+    void loadHistory();
+  }
+  function monthRange(d: Date): { from: string; to: string } {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return {
+      from: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`,
+      to: `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`
+    };
+  }
+
+  $: histByDay = new Map((hist?.Marks ?? []).map((m) => [m.Day.slice(0, 10), m]));
+  $: monthCells = (() => {
+    const y = monthCursor.getFullYear();
+    const m = monthCursor.getMonth();
+    // es-CO weeks start Monday.
+    const lead = (new Date(y, m, 1).getDay() + 6) % 7;
+    const days = new Date(y, m + 1, 0).getDate();
+    return { lead, days };
+  })();
+
+  async function loadHistory() {
+    try {
+      const r = monthRange(monthCursor);
+      hist = await guarded(() => teacherHistory(id, r.from, r.to));
+    } catch {
+      hist = null;
+    }
+  }
 
   async function load() {
     state = 'loading';
@@ -67,6 +111,7 @@
     // la tarjeta pinta vacío honesto.
     void loadTimeline();
     void loadClasses();
+    void loadHistory();
   }
 
   let teacherEntries: ScheduleEntry[] = [];
@@ -289,6 +334,57 @@
         <span class="chip chip-sky">{$t.admin.directs(detail.HomeroomClassID)}</span>
       {/if}
       {#if !detail.Active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
+    </section>
+
+    <section class="card" aria-label={$t.troll.historyTitle}>
+      <div class="row-head">
+        <h2>{$t.troll.historyTitle}</h2>
+        <div class="stepper">
+          <button type="button" class="mini" on:click={() => shiftMonth(-1)} aria-label="Mes anterior">‹</button>
+          <strong>{monthLabel(monthCursor)}</strong>
+          <button type="button" class="mini" on:click={() => shiftMonth(1)} aria-label="Mes siguiente">›</button>
+        </div>
+      </div>
+      {#if hist}
+        <div class="kpis">
+          <div class="kpi"><small>{$t.troll.presentCount}</small><strong>{hist.Summary.Present}</strong></div>
+          <div class="kpi"><small>{$t.troll.absentCount}</small><strong>{hist.Summary.Absent}</strong></div>
+          <div class="kpi"><small>{$t.troll.lateCount}</small><strong>{hist.Summary.Late}</strong></div>
+        </div>
+        {#if hist.Marks.length === 0}
+          <p class="muted">{$t.troll.historyEmpty}</p>
+        {:else}
+          <div class="cal" role="grid" aria-label={monthLabel(monthCursor)}>
+            {#each ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'] as wd}
+              <span class="wd">{wd}</span>
+            {/each}
+            {#each Array(monthCells.lead) as _}
+              <span class="pad"></span>
+            {/each}
+            {#each Array(monthCells.days) as _, i}
+              {@const key = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`}
+              {@const mark = histByDay.get(key)}
+              <span
+                class="day"
+                class:present={mark?.Status === 'present'}
+                class:absent={mark?.Status === 'absent'}
+                class:late={mark?.Status === 'late'}
+                title={mark ? `${key}${mark.Note ? ` — ${mark.Note}` : ''}` : `${key} · ${$t.troll.legendNone}`}
+              >
+                {i + 1}
+              </span>
+            {/each}
+          </div>
+          <div class="legend">
+            <span class="lg present">{$t.troll.legendPresent}</span>
+            <span class="lg absent">{$t.troll.legendAbsent}</span>
+            <span class="lg late">{$t.troll.legendLate}</span>
+            <span class="lg">{$t.troll.legendNone}</span>
+          </div>
+        {/if}
+      {:else}
+        <p class="muted">{$t.troll.historyEmpty}</p>
+      {/if}
     </section>
 
     <section class="card" aria-label={$t.admin.subjectsTitle}>
@@ -553,7 +649,118 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
     margin-bottom: 8px;
+  }
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .stepper strong {
+    min-width: 130px;
+    text-align: center;
+    text-transform: capitalize;
+    font-size: 0.9rem;
+  }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 8px 0 12px;
+  }
+  .kpi {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+  }
+  .kpi small {
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .kpi strong {
+    font-size: 1.3rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .cal {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    max-width: 560px;
+  }
+  .wd {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface-2);
+  }
+  .day.present {
+    background: var(--chip-green-bg);
+    border-color: transparent;
+    color: var(--chip-green-ink);
+    font-weight: 800;
+  }
+  .day.absent {
+    background: var(--chip-pink-bg);
+    border-color: transparent;
+    color: var(--g-grave-ink);
+    font-weight: 800;
+  }
+  .day.late {
+    background: var(--chip-yellow-bg);
+    border-color: transparent;
+    color: var(--chip-yellow-ink);
+    font-weight: 800;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  .lg::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    margin-right: 5px;
+  }
+  .lg.present::before {
+    background: var(--chip-green-bg);
+    border-color: transparent;
+  }
+  .lg.absent::before {
+    background: var(--chip-pink-bg);
+    border-color: transparent;
+  }
+  .lg.late::before {
+    background: var(--chip-yellow-bg);
+    border-color: transparent;
   }
   .mini {
     color: var(--accent);
