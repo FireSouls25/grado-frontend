@@ -158,7 +158,6 @@ export const es = {
     title: 'Horario semanal',
     subjectsHint: 'Arrastra una materia a la parrilla o pulsa Agregar clase: ahí eliges docente y duración.',
     subjectRequired: 'El nombre de la materia es obligatorio.',
-    deleteConfirm: '¿Seguro?',
     openList: 'Abrir lista',
     stateDone: 'Finalizada',
     stateNow: 'Ahora',

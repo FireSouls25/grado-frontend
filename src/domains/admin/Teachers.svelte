@@ -29,7 +29,12 @@
   let showPassword = false;
   let search = '';
   let details: Record<string, TeacherDetail> = {};
-  let taught: Record<string, string[]> = {};
+  let taught: Record<string, { id: string; name: string; color: string }[]> = {};
+
+  function tint(color: string): string {
+    if (!/^#[0-9a-fA-F]{6}$/.test(color)) return '';
+    return `background:${color}1A;border-color:${color}59`;
+  }
   let fSubject = '';
   let fGroup = '';
   let fRole: '' | 'director' | 'plain' = '';
@@ -163,15 +168,24 @@
     // Materias leídas del horario: una entrada por docente, catálogo una vez.
     try {
       const subs = (await guarded(() => listSubjects())) ?? [];
-      const nameOf = (sid: string) => subs.find((s) => s.ID === sid)?.Name ?? sid.slice(0, 8);
       const perTeacher = await Promise.allSettled(
         list.map((teacher) => scheduleEntries({ teacherID: teacher.ID }))
       );
-      const taughtNext: Record<string, string[]> = {};
+      const taughtNext: Record<string, { id: string; name: string; color: string }[]> = {};
       perTeacher.forEach((result, i) => {
         if (result.status !== 'fulfilled' || !result.value) return;
-        const names = [...new Set(result.value.map((e) => nameOf(e.SubjectID)))];
-        if (names.length > 0) taughtNext[list[i].ID] = names;
+        const seen = new Map<string, { id: string; name: string; color: string }>();
+        for (const e of result.value) {
+          if (!seen.has(e.SubjectID)) {
+            const s = subs.find((x) => x.ID === e.SubjectID);
+            seen.set(e.SubjectID, {
+              id: e.SubjectID,
+              name: s?.Name ?? e.SubjectID.slice(0, 8),
+              color: s?.Color ?? ''
+            });
+          }
+        }
+        if (seen.size > 0) taughtNext[list[i].ID] = [...seen.values()];
       });
       taught = taughtNext;
     } catch {
@@ -192,7 +206,7 @@
   onMount(load);
 
   $: q = search.trim().toLowerCase();
-  $: subjectOptions = [...new Set(Object.values(taught).flat())].sort((a, b) =>
+  $: subjectOptions = [...new Set(Object.values(taught).flat().map((s) => s.name))].sort((a, b) =>
     a.localeCompare(b, 'es')
   );
   $: groupOptions = [...new Set(list.map((teacher) => teacher.HomeroomClassID).filter(Boolean))].sort((a, b) =>
@@ -208,7 +222,7 @@
     if (fRole === 'plain' && teacher.HomeroomClassID) return false;
     if (fGroup && teacher.HomeroomClassID !== fGroup) return false;
     if (fSubject) {
-      const names = taught[teacher.ID] ?? [];
+      const names = (taught[teacher.ID] ?? []).map((s) => s.name);
       if (!names.includes(fSubject)) return false;
     }
     return true;
@@ -443,7 +457,7 @@
                 {:else}
                   <span class="pill">{$t.admin.rolePlain}</span>
                 {/if}
-                {#each subjects.slice(0, 3) as subject}<span class="pill sub">{subject}</span>{/each}
+                {#each subjects.slice(0, 3) as subject}<span class="pill sub" style={tint(subject.color)}>{subject.name}</span>{/each}
                 {#if subjects.length === 0}<span class="pill mute">{$t.admin.noSubjects}</span>{/if}
               </span>
             </span>

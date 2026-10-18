@@ -156,12 +156,20 @@
   };
 
   $: derivedSubjects = (() => {
-    const seen = new Map<string, string>();
+    const seen = new Map<string, { id: string; name: string; color: string }>();
     for (const e of teacherEntries) {
-      if (!seen.has(e.SubjectID)) seen.set(e.SubjectID, subjectMeta(e.SubjectID).name);
+      if (!seen.has(e.SubjectID)) {
+        const meta = subjectMeta(e.SubjectID);
+        seen.set(e.SubjectID, { id: e.SubjectID, name: meta.name, color: meta.color });
+      }
     }
-    return [...seen.entries()].map(([id, name]) => ({ id, name }));
+    return [...seen.values()];
   })();
+
+  function tint(color: string): string {
+    if (!/^#[0-9a-fA-F]{6}$/.test(color)) return '';
+    return `background:${color}1A;border-color:${color}59`;
+  }
   $: derivedGroups = (() => {
     const seen = new Map<string, string>();
     for (const e of teacherEntries) {
@@ -341,7 +349,7 @@
       {:else}
         <div class="chips">
           {#each derivedSubjects as s (s.id)}
-            <span class={`chip chip-${paletteFor(s.id)}`}>{s.name}</span>
+            <span class={`chip chip-${paletteFor(s.id)}`} style={tint(s.color)}>{s.name}</span>
           {/each}
         </div>
       {/if}

@@ -4,13 +4,14 @@
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
   import AdminShell from './AdminShell.svelte';
-  import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import { onMount } from 'svelte';
-  import { groupsByYear, listSubjects, createSubject, deleteSubject, teachers, subjectAssignments, scheduleEntries } from './api';
+  import { groupsByYear, listSubjects, createSubject, updateSubject, deleteSubject, teachers, subjectAssignments, scheduleEntries } from './api';
   import type { YearGroup, Subject, TeacherSummary, ScheduleEntry } from './api';
+  import Sheet from '$lib/ui/Sheet.svelte';
+  import Toast from '$lib/ui/Toast.svelte';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
   import { WEEK_ORDER, rangeLabel, toClock, SCHOOL_END_MIN, MIN_DURATION_MIN } from '$lib/schedule';
   import { guarded } from '$lib/nav';
@@ -37,14 +38,97 @@
   let sheetStart: number | null = null;
   let sheetSubject: string | null = null;
 
-  // Catálogo dentro del horario: solo nombre + descripción.
-  let addingSubject = false;
-  let subjectName = '';
-  let subjectDesc = '';
+  // Catálogo dentro del horario: nombre + descripción + color.
+  const COLOR_PRESETS = ['#7C3AED', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#EC4899'];
+  let subjectSheet: 'closed' | 'create' | 'edit' | 'delete' = 'closed';
+  let subjectForm = { id: '', name: '', desc: '', color: '' };
   let savingSubject = false;
-  let subjectFeedback = '';
-  let armingDelete: string | null = null;
-  let deletingSubject = false;
+  let subjectError = '';
+  let toast = '';
+
+  function tint(color: string): string {
+    if (!/^#[0-9a-fA-F]{6}$/.test(color)) return '';
+    return `background:${color}1A;border-color:${color}59`;
+  }
+
+  function openCreateSubject() {
+    subjectForm = { id: '', name: '', desc: '', color: COLOR_PRESETS[0] };
+    subjectError = '';
+    subjectSheet = 'create';
+  }
+
+  function openEditSubject(s: Subject) {
+    subjectForm = { id: s.ID, name: s.Name, desc: s.Description ?? '', color: s.Color ?? '' };
+    subjectError = '';
+    subjectSheet = 'edit';
+  }
+
+  function openDeleteSubject(s: Subject) {
+    subjectForm = { id: s.ID, name: s.Name, desc: s.Description ?? '', color: s.Color ?? '' };
+    subjectError = '';
+    subjectSheet = 'delete';
+  }
+
+  async function refreshSubjects() {
+    subjectsList = (await guarded(() => listSubjects())) ?? [];
+  }
+
+  async function saveSubject() {
+    subjectError = '';
+    if (!subjectForm.name.trim()) {
+      subjectError = $t.schedule.subjectRequired;
+      return;
+    }
+    if (subjectForm.color && !/^#[0-9a-fA-F]{6}$/.test(subjectForm.color)) {
+      subjectError = $t.subject.colorCustomLabel;
+      return;
+    }
+    savingSubject = true;
+    try {
+      if (subjectSheet === 'edit') {
+        const current = subjectsList.find((s) => s.ID === subjectForm.id);
+        await updateSubject(subjectForm.id, {
+          Name: subjectForm.name.trim(),
+          Code: current?.Code ?? '',
+          Description: subjectForm.desc.trim(),
+          Grades: current?.Grades ?? [],
+          Color: subjectForm.color,
+          Active: current?.Active ?? true
+        });
+        toast = $t.subject.saved;
+      } else {
+        await createSubject({
+          Name: subjectForm.name.trim(),
+          Code: '',
+          Description: subjectForm.desc.trim(),
+          Grades: [],
+          Color: subjectForm.color
+        });
+        toast = $t.subject.created;
+      }
+      subjectSheet = 'closed';
+      await refreshSubjects();
+    } catch (err) {
+      subjectError = err instanceof Error ? err.message : String(err);
+    } finally {
+      savingSubject = false;
+    }
+  }
+
+  async function confirmDeleteSubject() {
+    subjectError = '';
+    savingSubject = true;
+    try {
+      await deleteSubject(subjectForm.id);
+      subjectSheet = 'closed';
+      toast = $t.subject.deleted;
+      await refreshSubjects();
+    } catch (err) {
+      subjectError = err instanceof Error ? err.message : String(err);
+    } finally {
+      savingSubject = false;
+    }
+  }
   const yearOptions = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
   $: pickedGroup = groups.find((g) => g.ClassLabel === salon) ?? null;
@@ -95,52 +179,6 @@
   function onDragOverCell(e: DragEvent) {
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-  }
-
-  async function saveSubject() {
-    subjectFeedback = '';
-    if (!subjectName.trim()) {
-      subjectFeedback = $t.schedule.subjectRequired;
-      return;
-    }
-    savingSubject = true;
-    try {
-      await createSubject({
-        Name: subjectName.trim(),
-        Code: '',
-        Description: subjectDesc.trim(),
-        Grades: [],
-        Color: ''
-      });
-      subjectName = '';
-      subjectDesc = '';
-      addingSubject = false;
-      subjectFeedback = $t.subject.created;
-      subjectsList = (await guarded(() => listSubjects())) ?? [];
-    } catch (err) {
-      subjectFeedback = err instanceof Error ? err.message : String(err);
-    } finally {
-      savingSubject = false;
-    }
-  }
-
-  async function removeSubject(id: string) {
-    if (armingDelete !== id) {
-      armingDelete = id;
-      return;
-    }
-    armingDelete = null;
-    deletingSubject = true;
-    subjectFeedback = '';
-    try {
-      await deleteSubject(id);
-      subjectFeedback = $t.subject.deleted;
-      subjectsList = (await guarded(() => listSubjects())) ?? [];
-    } catch (err) {
-      subjectFeedback = err instanceof Error ? err.message : String(err);
-    } finally {
-      deletingSubject = false;
-    }
   }
 
   function openEdit(e: ScheduleEntry) {
@@ -344,30 +382,11 @@
     <div class="subhead">
       <h2>{$t.subject.title}</h2>
       <span class="count" role="status">{$t.subject.countLabel(subjectsList.length)}</span>
-      <button type="button" class="add small" on:click={() => { addingSubject = !addingSubject; subjectFeedback = ''; }}>
+      <button type="button" class="add small" on:click={openCreateSubject}>
         <Icon name="plus" /> {$t.subject.newAction}
       </button>
     </div>
     <p class="muted">{$t.schedule.subjectsHint}</p>
-    {#if addingSubject}
-      <div class="subform">
-        <label>
-          <span>{$t.subject.nameLabel}</span>
-          <input type="text" placeholder={$t.subject.namePlaceholder} bind:value={subjectName} maxlength="80" />
-        </label>
-        <label>
-          <span>{$t.subject.descriptionLabel}</span>
-          <input type="text" placeholder={$t.subject.descriptionPlaceholder} bind:value={subjectDesc} maxlength="200" />
-        </label>
-        <div class="subactions">
-          <button type="button" class="mini" on:click={() => (addingSubject = false)}>{$t.warnings.cancel}</button>
-          <button type="button" class="mini primary" disabled={savingSubject} on:click={saveSubject}>
-            {savingSubject ? $t.troll.saving : $t.common.save}
-          </button>
-        </div>
-      </div>
-    {/if}
-    {#if subjectFeedback}<p class="flash" role="status">{subjectFeedback}</p>{/if}
     {#if subjectsList.length === 0}
       <p class="muted">{$t.subject.emptyTitle}</p>
     {:else}
@@ -375,23 +394,24 @@
         {#each subjectsList as s (s.ID)}
           <li
             class="sub"
+            style={tint(s.Color ?? '')}
             draggable="true"
             on:dragstart={(e) => e.dataTransfer?.setData('text/subject-id', s.ID)}
             title={s.Description || s.Name}
           >
-            <span class="dot" style={`background:${s.Color || 'var(--accent)'}`}></span>
             <span class="subtext">
-              <strong>{s.Name}</strong>
+              <button type="button" class="subname" on:click={() => openEditSubject(s)} title={$t.subject.editTitle}>
+                {s.Name}
+              </button>
               {#if s.Description}<small>{s.Description}</small>{/if}
             </span>
             <button
               type="button"
               class="rm"
-              disabled={deletingSubject}
               aria-label={`${$t.subject.deleteAction}: ${s.Name}`}
-              on:click={() => removeSubject(s.ID)}
+              on:click={() => openDeleteSubject(s)}
             >
-              {armingDelete === s.ID ? $t.schedule.deleteConfirm : '×'}
+              ×
             </button>
           </li>
         {/each}
@@ -399,6 +419,59 @@
     {/if}
   </section>
 
+  <Sheet open={subjectSheet === 'create' || subjectSheet === 'edit'} title={subjectSheet === 'edit' ? $t.subject.editTitle : $t.subject.createTitle} onClose={() => (subjectSheet = 'closed')}>
+    <form class="form" on:submit|preventDefault={saveSubject}>
+      <label>
+        <span>{$t.subject.nameLabel}</span>
+        <input type="text" placeholder={$t.subject.namePlaceholder} bind:value={subjectForm.name} maxlength="80" />
+      </label>
+      <label>
+        <span>{$t.subject.descriptionLabel}</span>
+        <input type="text" placeholder={$t.subject.descriptionPlaceholder} bind:value={subjectForm.desc} maxlength="200" />
+      </label>
+      <span class="flabel">{$t.subject.colorLabel}</span>
+      <div class="swatches" role="radiogroup" aria-label={$t.subject.colorLabel}>
+        {#each COLOR_PRESETS as c (c)}
+          <button
+            type="button"
+            class="sw"
+            class:on={subjectForm.color === c}
+            style={`background:${c}`}
+            aria-label={c}
+            aria-pressed={subjectForm.color === c}
+            on:click={() => (subjectForm.color = c)}
+          ></button>
+        {/each}
+        <input
+          type="color"
+          aria-label={$t.subject.colorCustomLabel}
+          title={$t.subject.colorCustomLabel}
+          value={subjectForm.color || '#7C3AED'}
+          on:input={(e) => (subjectForm.color = (e.currentTarget as HTMLInputElement).value)}
+        />
+      </div>
+      {#if subjectError}<p class="flash error" role="alert">{subjectError}</p>{/if}
+      <div class="actions">
+        <button type="button" class="mini" on:click={() => (subjectSheet = 'closed')}>{$t.common.cancel}</button>
+        <button type="submit" class="mini primary" disabled={savingSubject}>
+          {savingSubject ? $t.troll.saving : $t.common.save}
+        </button>
+      </div>
+    </form>
+  </Sheet>
+
+  <Sheet open={subjectSheet === 'delete'} title={$t.subject.deleteTitle} onClose={() => (subjectSheet = 'closed')}>
+    <p class="muted">{$t.subject.deleteBody(subjectForm.name)}</p>
+    {#if subjectError}<p class="flash error" role="alert">{subjectError}</p>{/if}
+    <div class="actions">
+      <button type="button" class="mini" on:click={() => (subjectSheet = 'closed')}>{$t.common.cancel}</button>
+      <button type="button" class="mini danger" disabled={savingSubject} on:click={confirmDeleteSubject}>
+        {savingSubject ? $t.troll.saving : $t.subject.deleteAction}
+      </button>
+    </div>
+  </Sheet>
+
+  <Toast message={toast} onClose={() => (toast = '')} />
 </AdminShell>
 
 <style>
@@ -494,25 +567,20 @@
     margin: 0;
     flex: 1;
   }
-  .subform {
+  .form {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-top: 12px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 12px;
+    gap: 12px;
   }
-  .subform label {
+  .form > label {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     font-weight: 600;
   }
-  .subform input {
-    background: var(--surface);
+  .form input[type='text'] {
+    background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
     padding: 10px 12px;
@@ -520,23 +588,55 @@
     font-size: 0.9rem;
     color: var(--ink);
   }
-  .subform input:focus {
+  .form input[type='text']:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  .subactions {
+  .flabel {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .swatches {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .sw {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 2px solid transparent;
+  }
+  .sw.on {
+    border-color: var(--ink);
+  }
+  .swatches input[type='color'] {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 2px dashed var(--line);
+    background: none;
+    padding: 2px;
+  }
+  .actions {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
   }
-  .flash {
+  .mini.danger {
+    background: var(--g-grave-ink);
+    border-color: transparent;
+    color: #fff;
+  }
+  .flash.error {
     border-radius: var(--radius);
     padding: 10px 12px;
     font-size: 0.85rem;
-    margin: 12px 0 0;
-    background: var(--chip-green-bg);
-    color: var(--chip-green-ink);
+    margin: 0;
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
     font-weight: 600;
   }
   .sublist {
@@ -560,20 +660,18 @@
   .sub:active {
     cursor: grabbing;
   }
-  .dot {
-    flex: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 999px;
-  }
   .subtext {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
   }
-  .subtext strong {
+  .subname {
     font-size: 0.9rem;
+    font-weight: 700;
+    text-align: left;
+    padding: 0;
+    color: var(--ink);
   }
   .subtext small {
     color: var(--muted);
