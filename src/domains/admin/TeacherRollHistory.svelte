@@ -8,7 +8,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import { guarded } from '$lib/nav';
-  import { teacherRollHistory, teacherRoll, type TeacherDayCard, type TeacherRollRow } from './api';
+  import { teacherRollHistory, teacherRoll, teacherDayRevisions, type TeacherDayCard, type TeacherRollRow, type TeacherDayRevision } from './api';
   import { rollDate } from './rollDate';
 
   const currentYear = new Date().getFullYear();
@@ -44,6 +44,9 @@
   let detailRows: TeacherRollRow[] = [];
   let detailLoading = false;
   let showPresent = false;
+  let showRevisions = false;
+  let revisions: TeacherDayRevision[] = [];
+  let revisionsLoading = false;
 
   $: expandedCard = cards.find((c) => c.Day === expanded) ?? null;
   $: absentLate = detailRows.filter((r) => r.Status === 'absent' || r.Status === 'late');
@@ -65,18 +68,28 @@
 
   async function toggle(day: string) {
     showPresent = false;
+    showRevisions = false;
     if (expanded === day) {
       expanded = null;
       detailRows = [];
+      revisions = [];
       return;
     }
     expanded = day;
     detailLoading = true;
+    revisionsLoading = true;
     detailRows = [];
+    revisions = [];
     try {
-      detailRows = (await guarded(() => teacherRoll(day))) ?? [];
+      const [rows, revs] = await Promise.all([
+        guarded(() => teacherRoll(day)),
+        guarded(() => teacherDayRevisions(day))
+      ]);
+      detailRows = rows ?? [];
+      revisions = revs ?? [];
     } finally {
       detailLoading = false;
+      revisionsLoading = false;
     }
   }
 
@@ -87,6 +100,18 @@
 
   function statusName(s: string): string {
     return s === 'absent' ? $t.troll.statusAbsent : s === 'late' ? $t.troll.statusLate : $t.troll.statusPresent;
+  }
+
+  function momentTs(value: string): string {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString('es-CO', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   load();
@@ -169,6 +194,27 @@
                   <button type="button" class="mini" on:click={() => modify(card.Day)}>
                     {$t.troll.modifyAction}
                   </button>
+                  <button type="button" class="link" on:click={() => (showRevisions = !showRevisions)}>
+                    {showRevisions ? $t.troll.hideRevisions : `${$t.troll.showRevisions} (${revisions.length})`}
+                  </button>
+                  {#if showRevisions}
+                    {#if revisionsLoading}
+                      <Skeleton rows={2} />
+                    {:else if revisions.length === 0}
+                      <p class="muted">{$t.troll.revisionsEmpty}</p>
+                    {:else}
+                      <ul class="revs">
+                        {#each revisions as r (r.TeacherID + r.RecordedAt + r.NewStatus)}
+                          <li>
+                            <span class="rtext">
+                              <strong>{r.TeacherName}: {r.OldStatus ? $t.troll.revisionChanged(statusName(r.OldStatus), statusName(r.NewStatus)) : `${$t.troll.revisionFirst}: ${statusName(r.NewStatus)}`}</strong>
+                              <small>{r.Author} · {momentTs(r.RecordedAt)}{r.Note ? ` · ${r.Note}` : ''}</small>
+                            </span>
+                          </li>
+                        {/each}
+                      </ul>
+                    {/if}
+                  {/if}
                 {/if}
               </div>
             {/if}
@@ -238,6 +284,26 @@
   .cards .card {
     padding: 0;
     overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow);
+  }
+  .revs {
+    list-style: none;
+    margin: 0;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+  }
+  .revs li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
   }
   .chead {
     width: 100%;

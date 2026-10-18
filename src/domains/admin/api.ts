@@ -367,6 +367,24 @@ export interface TeacherDayCard {
   Late: number;
 }
 
+export type TeacherDayStatus = '' | TeacherMarkStatus;
+
+export interface TeacherDayRevision {
+  TeacherID: string;
+  TeacherName: string;
+  Day: string;
+  OldStatus: TeacherDayStatus;
+  NewStatus: TeacherMarkStatus;
+  Note: string;
+  Author: string;
+  RecordedAt: string;
+}
+
+/** Every change recorded on one day, newest first. */
+export async function teacherDayRevisions(date: string): Promise<TeacherDayRevision[]> {
+  return (await api.get<TeacherDayRevision[]>(`/v1/teachers/attendance/revisions?date=${encodeURIComponent(date)}`)) ?? [];
+}
+
 /** One card per recorded day, newest first. */
 export async function teacherRollHistory(from?: string, to?: string): Promise<TeacherDayCard[]> {
   const q = [`from=${encodeURIComponent(from ?? '')}`, `to=${encodeURIComponent(to ?? '')}`]

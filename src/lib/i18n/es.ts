@@ -316,6 +316,8 @@ export const es = {
     modifyAction: 'Modificar',
     showPresent: 'Ver presentes',
     hidePresent: 'Ocultar presentes',
+    showRevisions: 'Ver cambios',
+    hideRevisions: 'Ocultar cambios',
     absentOnes: 'Ausentes y atrasos',
     allPresentNote: 'Todos presentes.',
     revisionsTitle: 'Historial de cambios',
