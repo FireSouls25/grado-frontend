@@ -889,11 +889,11 @@
   .cell {
     border-radius: 8px;
     background: var(--surface-2);
-    border: 1px dashed var(--line);
+    border: 1px solid var(--grid);
     min-height: 0;
   }
   .cell:hover {
-    border-color: var(--grid);
+    border-color: var(--accent);
     background: var(--tint);
   }
   .cell.droptarget {

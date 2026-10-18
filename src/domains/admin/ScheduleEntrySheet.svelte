@@ -56,40 +56,27 @@
   }
 
   let phase: 'edit' | 'confirm' | 'delete' = 'edit';
-  let groupID = '';
-  let subjectID = '';
-  let teacherID = '';
-  let weekday = 1;
-  let start = '07:00';
-  let durationMin = 60;
+  // Estado inicial en la declaración: la instancia se remonta en cada
+  // apertura, así el primer render ya trae los presets finales y ningún
+  // reactivo corre jamás con valores por defecto.
+  let groupID = entry?.ClassGroupID ?? presetGroupID;
+  let subjectID = entry?.SubjectID ?? presetSubjectID;
+  let teacherID = entry?.TeacherID ?? presetTeacherID;
+  let weekday = entry?.Weekday ?? presetWeekday ?? 1;
+  let start = toClock(entry?.Start ?? presetStartMin ?? SCHOOL_START_MIN);
+  let durationMin = clampDuration(
+    toMinutes(start) || SCHOOL_START_MIN,
+    entry ? entry.End - entry.Start : MIN_DURATION_MIN
+  );
   let error = '';
   let saving = false;
   let assignedCache: Record<string, string[]> = {};
   let assignedIDs: string[] = [];
   let teacherEntries: ScheduleEntry[] = [];
+  void loadAssigned();
 
   $: editingId = entry?.ID ?? null;
   $: groupLocked = !entry && presetGroupID !== '' && groups.some((g) => g.GroupID === presetGroupID);
-
-  // Al abrir se parte del bloque (edición) o de los presets (creación).
-  $: if (open) {
-    void reset();
-  }
-
-  async function reset() {
-    phase = 'edit';
-    error = '';
-    saving = false;
-    teacherEntries = [];
-    groupID = entry?.ClassGroupID ?? presetGroupID;
-    subjectID = entry?.SubjectID ?? presetSubjectID;
-    teacherID = entry?.TeacherID ?? presetTeacherID;
-    weekday = entry?.Weekday ?? presetWeekday ?? 1;
-    start = toClock(entry?.Start ?? presetStartMin ?? SCHOOL_START_MIN);
-    durationMin = entry ? entry.End - entry.Start : MIN_DURATION_MIN;
-    durationMin = clampDuration(toMinutes(start) || SCHOOL_START_MIN, durationMin);
-    await loadAssigned();
-  }
 
   async function loadAssigned() {
     if (!subjectID) {
