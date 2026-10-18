@@ -379,6 +379,7 @@ export interface ClassSessionCard {
   Students: number;
   Present: number;
   Absent: number;
+  Evasion: number;
   Late: number;
 }
 
@@ -426,6 +427,20 @@ export async function sessionDetail(id: string): Promise<SessionDetailData | nul
   const r = await api.get<SessionDetailData>(`/v1/sessions/${encodeURIComponent(id)}`);
   if (!r) return null;
   return { ...r, Revisions: r.Revisions ?? [] };
+}
+
+/** Corrects one student's mark inside a roll call (admins included). */
+export async function recordSessionMark(
+  sessionID: string,
+  studentID: string,
+  mark: '' | 'absence' | 'evasion' | 'late',
+  note: string
+): Promise<void> {
+  await api.post(`/v1/sessions/${encodeURIComponent(sessionID)}/marks`, {
+    studentID,
+    mark,
+    note
+  });
 }
 
 export interface TeacherDayRevision {

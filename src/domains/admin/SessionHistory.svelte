@@ -8,11 +8,14 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
+  import { notify } from '$lib/ui/notice';
   import { guarded } from '$lib/nav';
   import {
     groupsByYear,
     classSessionsHistory,
     sessionDetail,
+    recordSessionMark,
     type YearGroup,
     type ClassSessionCard,
     type SessionDetailData
@@ -20,19 +23,6 @@
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;
-
-  function todayLocal(): string {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  }
-
-  function monthAgo(): string {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  }
 
   function prettyDay(value: string): string {
     const d = new Date(`${value.slice(0, 10)}T12:00:00`);
@@ -68,8 +58,89 @@
 
   let groupID = '';
   let groups: YearGroup[] = [];
-  let from = monthAgo();
-  let to = todayLocal();
+
+  // Corregir una marca dentro de un llamado expandido.
+  let correcting = false;
+  let correctStudent = '';
+  let correctMark: '' | 'absence' | 'evasion' | 'late' = 'absence';
+  let correctNote = '';
+  let correctingId = '';
+  let savingCorrection = false;
+  let correctionError = '';
+
+  $: correctMarkOptions = [
+    { value: '', label: $t.admin.markPresent },
+    { value: 'absence', label: $t.admin.markAbsence },
+    { value: 'evasion', label: $t.admin.markEvasion },
+    { value: 'late', label: $t.admin.markLate }
+  ];
+
+  function openCorrect(sessionID: string) {
+    correctingId = sessionID;
+    correctStudent = '';
+    correctMark = 'absence';
+    correctNote = '';
+    correctionError = '';
+    correcting = true;
+  }
+
+  async function saveCorrection() {
+    correctionError = '';
+    if (!correctStudent) {
+      correctionError = $t.troll.shistory.pickStudent;
+      return;
+    }
+    savingCorrection = true;
+    try {
+      await recordSessionMark(correctingId, correctStudent, correctMark, correctNote.trim());
+      correcting = false;
+      notify($t.troll.shistory.corrected);
+      const id = expanded;
+      expanded = null;
+      detail = null;
+      await load();
+      if (id) await toggle(id);
+    } catch (err) {
+      correctionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      savingCorrection = false;
+    }
+  }
+
+  const MONTH_NAMES = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+  const MONTH_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  let months: number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+  $: yearOptions = (() => {
+    const y = new Date().getFullYear();
+    const out: { value: string; label: string }[] = [];
+    for (let k = y - 5; k <= y + 1; k++) out.push({ value: String(k), label: String(k) });
+    return out;
+  })();
+
+  function yearRange(): { from: string; to: string } {
+    return { from: `${year}-01-01`, to: `${year}-12-31` };
+  }
+
+  function cardMonth(day: string): number {
+    return Number(day.slice(5, 7)) - 1;
+  }
+
+  $: visibleCards = cards.filter((c) => months.includes(cardMonth(c.Date)));
+
+  function toggleMonth(m: number) {
+    months = months.includes(m) ? months.filter((x) => x !== m) : [...months, m];
+    if (months.length === 0) months = [m];
+  }
+
+  function selectYear(e: CustomEvent<string>) {
+    year = Number(e.detail) || currentYear;
+    void loadGroups();
+    void load();
+  }
 
   type State = 'loading' | 'error' | 'ready';
   let state: State = 'loading';
@@ -114,7 +185,8 @@
     expanded = null;
     detail = null;
     try {
-      cards = (await guarded(() => classSessionsHistory(groupID, from, to))) ?? [];
+      const r = yearRange();
+      cards = (await guarded(() => classSessionsHistory(groupID, r.from, r.to))) ?? [];
       state = 'ready';
     } catch (err) {
       loadError = err;
@@ -163,14 +235,25 @@
         options={groups.map((g) => ({ value: g.GroupID, label: g.ClassLabel }))} 
         on:select={selectGroup}
       />
-      <label>
-        <span>{$t.troll.shistory.fromLabel}</span>
-        <input type="date" lang="es-CO" bind:value={from} max={to} on:change={load} />
-      </label>
-      <label>
-        <span>{$t.troll.shistory.toLabel}</span>
-        <input type="date" lang="es-CO" bind:value={to} min={from} max={todayLocal()} on:change={load} />
-      </label>
+      <Dropdown
+        label={$t.troll.shistory.yearLabel}
+        value={String(year)}
+        options={yearOptions}
+        on:select={selectYear}
+      />
+    </div>
+    <div class="months" role="group" aria-label={$t.troll.shistory.monthsLabel}>
+      {#each MONTH_SHORT as label, i}
+        <button
+          type="button"
+          class="mchip"
+          class:on={months.includes(i)}
+          aria-pressed={months.includes(i)}
+          on:click={() => toggleMonth(i)}
+        >
+          {label}
+        </button>
+      {/each}
     </div>
   </div>
 
@@ -181,12 +264,12 @@
       <ErrorState error={loadError} onRetry={load} />
     {:else if !groupID}
       <EmptyState icon="calendar" title={$t.troll.shistory.noSalonTitle} body={$t.troll.shistory.noSalonBody} />
-    {:else if cards.length === 0}
+    {:else if visibleCards.length === 0}
       <EmptyState icon="calendar" title={$t.troll.shistory.emptyTitle} body={$t.troll.shistory.emptyBody} />
     {:else}
-      <p class="muted">{$t.troll.shistory.countCalls(cards.length)}</p>
+      <p class="muted">{$t.troll.shistory.countCalls(visibleCards.length)}</p>
       <ul class="cards">
-        {#each cards as card (card.ID)}
+        {#each visibleCards as card (card.ID)}
           <li class="card">
             <button type="button" class="chead" on:click={() => toggle(card.ID)} aria-expanded={expanded === card.ID}>
               <span class="cdate">
@@ -201,6 +284,7 @@
               <span class="csum">
                 <span class="chip ok">{card.Present}</span>
                 <span class="chip bad">{card.Absent}</span>
+                <span class="chip eva">{card.Evasion}</span>
                 <span class="chip warn">{card.Late}</span>
               </span>
               <span class="chev" aria-hidden="true">{expanded === card.ID ? '▾' : '▸'}</span>
@@ -240,6 +324,9 @@
                       </ul>
                     {/if}
                   {/if}
+                  <button type="button" class="mini" on:click={() => openCorrect(card.ID)}>
+                    {$t.troll.shistory.correctAction}
+                  </button>
                   <button type="button" class="link" on:click={() => (showRevisions = !showRevisions)}>
                     {showRevisions ? $t.troll.hideRevisions : `${$t.troll.showRevisions} (${detail.Revisions.length})`}
                   </button>
@@ -280,6 +367,42 @@
       </ul>
     {/if}
   </div>
+
+  <Sheet open={correcting} title={$t.troll.shistory.correctTitle} onClose={() => (correcting = false)}>
+    {#if detail}
+      <form class="form" on:submit|preventDefault={saveCorrection}>
+        <Dropdown
+          label={$t.troll.shistory.correctStudentLabel}
+          value={correctStudent}
+          options={detail.Session.Roster.map((s) => ({
+            value: s.StudentID,
+            label: `${s.Names} ${s.Surnames}`.trim()
+          }))}
+          on:select={(e) => (correctStudent = e.detail)}
+        />
+        <Dropdown
+          label={$t.troll.shistory.correctMarkLabel}
+          value={correctMark}
+          options={correctMarkOptions}
+          on:select={(e) => {
+            const v = e.detail;
+            correctMark = v === 'absence' || v === 'evasion' || v === 'late' ? v : '';
+          }}
+        />
+        <label>
+          <span>{$t.troll.shistory.correctNoteLabel}</span>
+          <input type="text" placeholder={$t.troll.shistory.correctNotePlaceholder} bind:value={correctNote} maxlength="140" />
+        </label>
+        {#if correctionError}<p class="flash error" role="alert">{correctionError}</p>{/if}
+        <div class="actions">
+          <button type="button" class="mini" on:click={() => (correcting = false)}>{$t.common.cancel}</button>
+          <button type="submit" class="mini primary" disabled={savingCorrection}>
+            {savingCorrection ? $t.troll.saving : $t.common.save}
+          </button>
+        </div>
+      </form>
+    {/if}
+  </Sheet>
 </AdminShell>
 
 <style>
@@ -303,26 +426,8 @@
   }
   @media (min-width: 700px) {
     .filters {
-      grid-template-columns: 2fr 1fr 1fr;
+      grid-template-columns: 2fr 1fr;
     }
-  }
-  .filters label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--muted);
-  }
-  .filters input {
-    min-height: 44px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface-2);
-    padding: 0 12px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--ink);
   }
   .sheet {
     background: var(--surface);
@@ -403,6 +508,66 @@
   .chip.warn {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
+  }
+  .chip.eva {
+    background: var(--chip-purple-bg);
+    color: var(--chip-purple-ink);
+  }
+  .months {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .mchip {
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .mchip.on {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .form > label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .form input[type='text'] {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    min-height: 48px;
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .flash.error {
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    margin: 0;
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+    font-weight: 600;
   }
   .chev {
     color: var(--muted);
