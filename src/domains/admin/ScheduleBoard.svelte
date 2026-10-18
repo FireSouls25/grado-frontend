@@ -149,6 +149,8 @@
   }
 
   async function fetchAssigned(subjectID: string): Promise<string[]> {
+    // UUID ajeno al catálogo: nada que buscar, sin ruido 400 en consola.
+    if (!/^[0-9a-fA-F-]{36}$/.test(subjectID)) return [];
     const timeline = (await guarded(() => subjectAssignments(subjectID))) ?? [];
     return timeline.filter((a) => !a.EndedAt || a.EndedAt.startsWith('0001')).map((a) => a.TeacherID);
   }
@@ -171,6 +173,7 @@
 
   function onDropSubject(e: DragEvent, day: number, startMin: number) {
     e.preventDefault();
+    dropTarget = null;
     const subjectID = e.dataTransfer?.getData('text/subject-id') ?? '';
     if (!subjectID) return;
     openAdd(day, startMin, subjectID);
@@ -179,6 +182,14 @@
   function onDragOverCell(e: DragEvent) {
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }
+
+  // La parrilla reacciona mientras arrastras: la celda bajo el cursor
+  // se enciende para mostrar dónde encajará el bloque (día + inicio).
+  let dropTarget: { day: number; start: number } | null = null;
+
+  function onDragEnterCell(day: number, start: number) {
+    dropTarget = { day, start };
   }
 
   function openEdit(e: ScheduleEntry) {
@@ -319,7 +330,7 @@
       <ErrorState error={entriesError} onRetry={() => pickedGroup && loadEntries(pickedGroup.GroupID)} />
     {:else}
       <div class="gridwrap">
-        <div class="grid" role="grid" aria-label={`${$t.admin.scheduleTitle} ${pickedGroup.ClassLabel} ${year}`}>
+        <div class="grid" role="grid" tabindex={-1} aria-label={`${$t.admin.scheduleTitle} ${pickedGroup.ClassLabel} ${year}`} on:dragleave={() => (dropTarget = null)}>
           <div class="corner" aria-hidden="true"></div>
           {#each WEEK_ORDER as w}
             <div class="day" role="columnheader">{dayLabel(w)}</div>
@@ -332,10 +343,12 @@
               <button
                 type="button"
                 class="cell"
+                class:droptarget={dropTarget?.day === w && dropTarget?.start === 420 + s * 30}
                 style={`grid-column: ${dayCol(w)}; grid-row: ${s + 2};`}
                 aria-label={`${dayLabel(w)} ${toClock(420 + s * 30)}`}
                 on:click={() => openAdd(w, 420 + s * 30)}
                 on:dragover={onDragOverCell}
+                on:dragenter={() => onDragEnterCell(w, 420 + s * 30)}
                 on:drop={(e) => onDropSubject(e, w, 420 + s * 30)}
               ></button>
             {/each}
@@ -442,14 +455,21 @@
             on:click={() => (subjectForm.color = c)}
           ></button>
         {/each}
-        <input
-          type="color"
-          aria-label={$t.subject.colorCustomLabel}
+        <label
+          class="sw custom"
+          class:on={subjectForm.color !== '' && !COLOR_PRESETS.includes(subjectForm.color)}
+          style={subjectForm.color !== '' && !COLOR_PRESETS.includes(subjectForm.color) ? `background:${subjectForm.color}` : ''}
           title={$t.subject.colorCustomLabel}
-          value={subjectForm.color || '#7C3AED'}
-          on:input={(e) => (subjectForm.color = (e.currentTarget as HTMLInputElement).value)}
-        />
+        >
+          <input
+            type="color"
+            aria-label={$t.subject.colorCustomLabel}
+            value={/^#[0-9a-fA-F]{6}$/.test(subjectForm.color) ? subjectForm.color : '#7C3AED'}
+            on:input={(e) => (subjectForm.color = (e.currentTarget as HTMLInputElement).value)}
+          />
+        </label>
       </div>
+      <small class="muted">{$t.subject.colorCustomHint}</small>
       {#if subjectError}<p class="flash error" role="alert">{subjectError}</p>{/if}
       <div class="actions">
         <button type="button" class="mini" on:click={() => (subjectSheet = 'closed')}>{$t.common.cancel}</button>
@@ -612,13 +632,21 @@
   .sw.on {
     border-color: var(--ink);
   }
-  .swatches input[type='color'] {
-    width: 36px;
-    height: 36px;
-    border-radius: 999px;
-    border: 2px dashed var(--line);
-    background: none;
-    padding: 2px;
+  .sw.custom {
+    position: relative;
+    overflow: hidden;
+    background: conic-gradient(#ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ec4899, #ef4444);
+    cursor: pointer;
+  }
+  .sw.custom input[type='color'] {
+    position: absolute;
+    inset: -8px;
+    width: auto;
+    height: auto;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
+    padding: 0;
   }
   .actions {
     display: flex;
@@ -732,10 +760,14 @@
   .grid {
     display: grid;
     grid-template-columns: 56px repeat(7, minmax(104px, 1fr));
-    grid-template-rows: auto repeat(14, 32px);
-    gap: 4px;
+    grid-template-rows: auto repeat(14, 28px);
+    column-gap: 10px;
+    row-gap: 6px;
     padding: 12px;
     min-width: 680px;
+  }
+  .grid:focus {
+    outline: none;
   }
   .corner {
     grid-column: 1;
@@ -748,7 +780,9 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--muted);
-    padding: 4px 0;
+    padding: 4px 0 8px;
+    margin-bottom: 2px;
+    border-bottom: 2px solid var(--line);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -768,12 +802,16 @@
   .cell {
     border-radius: 8px;
     background: var(--surface-2);
-    border: 1px dashed transparent;
+    border: 1px dashed var(--line);
     min-height: 0;
   }
   .cell:hover {
-    border-color: var(--line);
+    border-color: var(--grid);
     background: var(--tint);
+  }
+  .cell.droptarget {
+    background: var(--accent-soft);
+    border: 2px solid var(--accent);
   }
   .block {
     position: relative;

@@ -451,6 +451,7 @@ export const es = {
     descriptionPlaceholder: 'Qué se enseña en esta materia.',
     colorLabel: 'Color',
     colorCustomLabel: 'Otro (#RRGGBB)',
+    colorCustomHint: 'El círculo multicolor abre tu propio selector de color.',
     required: 'El nombre y al menos un grado son obligatorios.',
     saved: 'Materia actualizada.',
     created: 'Materia creada.',
