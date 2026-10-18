@@ -313,7 +313,7 @@
                     </ul>
                   {/if}
                   {#if presentRows.length > 0}
-                    <button type="button" class="link" on:click={() => (showPresent = !showPresent)}>
+                    <button type="button" class="mini" on:click={() => (showPresent = !showPresent)}>
                       {showPresent ? $t.troll.hidePresent : `${$t.troll.showPresent} (${presentRows.length})`}
                     </button>
                     {#if showPresent}
@@ -636,6 +636,25 @@
     font-size: 0.82rem;
     min-height: 36px;
     padding: 4px 0;
+  }
+  .mini {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 18px;
+    border-radius: var(--radius-pill);
+    background: var(--tint);
+    border: 1px solid var(--line);
+    font-weight: 800;
+    font-size: 0.82rem;
+    color: var(--ink);
+  }
+  .mini.primary {
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
   }
   .revs {
     list-style: none;

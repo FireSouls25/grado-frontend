@@ -190,7 +190,7 @@
                     </ul>
                   {/if}
                   {#if presentRows.length > 0}
-                    <button type="button" class="link" on:click={() => (showPresent = !showPresent)}>
+                    <button type="button" class="mini" on:click={() => (showPresent = !showPresent)}>
                       {showPresent ? $t.troll.hidePresent : `${$t.troll.showPresent} (${presentRows.length})`}
                     </button>
                     {#if showPresent}
