@@ -243,17 +243,20 @@
       />
     </div>
     <div class="months" role="group" aria-label={$t.troll.shistory.monthsLabel}>
-      {#each MONTH_SHORT as label, i}
-        <button
-          type="button"
-          class="mchip"
-          class:on={months.includes(i)}
-          aria-pressed={months.includes(i)}
-          on:click={() => toggleMonth(i)}
-        >
-          {label}
-        </button>
-      {/each}
+      <span class="cap">{$t.troll.shistory.monthTitle}</span>
+      <div class="mrow">
+        {#each MONTH_SHORT as label, i}
+          <button
+            type="button"
+            class="mchip"
+            class:on={months.includes(i)}
+            aria-pressed={months.includes(i)}
+            on:click={() => toggleMonth(i)}
+          >
+            {label}
+          </button>
+        {/each}
+      </div>
     </div>
   </div>
 
@@ -515,24 +518,36 @@
   }
   .months {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-direction: column;
+    gap: 4px;
     margin-top: 10px;
+    grid-column: 1 / -1;
   }
-  .mchip {
-    min-height: 36px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-size: 0.78rem;
+  .months .cap {
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--muted);
+  }
+  .mrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .mchip {
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--ink);
   }
   .mchip.on {
     background: var(--accent-soft);
     border-color: var(--accent);
     color: var(--accent);
+    font-weight: 800;
   }
   .form {
     display: flex;

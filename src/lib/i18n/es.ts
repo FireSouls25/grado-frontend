@@ -315,6 +315,7 @@ export const es = {
     salonLabel: 'Salón',
     pickSalon: 'Elige el salón…',
     yearLabel: 'Año',
+    monthTitle: 'Mes',
     monthsLabel: 'Meses',
     pickStudent: 'Elige al estudiante.',
     correctAction: 'Corregir',
