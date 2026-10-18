@@ -143,7 +143,7 @@ function createEngine() {
           kind: 'alert',
           title: strings.bareSubjectsTitle,
           body: bare.join(', '),
-          href: '/admin/materias',
+          href: '/admin/horario',
           at: now
         });
       }

@@ -9,6 +9,7 @@
     | 'back'
     | 'next'
     | 'close'
+    | 'plus'
     | 'check'
     | 'users'
     | 'list'
@@ -35,6 +36,7 @@
     back: '<path d="M15 5l-7 7 7 7"/>',
     next: '<path d="M9 5l7 7-7 7"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
     check: '<path d="M4.5 12.5l5 5 10-11"/>',
     users:
       '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5a3.5 3.5 0 0 1 0 7M17.5 14.5a6.5 6.5 0 0 1 4 5.5"/>',

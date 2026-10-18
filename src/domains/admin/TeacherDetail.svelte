@@ -8,15 +8,13 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
-  import Icon from '$lib/ui/Icon.svelte';
   import AdminShell from './AdminShell.svelte';
   import { paletteFor } from '$lib/ui/palette';
   import {
     teacherDetail,
     subjects,
-    assignSubject,
-    teacherAssignments,
     subjectAssignments,
+    teacherHistory,
     teachers,
     scheduleEntries,
     groupsByYear,
@@ -28,7 +26,6 @@
     type TeacherSummary,
     type YearGroup,
     type TeacherHistory,
-    teacherHistory
   } from './api';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
   import { WEEK_ORDER, rangeLabel } from '$lib/schedule';
@@ -43,8 +40,6 @@
   let detail: TeacherDetail | null = null;
   let loadError: unknown = null;
   const currentYear = new Date().getFullYear();
-  let assignOpen = false;
-  let feedback = '';
 
   // Attendance record: month grid with summary counts.
   let hist: TeacherHistory | null = null;
@@ -107,9 +102,8 @@
       state = err instanceof ApiError && isMissing(err) ? 'ready' : 'error';
       return;
     }
-    // La línea de tiempo de materias no bloquea la ficha: si falla,
-    // la tarjeta pinta vacío honesto.
-    void loadTimeline();
+    // Las clases del horario no bloquean la ficha: si fallan,
+    // las tarjetas pintan vacío honesto.
     void loadClasses();
     void loadHistory();
   }
@@ -161,71 +155,22 @@
     return { name: s?.Name ?? sid.slice(0, 8), color: s?.Color || 'var(--muted)' };
   };
 
-  let timeline: SubjectAssignment[] = [];
-
-  async function loadTimeline() {
-    try {
-      const [entries, subs] = await Promise.all([
-        guarded(() => teacherAssignments(id)),
-        guarded(() => subjects())
-      ]);
-      timeline = entries ?? [];
-      catalog = subs ?? [];
-      if (detail) {
-        detail = {
-          ...detail,
-          Subjects: timeline
-            .filter((a) => !a.EndedAt || a.EndedAt.startsWith('0001'))
-            .map((a) => ({
-              SubjectID: a.SubjectID,
-              SubjectName: subjectNameOf(a.SubjectID),
-              From: a.StartedAt
-            }))
-        };
-      }
-    } catch {
-      timeline = [];
+  $: derivedSubjects = (() => {
+    const seen = new Map<string, string>();
+    for (const e of teacherEntries) {
+      if (!seen.has(e.SubjectID)) seen.set(e.SubjectID, subjectMeta(e.SubjectID).name);
     }
-  }
-
-  function subjectNameOf(subjectID: string): string {
-    return catalog.find((s) => s.ID === subjectID)?.Name ?? subjectID.slice(0, 8);
-  }
-
-  onMount(load);
-
-  async function assign(subjectID: string) {
-    feedback = '';
-    if (!assignStart) {
-      feedback = $t.subject.startLabel + '…';
-      return;
+    return [...seen.entries()].map(([id, name]) => ({ id, name }));
+  })();
+  $: derivedGroups = (() => {
+    const seen = new Map<string, string>();
+    for (const e of teacherEntries) {
+      if (!seen.has(e.ClassGroupID)) seen.set(e.ClassGroupID, classGroupLabel(e.ClassGroupID));
     }
-    try {
-      await assignSubject(id, subjectID, assignStart);
-      assignOpen = false;
-      void loadTimeline();
-    } catch (err) {
-      feedback = err instanceof ApiError ? err.message : $t.admin.assignFailed;
-    }
-  }
+    return [...seen.entries()].map(([id, label]) => ({ id, label }));
+  })();
 
   let catalog: Subject[] = [];
-  let assignStart = todayISO();
-  async function openAssign() {
-    feedback = '';
-    assignStart = todayISO();
-    try {
-      catalog = await subjects();
-    } catch {
-      catalog = [];
-    }
-    assignOpen = true;
-  }
-
-  function todayISO(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
 
   // Edición del perfil: el backend aplica solo los campos enviados, así que
   // aquí se manda exactamente lo que el docente cambió.
@@ -390,29 +335,28 @@
     <section class="card" aria-label={$t.admin.subjectsTitle}>
       <div class="row-head">
         <h2>{$t.admin.subjectsTitle}</h2>
-        <button type="button" class="mini" on:click={openAssign}>{$t.admin.assignSubject}</button>
       </div>
-      {#if detail.Subjects.length === 0}
+      {#if derivedSubjects.length === 0}
         <p class="muted">{$t.admin.noSubjects}</p>
       {:else}
         <div class="chips">
-          {#each detail.Subjects as s (s.SubjectID)}
-            <span class={`chip chip-${paletteFor(s.SubjectID)}`}>{s.SubjectName}</span>
+          {#each derivedSubjects as s (s.id)}
+            <span class={`chip chip-${paletteFor(s.id)}`}>{s.name}</span>
           {/each}
         </div>
       {/if}
+      <p class="muted">{$t.admin.subjectsFromSchedule}</p>
     </section>
 
     <section class="card" aria-label={$t.admin.groupsTitle}>
       <h2>{$t.admin.groupsTitle}</h2>
-      {#if detail.Groups.length === 0}
+      {#if derivedGroups.length === 0}
         <p class="muted">{$t.admin.noGroups}</p>
       {:else}
         <ul class="groups">
-          {#each detail.Groups as g (g.GroupID + g.SubjectName)}
+          {#each derivedGroups as g (g.id)}
             <li>
-              <strong>{g.ClassLabel}</strong>
-              <span>{g.SubjectName}</span>
+              <strong>{g.label}</strong>
             </li>
           {/each}
         </ul>
@@ -462,24 +406,6 @@
   {/if}
   </div>
 </AdminShell>
-
-<Sheet open={assignOpen} title={$t.admin.assignSubjectTitle} onClose={() => (assignOpen = false)}>
-  {#if feedback}<p class="flash" role="alert">{feedback}</p>{/if}
-  <label class="datelabel">{$t.subject.startLabel}<input type="date" lang="es-CO" bind:value={assignStart} /></label>
-  {#if catalog.length === 0}
-    <p class="muted">{$t.admin.noCatalog}</p>
-  {:else}
-    <ul class="catalog">
-      {#each catalog as s (s.ID)}
-        <li>
-          <button type="button" on:click={() => assign(s.ID)}>
-            <Icon name="book" /><span>{s.Name}</span>
-          </button>
-        </li>
-      {/each}
-    </ul>
-  {/if}
-</Sheet>
 
 <!-- Mismo editor que el tablero: una sola vía para que ambas vistas coincidan. -->
 <ScheduleEntrySheet
@@ -794,34 +720,6 @@
     border-radius: var(--radius-chip);
     padding: 10px 14px;
   }
-  .groups span {
-    color: var(--muted);
-    font-size: 0.9rem;
-  }
-  .catalog {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .catalog button {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-height: 56px;
-    padding: 12px 14px;
-    border-radius: var(--radius-chip);
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    font-weight: 600;
-    text-align: left;
-  }
-  .catalog button:active {
-    transform: scale(0.98);
-  }
   .classes {
     list-style: none;
     margin: 0;
@@ -874,22 +772,6 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--ink-soft);
-  }
-  .datelabel {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    margin-bottom: 10px;
-  }
-  .datelabel input {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
-    font-size: 0.92rem;
-    width: 100%;
   }
   .flash {
     background: var(--chip-pink-bg);

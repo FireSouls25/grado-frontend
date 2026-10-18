@@ -90,7 +90,7 @@ tasa bajo umbral (tinta grave + delta), no tiñendo la marca.
   renderiza a 15px dentro de un badge de 26px con fondo `--tint`.
 - Iconos en insignia: `--ink-soft`, nunca acento. El acento es para
   acciones y severidad, no para decorar iconos.
-- Birrete (`cap`) para Materias; ojo (`eye`) para Bitácora. No duplicar
+- Birrete (`cap`) histórico de Materias (hoy dentro de Horario); ojo (`eye`) para Bitácora. No duplicar
   el mismo icono en dos secciones vecinas.
 - Conteo y porcentaje siempre juntos: ningún número de riesgo viaja
   sin su contexto (salón, tendencia o delta).
@@ -124,9 +124,12 @@ tasa bajo umbral (tinta grave + delta), no tiñendo la marca.
 - **Rejilla de horario** (Horario admin): columnas Lun–Dom, filas de
   media hora 07:00–14:00, bloques teñidos con el color de la materia
   (borde lateral sólido + fondo mezclado). Celda vacía = crear con
-  día e inicio pre-fijados; bloque = editar.
-- **Cajas de grado** (Materias): el título `Grados` + número por caja
-  (`surface-2`, tabular), mismo lenguaje en ficha y selector.
+  día e inicio pre-fijados; bloque = editar. El catálogo vive debajo:
+  arrastrar una materia a la parrilla abre la creación con docente y
+  duración por elegir.
+- **Catálogo en Horario**: tarjetas de materia (punto de color +
+  nombre + descripción) arrastrables a la parrilla; alta solo con
+  nombre y descripción, borrado en dos toques.
 
 ## Tema oscuro (Dracula contenido)
 

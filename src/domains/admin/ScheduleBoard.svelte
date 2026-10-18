@@ -9,7 +9,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import { onMount } from 'svelte';
-  import { groupsByYear, listSubjects, teachers, subjectAssignments, scheduleEntries } from './api';
+  import { groupsByYear, listSubjects, createSubject, deleteSubject, teachers, subjectAssignments, scheduleEntries } from './api';
   import type { YearGroup, Subject, TeacherSummary, ScheduleEntry } from './api';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
   import { WEEK_ORDER, rangeLabel, toClock, SCHOOL_END_MIN, MIN_DURATION_MIN } from '$lib/schedule';
@@ -35,6 +35,16 @@
   let editingEntry: ScheduleEntry | null = null;
   let sheetDay: number | null = null;
   let sheetStart: number | null = null;
+  let sheetSubject: string | null = null;
+
+  // Catálogo dentro del horario: solo nombre + descripción.
+  let addingSubject = false;
+  let subjectName = '';
+  let subjectDesc = '';
+  let savingSubject = false;
+  let subjectFeedback = '';
+  let armingDelete: string | null = null;
+  let deletingSubject = false;
   const yearOptions = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
   $: pickedGroup = groups.find((g) => g.ClassLabel === salon) ?? null;
@@ -63,7 +73,7 @@
     return (await guarded(() => scheduleEntries({ teacherID }))) ?? [];
   }
 
-  function openAdd(day: number | null = null, startMin: number | null = null) {
+  function openAdd(day: number | null = null, startMin: number | null = null, subjectID: string | null = null) {
     editingEntry = null;
     sheetDay = day;
     // La última media hora no cabe en 1 h: arranca una hora antes del cierre.
@@ -71,7 +81,66 @@
       startMin !== null && startMin + MIN_DURATION_MIN > SCHOOL_END_MIN
         ? SCHOOL_END_MIN - MIN_DURATION_MIN
         : startMin;
+    sheetSubject = subjectID;
     sheetOpen = true;
+  }
+
+  function onDropSubject(e: DragEvent, day: number, startMin: number) {
+    e.preventDefault();
+    const subjectID = e.dataTransfer?.getData('text/subject-id') ?? '';
+    if (!subjectID) return;
+    openAdd(day, startMin, subjectID);
+  }
+
+  function onDragOverCell(e: DragEvent) {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }
+
+  async function saveSubject() {
+    subjectFeedback = '';
+    if (!subjectName.trim()) {
+      subjectFeedback = $t.schedule.subjectRequired;
+      return;
+    }
+    savingSubject = true;
+    try {
+      await createSubject({
+        Name: subjectName.trim(),
+        Code: '',
+        Description: subjectDesc.trim(),
+        Grades: [],
+        Color: ''
+      });
+      subjectName = '';
+      subjectDesc = '';
+      addingSubject = false;
+      subjectFeedback = $t.subject.created;
+      subjectsList = (await guarded(() => listSubjects())) ?? [];
+    } catch (err) {
+      subjectFeedback = err instanceof Error ? err.message : String(err);
+    } finally {
+      savingSubject = false;
+    }
+  }
+
+  async function removeSubject(id: string) {
+    if (armingDelete !== id) {
+      armingDelete = id;
+      return;
+    }
+    armingDelete = null;
+    deletingSubject = true;
+    subjectFeedback = '';
+    try {
+      await deleteSubject(id);
+      subjectFeedback = $t.subject.deleted;
+      subjectsList = (await guarded(() => listSubjects())) ?? [];
+    } catch (err) {
+      subjectFeedback = err instanceof Error ? err.message : String(err);
+    } finally {
+      deletingSubject = false;
+    }
   }
 
   function openEdit(e: ScheduleEntry) {
@@ -83,6 +152,7 @@
   async function onSaved() {
     sheetOpen = false;
     editingEntry = null;
+    sheetSubject = null;
     if (pickedGroup) await loadEntries(pickedGroup.GroupID);
   }
 
@@ -175,21 +245,25 @@
     <ErrorState error={loadError} onRetry={loadGroups} />
   {:else}
   <div class="pickers">
-    <Dropdown
-      label={$t.admin.scheduleGroupLabel}
-      value={salon}
-      placeholder={$t.admin.scheduleGroupPlaceholder}
-      searchable
-      searchPlaceholder={$t.admin.scheduleGroupPlaceholder}
-      options={salonOptions.map((option) => ({ value: option, label: option }))}
-      on:select={(e) => onSalonSelect(e.detail)}
-    />
-    <Dropdown
-      label={$t.admin.scheduleYearLabel}
-      value={String(year)}
-      options={yearOptions.map((option) => ({ value: String(option), label: String(option) }))}
-      on:select={(e) => onYearSelect(e.detail)}
-    />
+    <div class="pick">
+      <Dropdown
+        label={$t.admin.scheduleGroupLabel}
+        value={salon}
+        placeholder={$t.admin.scheduleGroupPlaceholder}
+        searchable
+        searchPlaceholder={$t.admin.scheduleGroupPlaceholder}
+        options={salonOptions.map((option) => ({ value: option, label: option }))}
+        on:select={(e) => onSalonSelect(e.detail)}
+      />
+    </div>
+    <div class="pick">
+      <Dropdown
+        label={$t.admin.scheduleYearLabel}
+        value={String(year)}
+        options={yearOptions.map((option) => ({ value: String(option), label: String(option) }))}
+        on:select={(e) => onYearSelect(e.detail)}
+      />
+    </div>
   </div>
 
   {#if !pickedGroup}
@@ -199,9 +273,8 @@
     </div>
   {:else}
     <div class="weekhead">
-      <h2>{pickedGroup.ClassLabel} · {year}</h2>
-      <button type="button" class="mini" on:click={() => openAdd()}>
-        <Icon name="check" /> {$t.admin.entryAdd}
+      <button type="button" class="add" on:click={() => openAdd()}>
+        <Icon name="plus" /> {$t.admin.entryAdd}
       </button>
     </div>
     {#if entriesError}
@@ -224,6 +297,8 @@
                 style={`grid-column: ${dayCol(w)}; grid-row: ${s + 2};`}
                 aria-label={`${dayLabel(w)} ${toClock(420 + s * 30)}`}
                 on:click={() => openAdd(w, 420 + s * 30)}
+                on:dragover={onDragOverCell}
+                on:drop={(e) => onDropSubject(e, w, 420 + s * 30)}
               ></button>
             {/each}
           {/each}
@@ -255,6 +330,7 @@
     subjects={subjectsList}
     teachers={teacherList}
     presetGroupID={pickedGroup?.GroupID ?? ''}
+    presetSubjectID={sheetSubject ?? ''}
     presetWeekday={sheetDay}
     presetStartMin={sheetStart}
     contextEntries={entries}
@@ -264,11 +340,64 @@
     onClose={() => (sheetOpen = false)}
   />
 
-  <EmptyState
-    icon="book"
-    title={$t.admin.scheduleManualTitle}
-    body={$t.admin.scheduleManualBody}
-  />
+  <section class="subjects" aria-label={$t.subject.title}>
+    <div class="subhead">
+      <h2>{$t.subject.title}</h2>
+      <span class="count" role="status">{$t.subject.countLabel(subjectsList.length)}</span>
+      <button type="button" class="add small" on:click={() => { addingSubject = !addingSubject; subjectFeedback = ''; }}>
+        <Icon name="plus" /> {$t.subject.newAction}
+      </button>
+    </div>
+    <p class="muted">{$t.schedule.subjectsHint}</p>
+    {#if addingSubject}
+      <div class="subform">
+        <label>
+          <span>{$t.subject.nameLabel}</span>
+          <input type="text" placeholder={$t.subject.namePlaceholder} bind:value={subjectName} maxlength="80" />
+        </label>
+        <label>
+          <span>{$t.subject.descriptionLabel}</span>
+          <input type="text" placeholder={$t.subject.descriptionPlaceholder} bind:value={subjectDesc} maxlength="200" />
+        </label>
+        <div class="subactions">
+          <button type="button" class="mini" on:click={() => (addingSubject = false)}>{$t.warnings.cancel}</button>
+          <button type="button" class="mini primary" disabled={savingSubject} on:click={saveSubject}>
+            {savingSubject ? $t.troll.saving : $t.common.save}
+          </button>
+        </div>
+      </div>
+    {/if}
+    {#if subjectFeedback}<p class="flash" role="status">{subjectFeedback}</p>{/if}
+    {#if subjectsList.length === 0}
+      <p class="muted">{$t.subject.emptyTitle}</p>
+    {:else}
+      <ul class="sublist">
+        {#each subjectsList as s (s.ID)}
+          <li
+            class="sub"
+            draggable="true"
+            on:dragstart={(e) => e.dataTransfer?.setData('text/subject-id', s.ID)}
+            title={s.Description || s.Name}
+          >
+            <span class="dot" style={`background:${s.Color || 'var(--accent)'}`}></span>
+            <span class="subtext">
+              <strong>{s.Name}</strong>
+              {#if s.Description}<small>{s.Description}</small>{/if}
+            </span>
+            <button
+              type="button"
+              class="rm"
+              disabled={deletingSubject}
+              aria-label={`${$t.subject.deleteAction}: ${s.Name}`}
+              on:click={() => removeSubject(s.ID)}
+            >
+              {armingDelete === s.ID ? $t.schedule.deleteConfirm : '×'}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
 
 </AdminShell>
 
@@ -294,20 +423,177 @@
     }
   }
   .pickers {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 12px;
+  }
+  .pick {
+    flex: 1 1 160px;
+    max-width: 240px;
+    min-width: 150px;
   }
   .weekhead {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 12px;
     margin-bottom: 8px;
   }
-  .weekhead h2 {
+  .add {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 20px;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.88rem;
+    box-shadow: var(--shadow);
+  }
+  .add :global(svg) {
+    width: 16px;
+    height: 16px;
+  }
+  .add.small {
+    min-height: 40px;
+    padding: 0 16px;
+    font-size: 0.82rem;
+  }
+  .count {
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 16px;
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .muted {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .subjects {
+    margin-top: 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    padding: 16px;
+  }
+  .subhead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .subhead h2 {
     font-size: 1.05rem;
+    margin: 0;
+    flex: 1;
+  }
+  .subform {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 12px;
+  }
+  .subform label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+  .subform input {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    min-height: 48px;
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+  .subform input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .subactions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .flash {
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    margin: 12px 0 0;
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+    font-weight: 600;
+  }
+  .sublist {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+  }
+  .sub {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    cursor: grab;
+  }
+  .sub:active {
+    cursor: grabbing;
+  }
+  .dot {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+  }
+  .subtext {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .subtext strong {
+    font-size: 0.9rem;
+  }
+  .subtext small {
+    color: var(--muted);
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rm {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  .rm:hover {
+    color: var(--g-grave-ink);
+    background: var(--chip-pink-bg);
   }
   .mini {
     display: inline-flex;
@@ -325,6 +611,14 @@
   }
   .mini:hover {
     color: var(--ink);
+  }
+  .mini.primary {
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
+  }
+  .mini.primary:hover {
+    color: #fff;
   }
   .mini :global(svg) {
     width: 15px;

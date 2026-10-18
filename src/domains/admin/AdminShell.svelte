@@ -9,7 +9,6 @@
     | 'resumen'
     | 'docentes'
     | 'estudiantes'
-    | 'materias'
     | 'horario'
     | 'llamados'
     | 'auditoria';
@@ -21,7 +20,6 @@
     | 'book'
     | 'users'
     | 'list'
-    | 'cap'
     | 'calendar'
     | 'eye'
     | 'warn';
@@ -32,7 +30,6 @@
     { key: 'resumen' as Key, href: '/admin', icon: 'book' as IconName, label: $t.admin.viewOverview },
     { key: 'docentes' as Key, href: '/admin/docentes', icon: 'users' as IconName, label: $t.nav.teachers },
     { key: 'estudiantes' as Key, href: '/admin/estudiantes', icon: 'list' as IconName, label: $t.nav.students },
-    { key: 'materias' as Key, href: '/admin/materias', icon: 'cap' as IconName, label: $t.subject.navLabel },
     { key: 'horario' as Key, href: '/admin/horario', icon: 'calendar' as IconName, label: $t.nav.schedule },
     { key: 'llamados' as Key, href: '/admin/llamados', icon: 'warn' as IconName, label: $t.admin.navWarnings },
     { key: 'auditoria' as Key, href: '/admin/auditoria', icon: 'eye' as IconName, label: $t.audit.navLabel }

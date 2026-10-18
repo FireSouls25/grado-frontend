@@ -37,6 +37,7 @@
   export let teachers: TeacherSummary[] = [];
   export let presetGroupID = '';
   export let presetTeacherID = '';
+  export let presetSubjectID = '';
   export let presetWeekday: number | null = null;
   export let presetStartMin: number | null = null;
   export let contextEntries: ScheduleEntry[] = [];
@@ -72,7 +73,7 @@
     saving = false;
     teacherEntries = [];
     groupID = entry?.ClassGroupID ?? presetGroupID;
-    subjectID = entry?.SubjectID ?? '';
+    subjectID = entry?.SubjectID ?? presetSubjectID;
     teacherID = entry?.TeacherID ?? presetTeacherID;
     weekday = entry?.Weekday ?? presetWeekday ?? 1;
     start = toClock(entry?.Start ?? presetStartMin ?? SCHOOL_START_MIN);

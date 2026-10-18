@@ -156,6 +156,9 @@ export const es = {
   schedule: {
     eyebrow: 'Consola docente',
     title: 'Horario semanal',
+    subjectsHint: 'Arrastra una materia a la parrilla o pulsa Agregar clase: ahí eliges docente y duración.',
+    subjectRequired: 'El nombre de la materia es obligatorio.',
+    deleteConfirm: '¿Seguro?',
     openList: 'Abrir lista',
     stateDone: 'Finalizada',
     stateNow: 'Ahora',
@@ -690,7 +693,8 @@ export const es = {
     noClassesBody: 'Cuando el horario le asigne bloques, aparecerán aquí por día.',
     boardEmptyTitle: 'Sin bloques esta semana',
     boardEmptyBody: 'Agrega la primera clase para empezar el horario del salón.',
-    navWarnings: 'Llamados'
+    navWarnings: 'Llamados',
+    subjectsFromSchedule: 'Se leen del horario: asigna sus clases para verlas aquí.'
   },
   charts: {
     noData: 'Sin datos todavía'

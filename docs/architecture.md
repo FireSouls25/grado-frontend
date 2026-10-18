@@ -63,9 +63,11 @@ suave a vacíos y se encienden solos cuando el backend los exponga.
 3. ✅ Dominio docente: home (hoy/próxima/vacío), detalle de clase
    (lista alfabética, marcas, llamado multiselección), tab horario
 4. ✅ Dominio admin (drafts honestos): Resumen con ECharts (donut +
-   barras, overlay vacío), Docentes + ficha (materias, salones, asignar),
+   barras, overlay vacío), Docentes + ficha (lista diaria, calendario
+   de asistencia, materias y salones leídos del horario),
    Estudiantes por año/salón, tablero semanal estilo `reference/` con
-   overlay de edición. Login enruta por rol (`/v1/me` → home).
+   overlay de edición y catálogo de materias integrado (arrastrar al
+   horario). Login enruta por rol (`/v1/me` → home).
 5. ✅ Login profesional (Observador Estudiantil): correo o usuario
    (`nombre.apellido`, creado por admins), contraseña con mostrar/ocultar,
    mockup de recuperación, layout dividido en escritorio. Cuentas dev en
