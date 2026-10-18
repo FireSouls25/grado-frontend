@@ -8,6 +8,8 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Toast from '$lib/ui/Toast.svelte';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
+  import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
   import { guarded } from '$lib/nav';
   import {
@@ -130,6 +132,26 @@
     picked = picked.includes(id) ? picked.filter((p) => p !== id) : [...picked, id];
   }
 
+  $: gravityOptions = [
+    { value: '', label: $t.warnings.any },
+    { value: 'mild', label: $t.roster.warnGravityMild },
+    { value: 'moderate', label: $t.roster.warnGravityModerate },
+    { value: 'severe', label: $t.roster.warnGravitySevere }
+  ];
+  $: classOptions = [
+    { value: '', label: $t.warnings.any },
+    ...classLabels.map((l) => ({ value: l, label: l }))
+  ];
+
+  function selectGravity(e: CustomEvent<string>) {
+    const v = e.detail;
+    gravity = v === 'mild' || v === 'moderate' || v === 'severe' ? v : '';
+  }
+
+  function selectClass(e: CustomEvent<string>) {
+    classLabel = e.detail;
+  }
+
   async function save() {
     formError = '';
     if (!fGroupID) {
@@ -177,7 +199,6 @@
       <button type="button" class="mini primary" on:click={openCreate}>
         {$t.warnings.newAction}
       </button>
-      <span class="muted">{$t.warnings.count(filtered.length)}</span>
     </div>
   </div>
 
@@ -186,29 +207,29 @@
   {:else if state === 'error'}
     <ErrorState error={loadError} onRetry={load} />
   {:else}
-    <div class="card filters">
-      <label class="grow">
-        <span class="sr">{$t.warnings.search}</span>
-        <input type="search" placeholder={$t.warnings.search} bind:value={query} />
+    <div class="filters" role="group" aria-label={$t.warnings.title}>
+      <label class="search">
+        <Icon name="search" />
+        <input
+          type="search"
+          placeholder={$t.warnings.search}
+          aria-label={$t.warnings.search}
+          bind:value={query}
+        />
       </label>
-      <label>
-        <span>{$t.warnings.filterGravity}</span>
-        <select bind:value={gravity}>
-          <option value="">{$t.warnings.any}</option>
-          <option value="mild">{$t.roster.warnGravityMild}</option>
-          <option value="moderate">{$t.roster.warnGravityModerate}</option>
-          <option value="severe">{$t.roster.warnGravitySevere}</option>
-        </select>
-      </label>
-      <label>
-        <span>{$t.warnings.filterClass}</span>
-        <select bind:value={classLabel}>
-          <option value="">{$t.warnings.any}</option>
-          {#each classLabels as label (label)}
-            <option value={label}>{label}</option>
-          {/each}
-        </select>
-      </label>
+      <Dropdown
+        label={$t.warnings.filterGravity}
+        value={gravity}
+        options={gravityOptions}
+        on:select={selectGravity}
+      />
+      <Dropdown
+        label={$t.warnings.filterClass}
+        value={classLabel}
+        options={classOptions}
+        on:select={selectClass}
+      />
+      <span class="count" role="status">{$t.warnings.count(filtered.length)}</span>
     </div>
 
     {#if filtered.length === 0}
@@ -220,25 +241,31 @@
     {:else}
       <ul class="wlist">
         {#each filtered as w (w.ID)}
-          <li class="card">
-            <span class={`sev ${w.Gravity === 'mild' ? 'leve' : w.Gravity === 'moderate' ? 'medio' : 'grave'}`}>
-              {w.Gravity === 'mild' ? $t.roster.warnGravityMild : w.Gravity === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere}
-            </span>
-            <div class="wtext">
-              <strong>{w.StudentName || w.Title}</strong>
-              {#if w.StudentName}<p>{w.Title}</p>{/if}
-              {#if w.Description}<p class="desc">{w.Description}</p>{/if}
-              <small>
-                {[w.ClassLabel, w.AuthorName ? `${$t.warnings.byLabel} ${w.AuthorName}` : '', moment(w.HappenedAt)]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </small>
+          <li class="warn">
+            <div class="warn-head">
+              <span class={`sev ${w.Gravity === 'mild' ? 'leve' : w.Gravity === 'moderate' ? 'medio' : 'grave'}`}>
+                {w.Gravity === 'mild' ? $t.roster.warnGravityMild : w.Gravity === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere}
+              </span>
+              <strong class="wname">{w.StudentName || '—'}</strong>
+              {#if w.StudentID}
+                <button type="button" class="mini" on:click={() => push(`/admin/estudiantes/${w.StudentID}`)}>
+                  {$t.warnings.openFile}
+                </button>
+              {/if}
             </div>
-            {#if w.StudentID}
-              <button type="button" class="mini" on:click={() => push(`/admin/estudiantes/${w.StudentID}`)}>
-                {$t.warnings.openFile}
-              </button>
-            {/if}
+            <p class="wtitle">{w.Title}</p>
+            {#if w.Description}<p class="wdesc">{w.Description}</p>{/if}
+            <div class="frames">
+              {#if w.ClassLabel}
+                <span class="frame"><small>{$t.warnings.filterClass}</small><strong>{w.ClassLabel}</strong></span>
+              {/if}
+              {#if w.AuthorName}
+                <span class="frame"><small>{$t.warnings.metaAuthor}</small><strong>{w.AuthorName}</strong></span>
+              {/if}
+              {#if moment(w.HappenedAt)}
+                <span class="frame"><small>{$t.warnings.fWhen}</small><strong>{moment(w.HappenedAt)}</strong></span>
+              {/if}
+            </div>
           </li>
         {/each}
       </ul>
@@ -347,46 +374,115 @@
     color: #fff;
   }
   .filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 12px 0 4px;
     align-items: end;
-    margin-bottom: 16px;
   }
-  .filters label {
+  @media (min-width: 700px) {
+    .filters {
+      grid-template-columns: 2fr 1fr 1fr auto;
+    }
+  }
+  .filters > label.search {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.8rem;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0 12px;
+    min-height: 44px;
     color: var(--muted);
   }
-  .filters label.grow {
+  .filters > label.search input {
+    border: 0;
+    background: none;
+    outline: none;
+    width: 100%;
     flex: 1;
-    min-width: 220px;
+    min-width: 0;
+    color: var(--ink);
   }
-  .filters input,
-  .filters select {
-    min-height: 40px;
+  .filters > label.search :global(svg) {
+    flex: none;
   }
-  .sr {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
+  .count {
+    align-self: center;
+    justify-self: end;
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 16px;
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
   }
   .wlist {
     list-style: none;
-    margin: 0;
+    margin: 12px 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
-  .wlist li {
+  .warn {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 14px 16px;
+  }
+  .warn-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
+  }
+  .wname {
+    flex: 1;
+    min-width: 0;
+    font-size: 1.05rem;
+    overflow-wrap: break-word;
+  }
+  .wtitle {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--ink);
+    margin: 10px 0 0;
+  }
+  .wdesc {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin: 4px 0 0;
+  }
+  .frames {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .frame {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 12px;
+    min-width: 0;
+  }
+  .frame small {
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .frame strong {
+    font-size: 0.88rem;
+    overflow-wrap: break-word;
   }
   .sev {
     flex: none;
@@ -407,23 +503,6 @@
   .sev.grave {
     background: var(--chip-pink-bg);
     color: var(--chip-pink-ink);
-  }
-  .wtext {
-    flex: 1;
-    min-width: 0;
-  }
-  .wtext strong {
-    display: block;
-    font-size: 0.95rem;
-  }
-  .wtext p {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin: 2px 0;
-  }
-  .wtext small {
-    color: var(--muted);
-    font-size: 0.75rem;
   }
   .form {
     display: flex;

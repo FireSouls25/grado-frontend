@@ -254,6 +254,7 @@ export const es = {
     noMatchBody: 'Ningún llamado coincide con esos filtros.',
     openFile: 'Abrir ficha',
     byLabel: 'por',
+    metaAuthor: 'Registró',
     formTitle: 'Nuevo llamado de atención',
     formNote: 'Se guarda igual que el del docente: en el historial de cada estudiante.',
     fClass: 'Salón',
