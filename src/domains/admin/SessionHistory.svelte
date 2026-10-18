@@ -250,15 +250,17 @@
                       <ul class="revs">
                         {#each detail.Revisions as r (r.Student + r.ChangedAt + r.To)}
                           <li class="rev">
-                            <span class="person">{r.Student}</span>
-                            <span class="change">
-                              {#if r.From}
-                                <span class={`mk ${markClass(r.From)}`}>{markName(r.From)}</span>
-                                <span class="swap" aria-hidden="true">›</span>
-                              {:else}
-                                <span class="first">{$t.admin.markPresent}</span>
-                              {/if}
-                              <span class={`mk solid ${markClass(r.To)}`}>{markName(r.To)}</span>
+                            <span class="changerow">
+                              <span class="person">{r.Student}</span>
+                              <span class="change">
+                                {#if r.From}
+                                  <span class={`mk ${markClass(r.From)}`}>{markName(r.From)}</span>
+                                  <span class="swap" aria-hidden="true">›</span>
+                                {:else}
+                                  <span class="first">{$t.admin.markPresent}</span>
+                                {/if}
+                                <span class={`mk solid ${markClass(r.To)}`}>{markName(r.To)}</span>
+                              </span>
                             </span>
                             {#if r.Note}<small class="revnote">{r.Note}</small>{/if}
                             <span class="meta">
@@ -484,11 +486,17 @@
   .revs li.rev {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 10px;
     padding: 10px 12px;
+  }
+  .changerow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
   }
   .person {
     align-self: flex-start;
@@ -503,7 +511,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 12px 4px 4px;
   }
   .mk {
     border-radius: 999px;
