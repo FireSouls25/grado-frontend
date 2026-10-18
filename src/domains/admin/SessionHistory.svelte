@@ -1,0 +1,481 @@
+<script lang="ts">
+  import { push } from 'svelte-spa-router';
+  import { t } from '$lib/i18n';
+  import TopBar from '$lib/ui/TopBar.svelte';
+  import TopActions from '$lib/shell/TopActions.svelte';
+  import AdminShell from './AdminShell.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
+  import Skeleton from '$lib/ui/Skeleton.svelte';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
+  import { guarded } from '$lib/nav';
+  import {
+    groupsByYear,
+    classSessionsHistory,
+    sessionDetail,
+    type YearGroup,
+    type ClassSessionCard,
+    type SessionDetailData
+  } from './api';
+
+  const currentYear = new Date().getFullYear();
+  let year = currentYear;
+
+  function todayLocal(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function monthAgo(): string {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function prettyDay(value: string): string {
+    const d = new Date(`${value.slice(0, 10)}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  function momentTs(value: string): string {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString('es-CO', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  function markName(m: string): string {
+    return m === 'absence' ? $t.admin.markAbsence : m === 'late' ? $t.admin.markLate : m === 'evasion' ? $t.admin.markEvasion : $t.admin.markPresent;
+  }
+
+  let groupID = '';
+  let groups: YearGroup[] = [];
+  let from = monthAgo();
+  let to = todayLocal();
+
+  type State = 'loading' | 'error' | 'ready';
+  let state: State = 'loading';
+  let loadError: unknown = null;
+  let cards: ClassSessionCard[] = [];
+
+  let expanded: string | null = null;
+  let detail: SessionDetailData | null = null;
+  let detailLoading = false;
+  let showPresent = false;
+  let showRevisions = false;
+
+  $: absentLate = (() => {
+    if (!detail) return [];
+    return detail.Session.Roster.filter((s) => {
+      const m = detail?.Marks[s.StudentID] ?? '';
+      return m === 'absence' || m === 'evasion' || m === 'late';
+    }).map((s) => ({ ...s, mark: detail?.Marks[s.StudentID] ?? '' }));
+  })();
+  $: presentRows = (() => {
+    if (!detail) return [];
+    return detail.Session.Roster.filter((s) => !(detail?.Marks[s.StudentID] ?? ''));
+  })();
+  $: openedAt = detail && detail.Revisions.length > 0 ? detail.Revisions[0].ChangedAt : '';
+
+  async function loadGroups() {
+    try {
+      groups = (await guarded(() => groupsByYear(year))) ?? [];
+    } catch {
+      groups = [];
+    }
+  }
+
+  async function load() {
+    if (!groupID) {
+      cards = [];
+      state = 'ready';
+      return;
+    }
+    state = 'loading';
+    loadError = null;
+    expanded = null;
+    detail = null;
+    try {
+      cards = (await guarded(() => classSessionsHistory(groupID, from, to))) ?? [];
+      state = 'ready';
+    } catch (err) {
+      loadError = err;
+      state = 'error';
+    }
+  }
+
+  function selectGroup(e: CustomEvent<string>) {
+    groupID = e.detail;
+    void load();
+  }
+
+  async function toggle(id: string) {
+    showPresent = false;
+    showRevisions = false;
+    if (expanded === id) {
+      expanded = null;
+      detail = null;
+      return;
+    }
+    expanded = id;
+    detailLoading = true;
+    detail = null;
+    try {
+      detail = await guarded(() => sessionDetail(id));
+    } finally {
+      detailLoading = false;
+    }
+  }
+
+  loadGroups();
+  load();
+</script>
+
+<AdminShell active="estudiantes" {year}>
+  <TopBar title={$t.troll.shistory.title} showBack onBack={() => push('/admin/estudiantes')}><TopActions /></TopBar>
+
+  <div class="pagehead">
+    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
+    <h1 class="title">{$t.troll.shistory.title}</h1>
+    <div class="filters">
+      <Dropdown
+        label={$t.troll.shistory.salonLabel}
+        value={groupID}
+        placeholder={$t.troll.shistory.pickSalon}
+        options={groups.map((g) => ({ value: g.GroupID, label: g.ClassLabel }))} 
+        on:select={selectGroup}
+      />
+      <label>
+        <span>{$t.troll.shistory.fromLabel}</span>
+        <input type="date" lang="es-CO" bind:value={from} max={to} on:change={load} />
+      </label>
+      <label>
+        <span>{$t.troll.shistory.toLabel}</span>
+        <input type="date" lang="es-CO" bind:value={to} min={from} max={todayLocal()} on:change={load} />
+      </label>
+    </div>
+  </div>
+
+  <div class="sheet">
+    {#if state === 'loading'}
+      <Skeleton rows={4} />
+    {:else if state === 'error'}
+      <ErrorState error={loadError} onRetry={load} />
+    {:else if !groupID}
+      <EmptyState icon="calendar" title={$t.troll.shistory.noSalonTitle} body={$t.troll.shistory.noSalonBody} />
+    {:else if cards.length === 0}
+      <EmptyState icon="calendar" title={$t.troll.shistory.emptyTitle} body={$t.troll.shistory.emptyBody} />
+    {:else}
+      <p class="muted">{$t.troll.shistory.countCalls(cards.length)}</p>
+      <ul class="cards">
+        {#each cards as card (card.ID)}
+          <li class="card">
+            <button type="button" class="chead" on:click={() => toggle(card.ID)} aria-expanded={expanded === card.ID}>
+              <span class="cdate">
+                <strong>{prettyDay(card.Date)}</strong>
+                <small>
+                  {[card.ClassLabel, card.Subject, $t.troll.shistory.periodLabel(card.Period)].filter(Boolean).join(' · ')}
+                </small>
+                {#if card.Teacher}
+                  <small>{$t.troll.shistory.byLabel} {card.Teacher}</small>
+                {/if}
+              </span>
+              <span class="csum">
+                <span class="chip ok">{card.Present}</span>
+                <span class="chip bad">{card.Absent}</span>
+                <span class="chip warn">{card.Late}</span>
+              </span>
+              <span class="chev" aria-hidden="true">{expanded === card.ID ? '▾' : '▸'}</span>
+            </button>
+            {#if expanded === card.ID}
+              <div class="cbody">
+                {#if detailLoading || !detail}
+                  <Skeleton rows={2} />
+                {:else}
+                  {#if openedAt}
+                    <p class="muted">{$t.troll.shistory.atLabel} {momentTs(openedAt)}</p>
+                  {/if}
+                  {#if absentLate.length === 0}
+                    <p class="muted">{$t.troll.allPresentNote}</p>
+                  {:else}
+                    <h3 class="sub">{$t.troll.absentOnes}</h3>
+                    <ul class="names">
+                      {#each absentLate as s (s.StudentID)}
+                        <li>
+                          <span class={`sev ${s.mark === 'late' ? 'medio' : 'grave'}`}>{markName(s.mark)}</span>
+                          <span class="ntext">
+                            <strong>{s.Names} {s.Surnames}</strong>
+                          </span>
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+                  {#if presentRows.length > 0}
+                    <button type="button" class="link" on:click={() => (showPresent = !showPresent)}>
+                      {showPresent ? $t.troll.hidePresent : `${$t.troll.showPresent} (${presentRows.length})`}
+                    </button>
+                    {#if showPresent}
+                      <ul class="names plain">
+                        {#each presentRows as s (s.StudentID)}
+                          <li>{s.Names} {s.Surnames}</li>
+                        {/each}
+                      </ul>
+                    {/if}
+                  {/if}
+                  <button type="button" class="link" on:click={() => (showRevisions = !showRevisions)}>
+                    {showRevisions ? $t.troll.hideRevisions : `${$t.troll.showRevisions} (${detail.Revisions.length})`}
+                  </button>
+                  {#if showRevisions}
+                    {#if detail.Revisions.length === 0}
+                      <p class="muted">{$t.troll.shistory.revisionsEmpty}</p>
+                    {:else}
+                      <ul class="revs">
+                        {#each detail.Revisions as r (r.Student + r.ChangedAt + r.To)}
+                          <li>
+                            <span class="rtext">
+                              <strong>{r.Student}: {r.From ? markName(r.From) : $t.admin.markPresent} → {markName(r.To)}</strong>
+                              <small>{r.Author} · {momentTs(r.ChangedAt)}{r.Note ? ` · ${r.Note}` : ''}</small>
+                            </span>
+                          </li>
+                        {/each}
+                      </ul>
+                    {/if}
+                  {/if}
+                {/if}
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
+</AdminShell>
+
+<style>
+  .pagehead {
+    margin-bottom: 12px;
+  }
+  .eyebrow {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 2px;
+  }
+  .title {
+    margin: 0;
+  }
+  .filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: end;
+  }
+  @media (min-width: 700px) {
+    .filters {
+      grid-template-columns: 2fr 1fr 1fr;
+    }
+  }
+  .filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .filters input {
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-2);
+    padding: 0 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+  .sheet {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 24px 24px 0 0;
+    padding: 16px 16px 130px;
+  }
+  @media (min-width: 700px) {
+    .sheet {
+      padding: 20px 20px 130px;
+    }
+  }
+  .muted {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .cards {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .cards .card {
+    padding: 0;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow);
+  }
+  .chead {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    text-align: left;
+  }
+  .cdate {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .cdate strong {
+    font-size: 1rem;
+    text-transform: capitalize;
+  }
+  .cdate small {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .csum {
+    display: flex;
+    gap: 6px;
+  }
+  .chip {
+    min-width: 34px;
+    text-align: center;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip.ok {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+  }
+  .chip.bad {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+  }
+  .chip.warn {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+  }
+  .chev {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .cbody {
+    border-top: 1px solid var(--line);
+    padding: 12px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .sub {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 0;
+  }
+  .names {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .names li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .names.plain li {
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+  .sev {
+    flex: none;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .sev.medio {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+  }
+  .sev.grave {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+  }
+  .ntext {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ntext strong {
+    font-size: 0.92rem;
+  }
+  .link {
+    align-self: flex-start;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.82rem;
+    min-height: 36px;
+    padding: 4px 0;
+  }
+  .revs {
+    list-style: none;
+    margin: 0;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+  }
+  .revs li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .rtext {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .rtext strong {
+    font-size: 0.88rem;
+  }
+  .rtext small {
+    color: var(--muted);
+    font-size: 0.78rem;
+  }
+</style>

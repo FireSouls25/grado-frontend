@@ -289,6 +289,9 @@
       <button type="button" class="new" on:click={() => { creating = true; feedback = ''; }}>
         {$t.admin.newStudent}
       </button>
+      <button type="button" class="new ghost-new" on:click={() => push('/admin/estudiantes/historial')}>
+        {$t.troll.shistory.action}
+      </button>
     </div>
     {#if picked}
       <button type="button" class="back back-top" on:click={() => (picked = null)}>‹ {$t.admin.backSalons}</button>

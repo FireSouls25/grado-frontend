@@ -369,6 +369,65 @@ export interface TeacherDayCard {
 
 export type TeacherDayStatus = '' | TeacherMarkStatus;
 
+export interface ClassSessionCard {
+  ID: string;
+  Date: string;
+  ClassLabel: string;
+  Period: number;
+  Subject: string;
+  Teacher: string;
+  Students: number;
+  Present: number;
+  Absent: number;
+  Late: number;
+}
+
+/** Roll calls of one salon in a range, newest first. */
+export async function classSessionsHistory(
+  groupID: string,
+  from?: string,
+  to?: string
+): Promise<ClassSessionCard[]> {
+  const q = [
+    `classGroupID=${encodeURIComponent(groupID)}`,
+    `from=${encodeURIComponent(from ?? '')}`,
+    `to=${encodeURIComponent(to ?? '')}`
+  ]
+    .filter((p) => !p.endsWith('='))
+    .join('&');
+  return (await api.get<ClassSessionCard[]>(`/v1/sessions/history?${q}`)) ?? [];
+}
+
+export interface SessionRevisionRow {
+  Student: string;
+  From: string;
+  To: string;
+  Author: string;
+  ChangedAt: string;
+  Note: string;
+}
+
+export interface SessionDetailData {
+  Session: {
+    ID: string;
+    Date: string;
+    ClassLabel: string;
+    Period: number;
+    TeacherID: string;
+    SubjectID: string;
+    Roster: { StudentID: string; Names: string; Surnames: string; DocumentID: string }[];
+  };
+  Marks: Record<string, string>;
+  Revisions: SessionRevisionRow[];
+}
+
+/** One roll call with current marks and the full revision trail. */
+export async function sessionDetail(id: string): Promise<SessionDetailData | null> {
+  const r = await api.get<SessionDetailData>(`/v1/sessions/${encodeURIComponent(id)}`);
+  if (!r) return null;
+  return { ...r, Revisions: r.Revisions ?? [] };
+}
+
 export interface TeacherDayRevision {
   TeacherID: string;
   TeacherName: string;
