@@ -49,7 +49,10 @@ Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `GET /v1/audit`, `POST /v1/classes`, `POST /v1/teachers/attendance`,
 `GET /v1/teachers/attendance`, `GET /v1/teachers/{id}/attendance`,
 `GET /v1/teachers/roll`, `GET /v1/teachers/attendance/history`,
-`PUT /v1/teachers/{id}/photo`, `GET /v1/teachers/{id}/photo`.
+`GET /v1/teachers/attendance/revisions`,
+`PUT /v1/teachers/{id}/photo`, `GET /v1/teachers/{id}/photo`,
+`GET /v1/teachers/{id}/sessions`, `GET /v1/teachers/{id}/warnings-made`,
+`GET /v1/sessions/history`, `GET /v1/sessions/{id}`.
 
 Notas de los endpoints de edición:
 

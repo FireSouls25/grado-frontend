@@ -98,6 +98,16 @@
     push('/admin/docentes/lista');
   }
 
+  function markClass(m: string): string {
+    return m === 'absence' || m === 'absent'
+      ? 'is-absent'
+      : m === 'late'
+        ? 'is-late'
+        : m === 'evasion'
+          ? 'is-evasion'
+          : 'is-present';
+  }
+
   function statusName(s: string): string {
     return s === 'absent' ? $t.troll.statusAbsent : s === 'late' ? $t.troll.statusLate : $t.troll.statusPresent;
   }
@@ -205,10 +215,21 @@
                     {:else}
                       <ul class="revs">
                         {#each revisions as r (r.TeacherID + r.RecordedAt + r.NewStatus)}
-                          <li>
-                            <span class="rtext">
-                              <strong>{r.TeacherName}: {r.OldStatus ? $t.troll.revisionChanged(statusName(r.OldStatus), statusName(r.NewStatus)) : `${$t.troll.revisionFirst}: ${statusName(r.NewStatus)}`}</strong>
-                              <small>{r.Author} · {momentTs(r.RecordedAt)}{r.Note ? ` · ${r.Note}` : ''}</small>
+                          <li class="rev">
+                            <span class="person">{r.TeacherName}</span>
+                            <span class="change">
+                              {#if r.OldStatus}
+                                <span class={`mk ${markClass(r.OldStatus)}`}>{statusName(r.OldStatus)}</span>
+                                <span class="swap" aria-hidden="true">›</span>
+                              {:else}
+                                <span class="first">{$t.troll.revisionFirst}</span>
+                              {/if}
+                              <span class={`mk solid ${markClass(r.NewStatus)}`}>{statusName(r.NewStatus)}</span>
+                            </span>
+                            {#if r.Note}<small class="revnote">{r.Note}</small>{/if}
+                            <span class="meta">
+                              <span class="box">{r.Author}</span>
+                              <span class="box">{momentTs(r.RecordedAt)}</span>
                             </span>
                           </li>
                         {/each}
@@ -295,15 +316,110 @@
     padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
   }
-  .revs li {
+  .revs li.rev {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .person {
+    align-self: flex-start;
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+  .change {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .mk {
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border: 2px solid transparent;
+  }
+  .mk.is-present {
+    color: var(--chip-green-ink);
+    border-color: var(--chip-green-ink);
+  }
+  .mk.is-absent {
+    color: var(--g-grave-ink);
+    border-color: var(--g-grave-ink);
+  }
+  .mk.is-late {
+    color: var(--chip-yellow-ink);
+    border-color: var(--chip-yellow-ink);
+  }
+  .mk.is-evasion {
+    color: var(--chip-purple-ink);
+    border-color: var(--chip-purple-ink);
+  }
+  .mk.solid.is-present {
+    background: var(--chip-green-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-absent {
+    background: var(--chip-pink-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-late {
+    background: var(--chip-yellow-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-evasion {
+    background: var(--chip-purple-bg);
+    border-color: transparent;
+  }
+  .swap {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    font-weight: 800;
+  }
+  .first {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .revnote {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .meta .box {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
   }
   .chead {
     width: 100%;

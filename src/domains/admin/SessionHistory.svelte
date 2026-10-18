@@ -56,6 +56,16 @@
     return m === 'absence' ? $t.admin.markAbsence : m === 'late' ? $t.admin.markLate : m === 'evasion' ? $t.admin.markEvasion : $t.admin.markPresent;
   }
 
+  function markClass(m: string): string {
+    return m === 'absence' || m === 'absent'
+      ? 'is-absent'
+      : m === 'late'
+        ? 'is-late'
+        : m === 'evasion'
+          ? 'is-evasion'
+          : 'is-present';
+  }
+
   let groupID = '';
   let groups: YearGroup[] = [];
   let from = monthAgo();
@@ -239,10 +249,21 @@
                     {:else}
                       <ul class="revs">
                         {#each detail.Revisions as r (r.Student + r.ChangedAt + r.To)}
-                          <li>
-                            <span class="rtext">
-                              <strong>{r.Student}: {r.From ? markName(r.From) : $t.admin.markPresent} → {markName(r.To)}</strong>
-                              <small>{r.Author} · {momentTs(r.ChangedAt)}{r.Note ? ` · ${r.Note}` : ''}</small>
+                          <li class="rev">
+                            <span class="person">{r.Student}</span>
+                            <span class="change">
+                              {#if r.From}
+                                <span class={`mk ${markClass(r.From)}`}>{markName(r.From)}</span>
+                                <span class="swap" aria-hidden="true">›</span>
+                              {:else}
+                                <span class="first">{$t.admin.markPresent}</span>
+                              {/if}
+                              <span class={`mk solid ${markClass(r.To)}`}>{markName(r.To)}</span>
+                            </span>
+                            {#if r.Note}<small class="revnote">{r.Note}</small>{/if}
+                            <span class="meta">
+                              <span class="box">{r.Author}</span>
+                              <span class="box">{momentTs(r.ChangedAt)}</span>
                             </span>
                           </li>
                         {/each}
@@ -455,27 +476,109 @@
     padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
   }
-  .revs li {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .rtext {
-    flex: 1;
-    min-width: 0;
+  .revs li.rev {
     display: flex;
     flex-direction: column;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
   }
-  .rtext strong {
-    font-size: 0.88rem;
+  .person {
+    align-self: flex-start;
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 0.82rem;
+    font-weight: 800;
   }
-  .rtext small {
+  .change {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .mk {
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border: 2px solid transparent;
+  }
+  .mk.is-present {
+    color: var(--chip-green-ink);
+    border-color: var(--chip-green-ink);
+  }
+  .mk.is-absent {
+    color: var(--g-grave-ink);
+    border-color: var(--g-grave-ink);
+  }
+  .mk.is-late {
+    color: var(--chip-yellow-ink);
+    border-color: var(--chip-yellow-ink);
+  }
+  .mk.is-evasion {
+    color: var(--chip-purple-ink);
+    border-color: var(--chip-purple-ink);
+  }
+  .mk.solid.is-present {
+    background: var(--chip-green-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-absent {
+    background: var(--chip-pink-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-late {
+    background: var(--chip-yellow-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-evasion {
+    background: var(--chip-purple-bg);
+    border-color: transparent;
+  }
+  .swap {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    font-weight: 800;
+  }
+  .first {
+    font-size: 0.75rem;
+    font-weight: 700;
     color: var(--muted);
-    font-size: 0.78rem;
+  }
+  .revnote {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .meta .box {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
   }
 </style>
