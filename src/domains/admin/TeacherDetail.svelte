@@ -113,6 +113,8 @@
   let sheetTeachers: TeacherSummary[] = [];
   let classSheetOpen = false;
   let editingEntry: ScheduleEntry | null = null;
+  // Remonta el editor en cada apertura: sin valores del bloque anterior.
+  let classSheetSession = 0;
 
   async function loadClasses() {
     try {
@@ -380,6 +382,7 @@
           on:click={() => {
             editingEntry = null;
             classSheetOpen = true;
+            classSheetSession += 1;
           }}
         >
           {$t.admin.entryAdd}
@@ -397,6 +400,7 @@
                 on:click={() => {
                   editingEntry = e;
                   classSheetOpen = true;
+                  classSheetSession += 1;
                 }}
               >
                 <span class="dot" style={`background:${subjectMeta(e.SubjectID).color}`}></span>
@@ -416,6 +420,7 @@
 </AdminShell>
 
 <!-- Mismo editor que el tablero: una sola vía para que ambas vistas coincidan. -->
+{#key classSheetSession}
 <ScheduleEntrySheet
   open={classSheetOpen}
   entry={editingEntry}
@@ -433,6 +438,7 @@
   }}
   onClose={() => (classSheetOpen = false)}
 />
+{/key}
 
 <Sheet open={editing} title={$t.teacherDetail.editTitle} onClose={() => (editing = false)}>
   <form class="form" on:submit|preventDefault={saveEdit}>

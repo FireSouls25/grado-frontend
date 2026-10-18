@@ -37,6 +37,9 @@
   let sheetDay: number | null = null;
   let sheetStart: number | null = null;
   let sheetSubject: string | null = null;
+  // Cada apertura remonta el editor: estado pristino con los presets
+  // finales, imposible pintar valores del drop anterior.
+  let sheetSession = 0;
 
   // Catálogo dentro del horario: nombre + descripción + color.
   const COLOR_PRESETS = ['#7C3AED', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#EC4899'];
@@ -169,6 +172,7 @@
         : startMin;
     sheetSubject = subjectID;
     sheetOpen = true;
+    sheetSession += 1;
   }
 
   function onDropSubject(e: DragEvent, day: number, startMin: number) {
@@ -251,7 +255,10 @@
   function openEdit(e: ScheduleEntry) {
     editingEntry = e;
     sheetDay = null;
+    sheetStart = null;
+    sheetSubject = null;
     sheetOpen = true;
+    sheetSession += 1;
   }
 
   async function onSaved() {
@@ -444,6 +451,7 @@
   {/if}
   </div>
 
+  {#key sheetSession}
   <ScheduleEntrySheet
     open={sheetOpen}
     entry={editingEntry}
@@ -461,6 +469,7 @@
     onPreview={previewGhost}
     onClose={closeEntrySheet}
   />
+  {/key}
 
   <section class="subjects" aria-label={$t.subject.title}>
     <div class="subhead">
