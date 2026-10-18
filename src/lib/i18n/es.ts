@@ -678,7 +678,7 @@ export const es = {
     entryEnd: (end: string) => `Termina a las ${end}`,
     entryInvalid: 'Revisa el día, el inicio y la duración.',
     unassignedWarn:
-      'Ese docente no tiene asignada la materia: al guardar, el servidor lo rechazará.',
+      'Al guardar, la materia queda asignada a ese docente automáticamente.',
     conflictTitle: 'Choques detectados',
     conflictTeacher: 'Docente ocupado',
     conflictGroup: 'Salón ocupado',

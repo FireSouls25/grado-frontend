@@ -284,7 +284,7 @@
         on:select={(e) => (teacherID = e.detail)}
       />
       {#if unassigned}
-        <p class="hint warn">{$t.admin.unassignedWarn}</p>
+        <p class="hint">{$t.admin.unassignedWarn}</p>
       {/if}
       <div class="row2">
         <Dropdown
@@ -394,10 +394,6 @@
     color: var(--muted);
     font-size: 0.78rem;
     font-weight: 500;
-  }
-  .hint.warn {
-    color: var(--g-grave-ink);
-    font-weight: 600;
   }
   .locked {
     display: flex;

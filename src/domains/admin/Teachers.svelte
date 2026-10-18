@@ -9,7 +9,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Icon from '$lib/ui/Icon.svelte';
-  import { teachers, teacherDetail, createTeacher, createUser, teacherDay, recordTeacherDay, type TeacherSummary, type TeacherDetail, type TeacherMarkStatus } from './api';
+  import { teachers, teacherDetail, createTeacher, createUser, teacherDay, recordTeacherDay, listSubjects, scheduleEntries, type TeacherSummary, type TeacherDetail, type TeacherMarkStatus } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
@@ -29,6 +29,7 @@
   let showPassword = false;
   let search = '';
   let details: Record<string, TeacherDetail> = {};
+  let taught: Record<string, string[]> = {};
   let fSubject = '';
   let fGroup = '';
   let fRole: '' | 'director' | 'plain' = '';
@@ -159,6 +160,23 @@
       if (result.status === 'fulfilled' && result.value) next[list[i].ID] = result.value;
     });
     details = next;
+    // Materias leídas del horario: una entrada por docente, catálogo una vez.
+    try {
+      const subs = (await guarded(() => listSubjects())) ?? [];
+      const nameOf = (sid: string) => subs.find((s) => s.ID === sid)?.Name ?? sid.slice(0, 8);
+      const perTeacher = await Promise.allSettled(
+        list.map((teacher) => scheduleEntries({ teacherID: teacher.ID }))
+      );
+      const taughtNext: Record<string, string[]> = {};
+      perTeacher.forEach((result, i) => {
+        if (result.status !== 'fulfilled' || !result.value) return;
+        const names = [...new Set(result.value.map((e) => nameOf(e.SubjectID)))];
+        if (names.length > 0) taughtNext[list[i].ID] = names;
+      });
+      taught = taughtNext;
+    } catch {
+      taught = {};
+    }
   }
 
   function initialsOf(surnames: string, names: string): string {
@@ -174,7 +192,7 @@
   onMount(load);
 
   $: q = search.trim().toLowerCase();
-  $: subjectOptions = [...new Set(Object.values(details).flatMap((d) => (d.Subjects ?? []).map((s) => s.SubjectName)))].sort((a, b) =>
+  $: subjectOptions = [...new Set(Object.values(taught).flat())].sort((a, b) =>
     a.localeCompare(b, 'es')
   );
   $: groupOptions = [...new Set(list.map((teacher) => teacher.HomeroomClassID).filter(Boolean))].sort((a, b) =>
@@ -190,7 +208,7 @@
     if (fRole === 'plain' && teacher.HomeroomClassID) return false;
     if (fGroup && teacher.HomeroomClassID !== fGroup) return false;
     if (fSubject) {
-      const names = details[teacher.ID]?.Subjects?.map((s) => s.SubjectName) ?? [];
+      const names = taught[teacher.ID] ?? [];
       if (!names.includes(fSubject)) return false;
     }
     return true;
@@ -404,7 +422,7 @@
     <ul class="roster">
       {#each visible as teacher (teacher.ID)}
         {@const detail = details[teacher.ID]}
-        {@const subjects = detail?.Subjects.map((s) => s.SubjectName) ?? []}
+        {@const subjects = taught[teacher.ID] ?? []}
         {@const contact = [teacher.DocumentID, detail?.Phone, detail?.Email].filter(Boolean).join(' · ')}
         <li>
           <button
