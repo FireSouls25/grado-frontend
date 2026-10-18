@@ -40,6 +40,7 @@ export const routes = {
   '/admin/materias': admin(() => import('./domains/admin/Subjects.svelte')),
   '/admin/materias/:id': admin(() => import('./domains/admin/SubjectDetail.svelte')),
   '/admin/horario': admin(() => import('./domains/admin/ScheduleBoard.svelte')),
+  '/admin/llamados': admin(() => import('./domains/admin/Warnings.svelte')),
   '/admin/auditoria': admin(() => import('./domains/admin/Audit.svelte')),
   '*': Login
 };

@@ -56,6 +56,10 @@ Notas de los endpoints de edición:
 - `PUT /v1/teachers/{id}` es **parcial**: lo que no se envía se conserva,
   así un formulario a medias nunca borra el teléfono ni desactiva a un
   docente por accidente.
+- `GET /v1/warnings/recent` devuelve cada llamado con `StudentName`,
+  `ClassLabel` y `AuthorName` ya resueltos (ver `backend/docs/api.md`).
+  La pantalla `/admin/llamados` los muestra con filtros y crea llamados
+  con `POST /v1/warnings/batch`, el mismo endpoint del docente.
 
 ## Bloqueos para el dominio docente (documentados)
 

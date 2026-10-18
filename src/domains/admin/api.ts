@@ -411,8 +411,11 @@ export async function studentReport(studentID: string): Promise<StudentReport | 
 export interface RecentWarning {
   ID: string;
   StudentID: string;
+  StudentName: string;
   ClassID: string;
+  ClassLabel: string;
   TeacherID: string;
+  AuthorName: string;
   HappenedAt: string;
   Gravity: 'mild' | 'moderate' | 'severe';
   Title: string;
@@ -420,10 +423,26 @@ export interface RecentWarning {
   GroupID: string;
 }
 
-// Latest llamados. No such route in the backend yet: callers treat
-// isMissing as an honest empty, never as an error screen.
+// Latest llamados, newest first, with display names resolved by the
+// backend (live records win, the frozen snapshot stands in otherwise).
 export async function warningsRecent(limit = 20): Promise<RecentWarning[]> {
   return (await api.get<RecentWarning[]>(`/v1/warnings/recent?limit=${limit}`)) ?? [];
+}
+
+export interface NewWarningBatch {
+  classID: string;
+  studentIDs: string[];
+  gravity: 'mild' | 'moderate' | 'severe';
+  title: string;
+  description: string;
+  happenedAt?: string;
+}
+
+/** Issues one llamado for one or more students. Same endpoint and same
+ *  record the teacher flow uses: one event, one shared group, each
+ *  student keeps its own history. */
+export async function issueWarningBatch(draft: NewWarningBatch): Promise<Warning[]> {
+  return (await api.post<Warning[]>('/v1/warnings/batch', draft)) ?? [];
 }
 
 export interface RecentIncident {

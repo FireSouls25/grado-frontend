@@ -11,6 +11,7 @@
     | 'estudiantes'
     | 'materias'
     | 'horario'
+    | 'llamados'
     | 'auditoria';
   export let year: number;
   export let onYear: ((delta: number) => void) | null = null;
@@ -33,6 +34,7 @@
     { key: 'estudiantes' as Key, href: '/admin/estudiantes', icon: 'list' as IconName, label: $t.nav.students },
     { key: 'materias' as Key, href: '/admin/materias', icon: 'cap' as IconName, label: $t.subject.navLabel },
     { key: 'horario' as Key, href: '/admin/horario', icon: 'calendar' as IconName, label: $t.nav.schedule },
+    { key: 'llamados' as Key, href: '/admin/llamados', icon: 'warn' as IconName, label: $t.admin.navWarnings },
     { key: 'auditoria' as Key, href: '/admin/auditoria', icon: 'eye' as IconName, label: $t.audit.navLabel }
   ];
 </script>
@@ -55,9 +57,6 @@
           <Icon name={item.icon} /> {item.label}
         </button>
       {/each}
-      <button type="button" class="is-soon" disabled aria-disabled="true">
-        <Icon name="warn" /> {$t.admin.navWarnings} <em>{$t.admin.soon}</em>
-      </button>
     </nav>
     <div class="yearbox">
       <small>{$t.admin.yearLabel}</small>
@@ -207,18 +206,6 @@
     border-color: var(--line);
     color: var(--ink);
     box-shadow: var(--shadow);
-  }
-  .vnav button.is-soon {
-    opacity: 0.7;
-  }
-  .vnav em {
-    margin-left: auto;
-    font-style: normal;
-    font-size: 0.7rem;
-    background: var(--tint);
-    border-radius: 999px;
-    padding: 1px 8px;
-    color: var(--muted);
   }
   .yearbox {
     border-top: 1px solid var(--line);
