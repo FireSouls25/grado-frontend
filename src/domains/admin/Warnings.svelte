@@ -88,7 +88,7 @@
     loadError = null;
     try {
       const [warns, gs] = await Promise.all([
-        guarded(() => warningsRecent(100)),
+        guarded(() => warningsRecent(500, true)),
         guarded(() => groupsByYear(year))
       ]);
       items = warns ?? [];
@@ -893,11 +893,21 @@
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 2px 10px;
+    padding: 3px 12px;
     font-size: 0.72rem;
     font-weight: 700;
     color: var(--ink-soft);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .meta .box:first-child {
+    background: var(--accent-soft);
+    border-color: transparent;
+    color: var(--accent);
+  }
+  .revs li.rev {
+    gap: 10px;
+    padding: 12px 14px;
   }
   .revs {
     list-style: none;

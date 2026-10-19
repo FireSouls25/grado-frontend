@@ -651,8 +651,11 @@ export interface RecentWarning {
 
 // Latest llamados, newest first, with display names resolved by the
 // backend (live records win, the frozen snapshot stands in otherwise).
-export async function warningsRecent(limit = 20): Promise<RecentWarning[]> {
-  return (await api.get<RecentWarning[]>(`/v1/warnings/recent?limit=${limit}`)) ?? [];
+// all=true lifts the 90-day dashboard window for admin history screens.
+export async function warningsRecent(limit = 20, all = false): Promise<RecentWarning[]> {
+  const q = [`limit=${limit}`];
+  if (all) q.push('all=1');
+  return (await api.get<RecentWarning[]>(`/v1/warnings/recent?${q.join('&')}`)) ?? [];
 }
 
 export interface WarningRevision {
