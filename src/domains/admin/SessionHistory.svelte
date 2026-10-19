@@ -60,23 +60,25 @@
   let groups: YearGroup[] = [];
 
   // Corregir marcas con el mismo lenguaje de la lista docente: una
-  // fila por estudiante con segmentado y nota, se guardan los cambios.
+  // fila por estudiante con segmentado; un solo motivo junto a Guardar
+  // que acompaña a las marcas no presentes del lote.
   let correcting = false;
   let correctingId = '';
-  let corrSel: Record<string, { mark: '' | 'absence' | 'evasion' | 'late'; note: string }> = {};
+  let corrSel: Record<string, '' | 'absence' | 'evasion' | 'late'> = {};
+  let correctNote = '';
   let savingCorrection = false;
   let correctionError = '';
 
   function openCorrect(sessionID: string) {
     correctingId = sessionID;
     corrSel = {};
+    correctNote = '';
     correctionError = '';
     correcting = true;
   }
 
   function corrSet(studentID: string, mark: '' | 'absence' | 'evasion' | 'late') {
-    const prev = corrSel[studentID];
-    corrSel = { ...corrSel, [studentID]: { mark, note: prev?.note ?? '' } };
+    corrSel = { ...corrSel, [studentID]: mark };
   }
 
   async function saveCorrection() {
@@ -88,8 +90,8 @@
     }
     savingCorrection = true;
     try {
-      for (const [studentID, v] of changed) {
-        await recordSessionMark(correctingId, studentID, v.mark, v.note.trim());
+      for (const [studentID, mark] of changed) {
+        await recordSessionMark(correctingId, studentID, mark, mark === '' ? '' : correctNote.trim());
       }
       correcting = false;
       notify($t.troll.shistory.corrected);
@@ -382,45 +384,32 @@
               <span class="name">{s.Names} {s.Surnames}</span>
             </span>
             <span class="seg" role="group" aria-label={`${s.Names} ${s.Surnames}`}>
-              <button type="button" class:present={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === ''} aria-pressed={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === ''} on:click={() => corrSet(s.StudentID, '')}>
+              <button type="button" class:present={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === ''} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === ''} on:click={() => corrSet(s.StudentID, '')}>
                 {$t.admin.markPresent}
               </button>
-              <button type="button" class:absent={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'absence'} aria-pressed={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'absence'} on:click={() => corrSet(s.StudentID, 'absence')}>
+              <button type="button" class:absent={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence'} on:click={() => corrSet(s.StudentID, 'absence')}>
                 {$t.admin.markAbsence}
               </button>
-              <button type="button" class:evasion={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} aria-pressed={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} on:click={() => corrSet(s.StudentID, 'evasion')}>
+              <button type="button" class:evasion={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} on:click={() => corrSet(s.StudentID, 'evasion')}>
                 {$t.admin.markEvasion}
               </button>
-              <button type="button" class:late={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'late'} aria-pressed={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'late'} on:click={() => corrSet(s.StudentID, 'late')}>
+              <button type="button" class:late={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'late'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'late'} on:click={() => corrSet(s.StudentID, 'late')}>
                 {$t.admin.markLate}
               </button>
             </span>
-            {#if (corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') !== ''}
-              <input
-                class="note"
-                type="text"
-                placeholder={$t.troll.shistory.correctNotePlaceholder}
-                aria-label={$t.troll.shistory.correctNoteLabel}
-                value={corrSel[s.StudentID]?.note ?? ''}
-                on:input={(e) => {
-                  const note = (e.currentTarget as HTMLInputElement).value;
-                  const cur = corrSel[s.StudentID]?.mark ?? detail?.Marks[s.StudentID] ?? '';
-                  const prev = corrSel[s.StudentID] ?? {
-                    mark: (cur === 'absence' || cur === 'evasion' || cur === 'late' ? cur : 'absence') as
-                      | 'absence'
-                      | 'evasion'
-                      | 'late',
-                    note: ''
-                  };
-                  corrSel = { ...corrSel, [s.StudentID]: { ...prev, note } };
-                }}
-              />
-            {/if}
           </li>
         {/each}
       </ul>
       {#if correctionError}<p class="flash error" role="alert">{correctionError}</p>{/if}
       <div class="actions">
+        <input
+          class="motivo"
+          type="text"
+          placeholder={$t.troll.shistory.correctNotePlaceholder}
+          aria-label={$t.troll.shistory.correctNoteLabel}
+          bind:value={correctNote}
+          maxlength="140"
+        />
         <button type="button" class="mini" on:click={() => (correcting = false)}>{$t.common.cancel}</button>
         <button type="button" class="mini primary" disabled={savingCorrection} on:click={saveCorrection}>
           {savingCorrection ? $t.troll.saving : $t.common.save}
@@ -575,6 +564,19 @@
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .motivo {
+    flex: 1;
+    min-width: 180px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    min-height: 48px;
+    font-size: 0.88rem;
+    color: var(--ink);
   }
   .flash.error {
     border-radius: var(--radius);
@@ -748,16 +750,6 @@
   .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
-  }
-  .note {
-    flex-basis: 100%;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 8px 12px;
-    min-height: 40px;
-    font-size: 0.85rem;
-    color: var(--ink);
   }
   .revs {
     list-style: none;

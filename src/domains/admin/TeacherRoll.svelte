@@ -38,7 +38,9 @@
   let loadError: unknown = null;
   let rows: TeacherRollRow[] = [];
   // Explicit picks only: untouched rows stay unselected AND unsaved.
-  let sel: Record<string, { status: TeacherMarkStatus; note: string }> = {};
+  // One shared motive next to save, attached to non-present marks.
+  let sel: Record<string, TeacherMarkStatus> = {};
+  let rollNote = '';
   let saving = false;
 
   $: markedCount = Object.keys(sel).length;
@@ -66,14 +68,12 @@
   }
 
   function setStatus(id: string, status: TeacherMarkStatus) {
-    const prev = sel[id];
-    const base = prev ? prev.note : (rows.find((r) => r.TeacherID === id)?.Note ?? '');
-    sel = { ...sel, [id]: { status, note: status === 'present' ? '' : base } };
+    sel = { ...sel, [id]: status };
   }
 
   function markAllPresent() {
     const next: typeof sel = {};
-    for (const r of rows) next[r.TeacherID] = { status: 'present', note: '' };
+    for (const r of rows) next[r.TeacherID] = 'present';
     sel = next;
   }
 
@@ -82,10 +82,10 @@
     try {
       await recordTeacherDay(
         day,
-        Object.entries(sel).map(([teacherID, v]) => ({
+        Object.entries(sel).map(([teacherID, status]) => ({
           teacherID,
-          status: v.status,
-          note: v.note
+          status,
+          note: status === 'present' ? '' : rollNote.trim()
         }))
       );
       notify($t.troll.saved);
@@ -126,6 +126,14 @@
         <button type="button" class="mini" disabled={day >= todayLocal()} on:click={() => changeDay(1)} aria-label="+1 día">›</button>
       </div>
       <div class="dayactions">
+        <input
+          class="motivo"
+          type="text"
+          placeholder={$t.troll.notePlaceholder}
+          aria-label={$t.troll.noteLabel}
+          bind:value={rollNote}
+          maxlength="140"
+        />
         <button type="button" class="mini" disabled={rows.length === 0} on:click={markAllPresent}>
           {$t.troll.markAllPresent}
         </button>
@@ -144,9 +152,6 @@
     {:else}
       <ul class="roll">
         {#each rows as row (row.TeacherID)}
-          {@const cur = sel[row.TeacherID]}
-          {@const st = cur?.status ?? (row.Recorded ? row.Status : '')}
-          {@const note = cur?.note ?? (row.Recorded ? row.Note : '')}
           <li>
             <span class="who">
               <span class="avatar" aria-hidden="true">
@@ -155,30 +160,16 @@
               <span class="name">{row.TeacherName}</span>
             </span>
             <span class="seg" role="group" aria-label={row.TeacherName}>
-              <button type="button" class:present={st === 'present'} aria-pressed={st === 'present'} on:click={() => setStatus(row.TeacherID, 'present')}>
+              <button type="button" class:present={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'present'} aria-pressed={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'present'} on:click={() => setStatus(row.TeacherID, 'present')}>
                 {$t.troll.statusPresent}
               </button>
-              <button type="button" class:absent={st === 'absent'} aria-pressed={st === 'absent'} on:click={() => setStatus(row.TeacherID, 'absent')}>
+              <button type="button" class:absent={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'absent'} aria-pressed={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'absent'} on:click={() => setStatus(row.TeacherID, 'absent')}>
                 {$t.troll.statusAbsent}
               </button>
-              <button type="button" class:late={st === 'late'} aria-pressed={st === 'late'} on:click={() => setStatus(row.TeacherID, 'late')}>
+              <button type="button" class:late={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'late'} aria-pressed={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'late'} on:click={() => setStatus(row.TeacherID, 'late')}>
                 {$t.troll.statusLate}
               </button>
             </span>
-            {#if st === 'absent' || st === 'late'}
-              <input
-                class="note"
-                type="text"
-                placeholder={$t.troll.notePlaceholder}
-                aria-label={$t.troll.noteLabel}
-                value={note}
-                on:input={(e) => {
-                  const note = (e.currentTarget as HTMLInputElement).value;
-                  const prev = sel[row.TeacherID] ?? { status: st as TeacherMarkStatus, note };
-                  sel = { ...sel, [row.TeacherID]: { ...prev, note } };
-                }}
-              />
-            {/if}
           </li>
         {/each}
       </ul>
@@ -246,6 +237,18 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
+  }
+  .motivo {
+    flex: 1;
+    min-width: 180px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    min-height: 44px;
+    font-size: 0.85rem;
+    color: var(--ink);
   }
   .mini {
     display: inline-flex;
@@ -333,15 +336,5 @@
   .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
-  }
-  .note {
-    flex-basis: 100%;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 8px 12px;
-    min-height: 40px;
-    font-size: 0.85rem;
-    color: var(--ink);
   }
 </style>
