@@ -13,6 +13,7 @@
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
+  import { foldSearch } from '$lib/search';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
 
@@ -119,7 +120,7 @@
 
   onMount(load);
 
-  $: q = search.trim().toLowerCase();
+  $: q = foldSearch(search.trim());
   $: subjectOptions = [...new Set(Object.values(taught).flat().map((s) => s.name))].sort((a, b) =>
     a.localeCompare(b, 'es')
   );
@@ -129,7 +130,7 @@
   $: visible = list.filter((teacher) => {
     if (
       q &&
-      !`${teacher.Surnames} ${teacher.Names} ${teacher.DocumentID}`.toLowerCase().includes(q)
+      !foldSearch(`${teacher.Surnames} ${teacher.Names} ${teacher.DocumentID}`).includes(q)
     )
       return false;
     if (fRole === 'director' && !teacher.HomeroomClassID) return false;

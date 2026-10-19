@@ -15,6 +15,7 @@
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
   import { mapSettled } from '$lib/async';
+  import { foldSearch } from '$lib/search';
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;
@@ -206,18 +207,22 @@
       calls: warns.filter((w) => w.StudentID === s.StudentID).length
     }))
   );
-  $: qn = q2.trim().toLowerCase();
+  $: qn = foldSearch(q2.trim());
   $: nAbs = Number(minAbs) || 0;
   $: nLate = Number(minLate) || 0;
   $: visibleRoster = allRoster
     .filter((s) => (picked ? s.group === picked.ClassLabel : true))
-    .filter((s) => (qn ? `${s.Surnames} ${s.Names}`.toLowerCase().includes(qn) : true))
+    .filter((s) => (qn ? foldSearch(`${s.Surnames} ${s.Names}`).includes(qn) : true))
     .filter((s) => s.Absences >= nAbs && s.Lates >= nLate)
     .filter((s) => (fWarn === 'yes' ? s.calls > 0 : true))
     .sort((a, b) => a.rate - b.rate);
   $: hasAnyStudents = allRoster.length > 0;
   $: loadingReports = groups.length > 0 && !reportsDone;
-  $: pickedEmpty = picked !== null && !reportLoading && visibleRoster.length === 0;
+  $: pickedTotal = (() => {
+    const p = picked;
+    return p ? allRoster.filter((s) => s.group === p.ClassLabel).length : 0;
+  })();
+  $: pickedEmpty = picked !== null && !reportLoading && pickedTotal === 0;
 
   async function saveSalon() {
     salonFeedback = '';

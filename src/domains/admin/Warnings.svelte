@@ -12,6 +12,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
   import { guarded } from '$lib/nav';
+  import { foldSearch } from '$lib/search';
   import {
     warningsRecent,
     groupsByYear,
@@ -56,12 +57,11 @@
   $: filtered = items.filter((w) => {
     if (gravity && w.Gravity !== gravity) return false;
     if (classLabel && w.ClassLabel !== classLabel) return false;
-    const q = query.trim().toLowerCase();
+    const q = foldSearch(query.trim());
     if (!q) return true;
-    return [w.StudentName, w.ClassLabel, w.AuthorName, w.Title, w.Description]
-      .join(' ')
-      .toLowerCase()
-      .includes(q);
+    return foldSearch([w.StudentName, w.ClassLabel, w.AuthorName, w.Title, w.Description].join(' ')).includes(
+      q
+    );
   });
 
   function moment(value: string): string {
@@ -494,10 +494,20 @@
                         {/if}
                       </span>
                       {#if r.OldTitle !== r.NewTitle}
-                        <small class="revline"><strong>{$t.warnings.renamedLabel}:</strong> «{r.OldTitle}» → «{r.NewTitle}»</small>
+                        <span class="tchange">
+                          <span class="tlabel">{$t.warnings.renamedLabel}</span>
+                          <span class="told">«{r.OldTitle || '—'}»</span>
+                          <span class="swap" aria-hidden="true">›</span>
+                          <span class="tnew">«{r.NewTitle}»</span>
+                        </span>
                       {/if}
                       {#if r.OldDetail !== r.NewDetail}
-                        <small class="revline"><strong>{$t.warnings.detailLabel}:</strong> {r.NewDetail || '—'}</small>
+                        <span class="tchange">
+                          <span class="tlabel">{$t.warnings.detailLabel}</span>
+                          <span class="told">{r.OldDetail || '—'}</span>
+                          <span class="swap" aria-hidden="true">›</span>
+                          <span class="tnew">{r.NewDetail || '—'}</span>
+                        </span>
                       {/if}
                       <span class="meta">
                         <span class="box">{r.Author}</span>
@@ -806,6 +816,41 @@
   .revline {
     color: var(--ink-soft);
     font-size: 0.8rem;
+  }
+  .tchange {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    max-width: 100%;
+  }
+  .tlabel {
+    flex: none;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .told {
+    color: var(--muted);
+    text-decoration: line-through;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .tnew {
+    font-weight: 800;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
   .revnote {
     color: var(--muted);
