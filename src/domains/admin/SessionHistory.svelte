@@ -59,40 +59,38 @@
   let groupID = '';
   let groups: YearGroup[] = [];
 
-  // Corregir una marca dentro de un llamado expandido.
+  // Corregir marcas con el mismo lenguaje de la lista docente: una
+  // fila por estudiante con segmentado y nota, se guardan los cambios.
   let correcting = false;
-  let correctStudent = '';
-  let correctMark: '' | 'absence' | 'evasion' | 'late' = 'absence';
-  let correctNote = '';
   let correctingId = '';
+  let corrSel: Record<string, { mark: '' | 'absence' | 'evasion' | 'late'; note: string }> = {};
   let savingCorrection = false;
   let correctionError = '';
 
-  $: correctMarkOptions = [
-    { value: '', label: $t.admin.markPresent },
-    { value: 'absence', label: $t.admin.markAbsence },
-    { value: 'evasion', label: $t.admin.markEvasion },
-    { value: 'late', label: $t.admin.markLate }
-  ];
-
   function openCorrect(sessionID: string) {
     correctingId = sessionID;
-    correctStudent = '';
-    correctMark = 'absence';
-    correctNote = '';
+    corrSel = {};
     correctionError = '';
     correcting = true;
   }
 
+  function corrSet(studentID: string, mark: '' | 'absence' | 'evasion' | 'late') {
+    const prev = corrSel[studentID];
+    corrSel = { ...corrSel, [studentID]: { mark, note: prev?.note ?? '' } };
+  }
+
   async function saveCorrection() {
     correctionError = '';
-    if (!correctStudent) {
+    const changed = Object.entries(corrSel);
+    if (changed.length === 0) {
       correctionError = $t.troll.shistory.pickStudent;
       return;
     }
     savingCorrection = true;
     try {
-      await recordSessionMark(correctingId, correctStudent, correctMark, correctNote.trim());
+      for (const [studentID, v] of changed) {
+        await recordSessionMark(correctingId, studentID, v.mark, v.note.trim());
+      }
       correcting = false;
       notify($t.troll.shistory.corrected);
       const id = expanded;
@@ -373,37 +371,61 @@
 
   <Sheet open={correcting} title={$t.troll.shistory.correctTitle} onClose={() => (correcting = false)}>
     {#if detail}
-      <form class="form" on:submit|preventDefault={saveCorrection}>
-        <Dropdown
-          label={$t.troll.shistory.correctStudentLabel}
-          value={correctStudent}
-          options={detail.Session.Roster.map((s) => ({
-            value: s.StudentID,
-            label: `${s.Names} ${s.Surnames}`.trim()
-          }))}
-          on:select={(e) => (correctStudent = e.detail)}
-        />
-        <Dropdown
-          label={$t.troll.shistory.correctMarkLabel}
-          value={correctMark}
-          options={correctMarkOptions}
-          on:select={(e) => {
-            const v = e.detail;
-            correctMark = v === 'absence' || v === 'evasion' || v === 'late' ? v : '';
-          }}
-        />
-        <label>
-          <span>{$t.troll.shistory.correctNoteLabel}</span>
-          <input type="text" placeholder={$t.troll.shistory.correctNotePlaceholder} bind:value={correctNote} maxlength="140" />
-        </label>
-        {#if correctionError}<p class="flash error" role="alert">{correctionError}</p>{/if}
-        <div class="actions">
-          <button type="button" class="mini" on:click={() => (correcting = false)}>{$t.common.cancel}</button>
-          <button type="submit" class="mini primary" disabled={savingCorrection}>
-            {savingCorrection ? $t.troll.saving : $t.common.save}
-          </button>
-        </div>
-      </form>
+      <p class="muted">{prettyDay(detail.Session.Date)} · {detail.Session.ClassLabel}</p>
+      <ul class="roll">
+        {#each detail.Session.Roster as s (s.StudentID)}
+          <li>
+            <span class="who">
+              <span class="avatar" aria-hidden="true">
+                {`${s.Names} ${s.Surnames}`.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+              </span>
+              <span class="name">{s.Names} {s.Surnames}</span>
+            </span>
+            <span class="seg" role="group" aria-label={`${s.Names} ${s.Surnames}`}>
+              <button type="button" class:present={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === ''} aria-pressed={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === ''} on:click={() => corrSet(s.StudentID, '')}>
+                {$t.admin.markPresent}
+              </button>
+              <button type="button" class:absent={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'absence'} aria-pressed={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'absence'} on:click={() => corrSet(s.StudentID, 'absence')}>
+                {$t.admin.markAbsence}
+              </button>
+              <button type="button" class:evasion={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} aria-pressed={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} on:click={() => corrSet(s.StudentID, 'evasion')}>
+                {$t.admin.markEvasion}
+              </button>
+              <button type="button" class:late={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'late'} aria-pressed={(corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') === 'late'} on:click={() => corrSet(s.StudentID, 'late')}>
+                {$t.admin.markLate}
+              </button>
+            </span>
+            {#if (corrSel[s.StudentID]?.mark ?? detail.Marks[s.StudentID] ?? '') !== ''}
+              <input
+                class="note"
+                type="text"
+                placeholder={$t.troll.shistory.correctNotePlaceholder}
+                aria-label={$t.troll.shistory.correctNoteLabel}
+                value={corrSel[s.StudentID]?.note ?? ''}
+                on:input={(e) => {
+                  const note = (e.currentTarget as HTMLInputElement).value;
+                  const cur = corrSel[s.StudentID]?.mark ?? detail?.Marks[s.StudentID] ?? '';
+                  const prev = corrSel[s.StudentID] ?? {
+                    mark: (cur === 'absence' || cur === 'evasion' || cur === 'late' ? cur : 'absence') as
+                      | 'absence'
+                      | 'evasion'
+                      | 'late',
+                    note: ''
+                  };
+                  corrSel = { ...corrSel, [s.StudentID]: { ...prev, note } };
+                }}
+              />
+            {/if}
+          </li>
+        {/each}
+      </ul>
+      {#if correctionError}<p class="flash error" role="alert">{correctionError}</p>{/if}
+      <div class="actions">
+        <button type="button" class="mini" on:click={() => (correcting = false)}>{$t.common.cancel}</button>
+        <button type="button" class="mini primary" disabled={savingCorrection} on:click={saveCorrection}>
+          {savingCorrection ? $t.troll.saving : $t.common.save}
+        </button>
+      </div>
     {/if}
   </Sheet>
 </AdminShell>
@@ -549,27 +571,6 @@
     color: var(--accent);
     font-weight: 800;
   }
-  .form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .form > label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.85rem;
-    font-weight: 600;
-  }
-  .form input[type='text'] {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
-    min-height: 48px;
-    font-size: 0.9rem;
-    color: var(--ink);
-  }
   .actions {
     display: flex;
     justify-content: flex-end;
@@ -670,6 +671,93 @@
     background: var(--accent);
     border-color: transparent;
     color: #fff;
+  }
+  .roll {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  .roll li {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+  }
+  .roll .who {
+    flex: 1;
+    min-width: 150px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .roll .avatar {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.78rem;
+  }
+  .roll .name {
+    font-weight: 700;
+    font-size: 0.88rem;
+  }
+  .seg {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    padding: 3px;
+    gap: 2px;
+    flex-wrap: wrap;
+  }
+  .seg button {
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: var(--radius-pill);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .seg button.present {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+  }
+  .seg button.absent {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+  }
+  .seg button.evasion {
+    background: var(--chip-purple-bg);
+    color: var(--chip-purple-ink);
+  }
+  .seg button.late {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+  }
+  .note {
+    flex-basis: 100%;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 12px;
+    min-height: 40px;
+    font-size: 0.85rem;
+    color: var(--ink);
   }
   .revs {
     list-style: none;
