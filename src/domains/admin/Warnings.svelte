@@ -17,9 +17,14 @@
     groupsByYear,
     classReport,
     issueWarningBatch,
+    studentWarnings,
+    correctWarning,
+    warningRevisions,
     type RecentWarning,
-    type YearGroup
+    type YearGroup,
+    type WarningRevision
   } from './api';
+  import type { Warning } from '$lib/api/types';
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;
@@ -150,6 +155,144 @@
     classLabel = e.detail;
   }
 
+  // Grouped by salon: sections collapse in place, students alphabetical.
+  $: salonGroups = (() => {
+    const bySalon = new Map<string, Map<string, { id: string; name: string; items: RecentWarning[] }>>();
+    for (const w of filtered) {
+      const label = w.ClassLabel || $t.warnings.noSalon;
+      let students = bySalon.get(label);
+      if (!students) {
+        students = new Map();
+        bySalon.set(label, students);
+      }
+      const key = w.StudentID || w.StudentName;
+      let row = students.get(key);
+      if (!row) {
+        row = { id: w.StudentID, name: w.StudentName || '—', items: [] };
+        students.set(key, row);
+      }
+      row.items.push(w);
+    }
+    return [...bySalon.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], 'es'))
+      .map(([label, students]) => ({
+        label,
+        total: [...students.values()].reduce((n, s) => n + s.items.length, 0),
+        students: [...students.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'))
+      }));
+  })();
+
+  let collapsed: Record<string, boolean> = {};
+
+  function toggleGroup(label: string) {
+    collapsed = { ...collapsed, [label]: !collapsed[label] };
+  }
+
+  // Student popup: full history with detail, modify and trail.
+  let detailID: string | null = null;
+  let detailName = '';
+  let detailWarnings: Warning[] = [];
+  let detailLoading = false;
+  let editingID: string | null = null;
+  let eGravity: 'mild' | 'moderate' | 'severe' = 'mild';
+  let eTitle = '';
+  let eDesc = '';
+  let savingEdit = false;
+  let editError = '';
+  let revsOpen: Record<string, boolean> = {};
+  let revs: Record<string, WarningRevision[]> = {};
+  let revsLoading: Record<string, boolean> = {};
+
+  $: editGravityOptions = [
+    { value: 'mild', label: $t.roster.warnGravityMild },
+    { value: 'moderate', label: $t.roster.warnGravityModerate },
+    { value: 'severe', label: $t.roster.warnGravitySevere }
+  ];
+
+  async function openStudent(id: string, name: string) {
+    detailID = id;
+    detailName = name;
+    detailWarnings = [];
+    editingID = null;
+    revsOpen = {};
+    revs = {};
+    if (!id) return;
+    detailLoading = true;
+    try {
+      detailWarnings = (await guarded(() => studentWarnings(id))) ?? [];
+    } finally {
+      detailLoading = false;
+    }
+  }
+
+  function closeStudent() {
+    detailID = null;
+    detailName = '';
+    detailWarnings = [];
+    editingID = null;
+  }
+
+  function gravityMarkClass(g: string): string {
+    return g === 'mild' ? 'is-mild' : g === 'moderate' ? 'is-moderate' : 'is-severe';
+  }
+
+  function gravityName(g: string): string {
+    return g === 'mild' ? $t.roster.warnGravityMild : g === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere;
+  }
+
+  function gravityClass(g: string): string {
+    return g === 'mild' ? 'leve' : g === 'moderate' ? 'medio' : 'grave';
+  }
+
+  function startEdit(w: Warning) {
+    editingID = w.ID;
+    eGravity = w.Gravity;
+    eTitle = w.Title;
+    eDesc = w.Description ?? '';
+    editError = '';
+  }
+
+  function selectEditGravity(e: CustomEvent<string>) {
+    const v = e.detail;
+    eGravity = v === 'moderate' || v === 'severe' ? v : 'mild';
+  }
+
+  async function saveEdit() {
+    if (!editingID) return;
+    editError = '';
+    if (!eTitle.trim()) {
+      editError = $t.warnings.needTitle;
+      return;
+    }
+    savingEdit = true;
+    try {
+      const updated = await correctWarning(editingID, {
+        gravity: eGravity,
+        title: eTitle.trim(),
+        description: eDesc.trim()
+      });
+      detailWarnings = detailWarnings.map((w) => (w.ID === editingID ? { ...w, ...updated } : w));
+      editingID = null;
+      notify($t.warnings.updated);
+      await load();
+    } catch (err) {
+      editError = err instanceof Error ? err.message : String(err);
+    } finally {
+      savingEdit = false;
+    }
+  }
+
+  async function toggleRevs(id: string) {
+    revsOpen = { ...revsOpen, [id]: !revsOpen[id] };
+    if (!revsOpen[id] || revs[id]) return;
+    revsLoading = { ...revsLoading, [id]: true };
+    try {
+      revs = { ...revs, [id]: (await guarded(() => warningRevisions(id))) ?? [] };
+    } finally {
+      revsLoading = { ...revsLoading, [id]: false };
+    }
+  }
+
   async function save() {
     formError = '';
     if (!fGroupID) {
@@ -237,38 +380,140 @@
         body={query || gravity || classLabel ? $t.warnings.noMatchBody : $t.warnings.emptyBody}
       />
     {:else}
-      <ul class="wlist">
-        {#each filtered as w (w.ID)}
-          <li class="warn">
+      {#each salonGroups as group (group.label)}
+        <section class="salon" aria-label={group.label}>
+          <button type="button" class="shead" on:click={() => toggleGroup(group.label)} aria-expanded={!collapsed[group.label]}>
+            <strong>{group.label}</strong>
+            <span class="count" role="status">{$t.warnings.callsLabel(group.total)}</span>
+            <span class="chev" aria-hidden="true">{collapsed[group.label] ? '▸' : '▾'}</span>
+          </button>
+          {#if !collapsed[group.label]}
+            <ul class="students">
+              {#each group.students as s (s.id || s.name)}
+                <li>
+                  <button type="button" class="stu" on:click={() => openStudent(s.id, s.name)}>
+                    <span class="sname">{s.name}</span>
+                    <span class="count" role="status">{$t.warnings.callsLabel(s.items.length)}</span>
+                  </button>
+                  {#if s.id}
+                    <button type="button" class="mini" on:click={() => push(`/admin/estudiantes/${s.id}`)}>
+                      {$t.warnings.openFile}
+                    </button>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </section>
+      {/each}
+    {/if}
+  {/if}
+
+  <Sheet open={detailID !== null} title={$t.warnings.detailTitle} onClose={closeStudent}>
+    <div class="dhead">
+      <strong>{detailName}</strong>
+      {#if detailID}
+        <button type="button" class="mini" on:click={() => { closeStudent(); push(`/admin/estudiantes/${detailID}`); }}>
+          {$t.warnings.openFile}
+        </button>
+      {/if}
+    </div>
+    {#if detailLoading}
+      <Skeleton rows={3} />
+    {:else if detailWarnings.length === 0}
+      <p class="muted">{$t.studentDetail.noWarningsBody}</p>
+    {:else}
+      <ul class="dwlist">
+        {#each detailWarnings as w (w.ID)}
+          <li class="dwarn">
             <div class="warn-head">
-              <span class={`sev ${w.Gravity === 'mild' ? 'leve' : w.Gravity === 'moderate' ? 'medio' : 'grave'}`}>
-                {w.Gravity === 'mild' ? $t.roster.warnGravityMild : w.Gravity === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere}
-              </span>
-              <strong class="wname">{w.StudentName || '—'}</strong>
-              {#if w.StudentID}
-                <button type="button" class="mini" on:click={() => push(`/admin/estudiantes/${w.StudentID}`)}>
-                  {$t.warnings.openFile}
+              <span class={`sev ${gravityClass(w.Gravity)}`}>{gravityName(w.Gravity)}</span>
+              <strong class="wtitle">{w.Title}</strong>
+            </div>
+            {#if w.Description}<p class="wdesc">{w.Description}</p>{/if}
+            <small class="wmeta">
+              {#if w.AuthorName}{w.AuthorName} · {/if}{moment(w.HappenedAt)}
+            </small>
+            <div class="wrow">
+              {#if editingID !== w.ID}
+                <button type="button" class="mini" on:click={() => startEdit(w)}>
+                  {$t.warnings.modifyAction}
                 </button>
               {/if}
+              <button type="button" class="link" on:click={() => toggleRevs(w.ID)}>
+                {revsOpen[w.ID] ? $t.warnings.hideRevisions : `${$t.warnings.showRevisions} (${(revs[w.ID] ?? []).length})`}
+              </button>
             </div>
-            <p class="wtitle">{w.Title}</p>
-            {#if w.Description}<p class="wdesc">{w.Description}</p>{/if}
-            <div class="frames">
-              {#if w.ClassLabel}
-                <span class="frame"><small>{$t.warnings.filterClass}</small><strong>{w.ClassLabel}</strong></span>
+            {#if editingID === w.ID}
+              <div class="editform">
+                <Dropdown
+                  label={$t.warnings.fGravity}
+                  value={eGravity}
+                  options={editGravityOptions}
+                  on:select={selectEditGravity}
+                />
+                <label>
+                  <span>{$t.warnings.fTitle}</span>
+                  <input type="text" bind:value={eTitle} maxlength="120" />
+                </label>
+                <label>
+                  <span>{$t.warnings.fDesc}</span>
+                  <textarea rows="2" bind:value={eDesc}></textarea>
+                </label>
+                {#if editError}<p class="flash error" role="alert">{editError}</p>{/if}
+                <div class="actions">
+                  <button type="button" class="mini" on:click={() => (editingID = null)}>{$t.common.cancel}</button>
+                  <button type="button" class="mini primary" disabled={savingEdit} on:click={saveEdit}>
+                    {savingEdit ? $t.troll.saving : $t.common.save}
+                  </button>
+                </div>
+              </div>
+            {/if}
+            {#if revsOpen[w.ID]}
+              {#if revsLoading[w.ID]}
+                <Skeleton rows={1} />
+              {:else if (revs[w.ID] ?? []).length === 0}
+                <p class="muted">{$t.warnings.revisionsEmpty}</p>
+              {:else}
+                <ul class="revs">
+                  {#each revs[w.ID] ?? [] as r (r.WarningID + r.ChangedAt)}
+                    <li class="rev">
+                      <span class="changerow">
+                        <span class="person">{detailName}</span>
+                        {#if r.OldGravity !== r.NewGravity || r.OldTitle !== r.NewTitle || r.OldDetail !== r.NewDetail}
+                          <span class="change">
+                            {#if r.OldGravity !== r.NewGravity}
+                              <span class={`mk ${gravityMarkClass(r.OldGravity)}`}>
+                                {r.OldGravity ? gravityName(r.OldGravity) : '—'}
+                              </span>
+                              <span class="swap" aria-hidden="true">›</span>
+                            {/if}
+                            <span class={`mk solid ${gravityMarkClass(r.NewGravity)}`}>
+                              {gravityName(r.NewGravity)}
+                            </span>
+                          </span>
+                        {/if}
+                        {#if r.OldTitle !== r.NewTitle}
+                          <small class="revline">«{r.OldTitle}» → «{r.NewTitle}»</small>
+                        {/if}
+                      </span>
+                      {#if r.OldDetail !== r.NewDetail && (r.OldDetail || r.NewDetail)}
+                        <small class="revnote">{r.NewDetail || r.OldDetail}</small>
+                      {/if}
+                      <span class="meta">
+                        <span class="box">{r.Author}</span>
+                        <span class="box">{moment(r.ChangedAt)}</span>
+                      </span>
+                    </li>
+                  {/each}
+                </ul>
               {/if}
-              {#if w.AuthorName}
-                <span class="frame"><small>{$t.warnings.metaAuthor}</small><strong>{w.AuthorName}</strong></span>
-              {/if}
-              {#if moment(w.HappenedAt)}
-                <span class="frame"><small>{$t.warnings.fWhen}</small><strong>{moment(w.HappenedAt)}</strong></span>
-              {/if}
-            </div>
+            {/if}
           </li>
         {/each}
       </ul>
     {/if}
-  {/if}
+  </Sheet>
 
   <Sheet open={creating} title={$t.warnings.formTitle} onClose={() => (creating = false)}>
     <p class="muted">{$t.warnings.formNote}</p>
@@ -294,7 +539,7 @@
             {#each roster as s (s.StudentID)}
               {@const on = picked.includes(s.StudentID)}
               <button type="button" class="pick" class:on aria-pressed={on} on:click={() => togglePicked(s.StudentID)}>
-                <span class="box" aria-hidden="true">{#if on}✓{/if}</span>
+                <span class="ckbox" aria-hidden="true">{#if on}✓{/if}</span>
                 <span>{s.Names} {s.Surnames}</span>
               </button>
             {/each}
@@ -424,68 +669,251 @@
     font-weight: 700;
     white-space: nowrap;
   }
-  .wlist {
+  .salon {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow);
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .shead {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    text-align: left;
+  }
+  .shead strong {
+    flex: 1;
+    font-size: 1.05rem;
+  }
+  .chev {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .students {
     list-style: none;
-    margin: 12px 0 0;
+    margin: 0;
+    padding: 0 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .students li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 8px 8px 8px 14px;
+  }
+  .stu {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    min-height: 40px;
+  }
+  .sname {
+    flex: 1;
+    min-width: 0;
+    font-weight: 700;
+    overflow-wrap: break-word;
+  }
+  .dhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .dhead strong {
+    font-size: 1.05rem;
+  }
+  .dwlist {
+    list-style: none;
+    margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
-  .warn {
-    background: var(--surface);
+  .dwarn {
+    background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
-    padding: 14px 16px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   .warn-head {
     display: flex;
     align-items: center;
     gap: 12px;
   }
-  .wname {
-    flex: 1;
-    min-width: 0;
-    font-size: 1.05rem;
-    overflow-wrap: break-word;
-  }
   .wtitle {
     font-weight: 700;
     font-size: 0.92rem;
     color: var(--ink);
-    margin: 10px 0 0;
+    margin: 0;
   }
   .wdesc {
     color: var(--muted);
     font-size: 0.88rem;
-    margin: 4px 0 0;
+    margin: 0;
   }
-  .frames {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 8px;
-    margin-top: 12px;
+  .wmeta {
+    color: var(--muted);
+    font-size: 0.78rem;
   }
-  .frame {
+  .wrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .editform {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    background: var(--surface-2);
+    gap: 10px;
+    background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 10px;
-    padding: 8px 12px;
-    min-width: 0;
+    padding: 12px;
   }
-  .frame small {
-    color: var(--muted);
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+  .editform label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
   }
-  .frame strong {
+  .editform input,
+  .editform textarea {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    min-height: 44px;
     font-size: 0.88rem;
-    overflow-wrap: break-word;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .revline {
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+  }
+  .revnote {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  .changerow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .person {
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+  .change {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 12px 4px 4px;
+  }
+  .mk {
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border: 2px solid transparent;
+  }
+  .mk.is-mild {
+    color: var(--chip-sky-ink);
+    border-color: var(--chip-sky-ink);
+  }
+  .mk.is-moderate {
+    color: var(--chip-yellow-ink);
+    border-color: var(--chip-yellow-ink);
+  }
+  .mk.is-severe {
+    color: var(--g-grave-ink);
+    border-color: var(--g-grave-ink);
+  }
+  .mk.solid.is-mild {
+    background: var(--chip-sky-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-moderate {
+    background: var(--chip-yellow-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-severe {
+    background: var(--chip-pink-bg);
+    border-color: transparent;
+  }
+  .swap {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    font-weight: 800;
+  }
+  .first {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .meta .box {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .revs {
+    list-style: none;
+    margin: 0;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .revs li.rev {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   .sev {
     flex: none;
@@ -580,7 +1008,7 @@
     border-color: var(--accent);
     font-weight: 700;
   }
-  .box {
+  .ckbox {
     flex: none;
     width: 22px;
     height: 22px;
@@ -594,7 +1022,7 @@
     font-weight: 800;
     color: var(--accent);
   }
-  .pick.on .box {
+  .pick.on .ckbox {
     border-color: var(--accent);
   }
   .actions {

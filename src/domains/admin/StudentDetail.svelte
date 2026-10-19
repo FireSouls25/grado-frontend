@@ -479,6 +479,7 @@
                       <small>
                         {#if warningYear(w) !== null}<span class="yr">{$t.studentDetail.warningYear(warningYear(w) ?? 0)}</span>{/if}
                         {moment(w.HappenedAt)}
+                        {#if w.AuthorName} · {$t.studentDetail.byLabel} {w.AuthorName}{/if}
                         {#if w.Snapshot?.CaregiverName} · {$t.studentDetail.caregiverLabel}: {w.Snapshot.CaregiverName}{/if}
                       </small>
                     </div>

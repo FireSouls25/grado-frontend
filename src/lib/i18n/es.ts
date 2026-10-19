@@ -275,7 +275,19 @@ export const es = {
     needClass: 'Elige el salón.',
     needStudent: 'Elige al menos un estudiante.',
     needTitle: 'Escribe el título del llamado.',
-    rosterEmpty: 'Este salón aún no tiene nómina.'
+    rosterEmpty: 'Este salón aún no tiene nómina.',
+    noSalon: 'Sin salón',
+    callsLabel: (count: number) => (count === 1 ? '1 llamado' : `${count} llamados`),
+    detailTitle: 'Llamados del estudiante',
+    modifyAction: 'Modificar',
+    editTitle: 'Corregir llamado',
+    updated: 'Llamado actualizado.',
+    showRevisions: 'Ver cambios',
+    hideRevisions: 'Ocultar cambios',
+    revisionsEmpty: 'Sin cambios registrados.',
+    revisionFirst: 'Registro inicial',
+    collapseLabel: 'Contraer',
+    expandLabel: 'Ver estudiantes'
   },
   troll: {
     today: 'Hoy',

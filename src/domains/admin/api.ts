@@ -655,6 +655,36 @@ export async function warningsRecent(limit = 20): Promise<RecentWarning[]> {
   return (await api.get<RecentWarning[]>(`/v1/warnings/recent?limit=${limit}`)) ?? [];
 }
 
+export interface WarningRevision {
+  WarningID: string;
+  OldGravity: string;
+  NewGravity: string;
+  OldTitle: string;
+  NewTitle: string;
+  OldDetail: string;
+  NewDetail: string;
+  Author: string;
+  ChangedAt: string;
+}
+
+/** Every correction of one llamado, newest first. */
+export async function warningRevisions(id: string): Promise<WarningRevision[]> {
+  return (await api.get<WarningRevision[]>(`/v1/warnings/${encodeURIComponent(id)}/revisions`)) ?? [];
+}
+
+export interface WarningCorrection {
+  gravity?: 'mild' | 'moderate' | 'severe';
+  title?: string;
+  description?: string;
+}
+
+/** Corrects a llamado; unchanged saves are no-ops server-side. */
+export async function correctWarning(id: string, input: WarningCorrection): Promise<Warning> {
+  const updated = await api.put<Warning>(`/v1/warnings/${encodeURIComponent(id)}`, input);
+  if (!updated) throw missing('Llamado');
+  return updated;
+}
+
 export interface NewWarningBatch {
   classID: string;
   studentIDs: string[];

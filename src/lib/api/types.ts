@@ -91,6 +91,10 @@ export interface Warning {
   Title: string;
   Description: string;
   GroupID: string;
+  // Display names resolved by list endpoints (recent, per-student).
+  StudentName?: string;
+  ClassLabel?: string;
+  AuthorName?: string;
   Snapshot?: {
     Names: string;
     Surnames: string;
