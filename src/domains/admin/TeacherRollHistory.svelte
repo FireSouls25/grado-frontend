@@ -204,7 +204,7 @@
                   <button type="button" class="mini" on:click={() => modify(card.Day)}>
                     {$t.troll.modifyAction}
                   </button>
-                  <button type="button" class="link" on:click={() => (showRevisions = !showRevisions)}>
+                  <button type="button" class="mini" on:click={() => (showRevisions = !showRevisions)}>
                     {showRevisions ? $t.troll.hideRevisions : `${$t.troll.showRevisions} (${revisions.length})`}
                   </button>
                   {#if showRevisions}

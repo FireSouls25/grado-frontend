@@ -274,6 +274,7 @@
       detailWarnings = detailWarnings.map((w) => (w.ID === editingID ? { ...w, ...updated } : w));
       editingID = null;
       notify($t.warnings.updated);
+      revs = { ...revs, [updated.ID]: (await guarded(() => warningRevisions(updated.ID))) ?? [] };
       await load();
     } catch (err) {
       editError = err instanceof Error ? err.message : String(err);
@@ -440,7 +441,7 @@
                   {$t.warnings.modifyAction}
                 </button>
               {/if}
-              <button type="button" class="link" on:click={() => toggleRevs(w.ID)}>
+              <button type="button" class="mini" on:click={() => toggleRevs(w.ID)}>
                 {revsOpen[w.ID] ? $t.warnings.hideRevisions : `${$t.warnings.showRevisions} (${(revs[w.ID] ?? []).length})`}
               </button>
             </div>
@@ -480,25 +481,23 @@
                     <li class="rev">
                       <span class="changerow">
                         <span class="person">{detailName}</span>
-                        {#if r.OldGravity !== r.NewGravity || r.OldTitle !== r.NewTitle || r.OldDetail !== r.NewDetail}
+                        {#if r.OldGravity !== r.NewGravity}
                           <span class="change">
-                            {#if r.OldGravity !== r.NewGravity}
-                              <span class={`mk ${gravityMarkClass(r.OldGravity)}`}>
-                                {r.OldGravity ? gravityName(r.OldGravity) : '—'}
-                              </span>
-                              <span class="swap" aria-hidden="true">›</span>
-                            {/if}
+                            <span class={`mk ${gravityMarkClass(r.OldGravity)}`}>
+                              {r.OldGravity ? gravityName(r.OldGravity) : '—'}
+                            </span>
+                            <span class="swap" aria-hidden="true">›</span>
                             <span class={`mk solid ${gravityMarkClass(r.NewGravity)}`}>
                               {gravityName(r.NewGravity)}
                             </span>
                           </span>
                         {/if}
-                        {#if r.OldTitle !== r.NewTitle}
-                          <small class="revline">«{r.OldTitle}» → «{r.NewTitle}»</small>
-                        {/if}
                       </span>
-                      {#if r.OldDetail !== r.NewDetail && (r.OldDetail || r.NewDetail)}
-                        <small class="revnote">{r.NewDetail || r.OldDetail}</small>
+                      {#if r.OldTitle !== r.NewTitle}
+                        <small class="revline"><strong>{$t.warnings.renamedLabel}:</strong> «{r.OldTitle}» → «{r.NewTitle}»</small>
+                      {/if}
+                      {#if r.OldDetail !== r.NewDetail}
+                        <small class="revline"><strong>{$t.warnings.detailLabel}:</strong> {r.NewDetail || '—'}</small>
                       {/if}
                       <span class="meta">
                         <span class="box">{r.Author}</span>

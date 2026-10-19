@@ -330,7 +330,7 @@
                   <button type="button" class="mini" on:click={() => openCorrect(card.ID)}>
                     {$t.troll.shistory.correctAction}
                   </button>
-                  <button type="button" class="link" on:click={() => (showRevisions = !showRevisions)}>
+                  <button type="button" class="mini" on:click={() => (showRevisions = !showRevisions)}>
                     {showRevisions ? $t.troll.hideRevisions : `${$t.troll.showRevisions} (${detail.Revisions.length})`}
                   </button>
                   {#if showRevisions}

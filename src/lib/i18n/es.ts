@@ -287,7 +287,9 @@ export const es = {
     revisionsEmpty: 'Sin cambios registrados.',
     revisionFirst: 'Registro inicial',
     collapseLabel: 'Contraer',
-    expandLabel: 'Ver estudiantes'
+    expandLabel: 'Ver estudiantes',
+    renamedLabel: 'Renombrado',
+    detailLabel: 'Descripción',
   },
   troll: {
     today: 'Hoy',
