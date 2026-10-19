@@ -331,7 +331,7 @@
                     {$t.troll.shistory.correctAction}
                   </button>
                   <button type="button" class="mini" on:click={() => (showRevisions = !showRevisions)}>
-                    {showRevisions ? $t.troll.hideRevisions : `${$t.troll.showRevisions} (${detail.Revisions.length})`}
+                    {showRevisions ? $t.troll.hideRevisions : $t.troll.showRevisions}
                   </button>
                   {#if showRevisions}
                     {#if detail.Revisions.length === 0}

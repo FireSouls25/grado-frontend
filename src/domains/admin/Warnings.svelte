@@ -442,7 +442,7 @@
                 </button>
               {/if}
               <button type="button" class="mini" on:click={() => toggleRevs(w.ID)}>
-                {revsOpen[w.ID] ? $t.warnings.hideRevisions : `${$t.warnings.showRevisions} (${(revs[w.ID] ?? []).length})`}
+                {revsOpen[w.ID] ? $t.warnings.hideRevisions : $t.warnings.showRevisions}
               </button>
             </div>
             {#if editingID === w.ID}
@@ -810,6 +810,15 @@
   .revnote {
     color: var(--muted);
     font-size: 0.8rem;
+  }
+  .revs li.rev {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
   }
   .changerow {
     display: flex;

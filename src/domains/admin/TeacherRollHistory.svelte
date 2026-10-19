@@ -205,7 +205,7 @@
                     {$t.troll.modifyAction}
                   </button>
                   <button type="button" class="mini" on:click={() => (showRevisions = !showRevisions)}>
-                    {showRevisions ? $t.troll.hideRevisions : `${$t.troll.showRevisions} (${revisions.length})`}
+                    {showRevisions ? $t.troll.hideRevisions : $t.troll.showRevisions}
                   </button>
                   {#if showRevisions}
                     {#if revisionsLoading}
