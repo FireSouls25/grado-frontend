@@ -47,6 +47,7 @@
       DocumentID: '',
       Phone: '',
       Email: '',
+      Sex: '' as '' | 'female' | 'male',
       Username: '',
       Password: ''
     };
@@ -179,7 +180,8 @@
         Surnames: form.Surnames.trim(),
         DocumentID: form.DocumentID.trim(),
         Phone: form.Phone.trim(),
-        Email: form.Email.trim()
+        Email: form.Email.trim(),
+        Sex: form.Sex
       });
       let extra = '';
       const username = form.Username.trim();
@@ -341,15 +343,25 @@
         /></label
       >
     </div>
-    <label
-      >{$t.admin.formEmail}<input
-        bind:value={form.Email}
-        type="email"
-        inputmode="email"
-        autocapitalize="none"
-        autocomplete="off"
-      /></label
-    >
+    <div class="row2">
+      <label
+        >{$t.admin.formEmail}<input
+          bind:value={form.Email}
+          type="email"
+          inputmode="email"
+          autocapitalize="none"
+          autocomplete="off"
+        /></label
+      >
+      <label
+        >{$t.admin.formSex}
+        <select bind:value={form.Sex}>
+          <option value="">{$t.admin.formSexNone}</option>
+          <option value="female">{$t.admin.formSexFemale}</option>
+          <option value="male">{$t.admin.formSexMale}</option>
+        </select></label
+      >
+    </div>
     <div class="row2">
       <label
         >{$t.admin.formUsername}<input
@@ -500,15 +512,19 @@
       grid-template-columns: 1fr 1fr;
     }
   }
-  .form input {
+  .form input,
+  .form select {
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
     padding: 12px 14px;
     min-height: 52px;
     width: 100%;
+    color: var(--ink);
+    font: inherit;
   }
-  .form input:focus {
+  .form input:focus,
+  .form select:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);

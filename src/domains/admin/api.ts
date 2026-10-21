@@ -233,6 +233,8 @@ export interface TeacherDetail extends TeacherSummary {
   Address: string;
   Birthplace: string;
   Birthdate: string;
+  /** 'female' | 'male' | '' — opcional: un backend anterior no lo envía. */
+  Sex?: string;
   MedicalConditions: string;
   Subjects: { SubjectID: string; SubjectName: string; From: string }[];
   Groups: { GroupID: string; ClassLabel: string; SubjectName: string }[];
@@ -278,6 +280,8 @@ export interface NewTeacher {
   DocumentID: string;
   Phone: string;
   Email: string;
+  /** 'female' | 'male' | '' (no declarado). */
+  Sex: string;
 }
 
 export async function createStudent(input: NewStudent): Promise<{ ID: string }> {

@@ -459,6 +459,12 @@
                 <dd>{detail.Email}</dd>
               </div>
             {/if}
+            {#if detail.Sex === 'female' || detail.Sex === 'male'}
+              <div>
+                <dt>{$t.admin.formSex}</dt>
+                <dd>{detail.Sex === 'female' ? $t.admin.formSexFemale : $t.admin.formSexMale}</dd>
+              </div>
+            {/if}
           </dl>
           {#if detail.MedicalConditions}
             <h3 class="sub">{$t.troll.fileHealthTitle}</h3>

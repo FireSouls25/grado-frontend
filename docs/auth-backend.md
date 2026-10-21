@@ -1,6 +1,8 @@
 # Autenticación: estado real y pendientes
 
-Documentación de referencia. No se modificó `school-backend/`.
+Documentación de referencia. La fase de perfil sí extendió el backend
+(en la rama `dev/perfil`, worktree `school-backend-perfil`): `GET /v1/me`
+con perfil de cuenta y `GET/PUT /v1/teachers/me/photo`.
 
 ## Estado real (login con tokens)
 
@@ -36,17 +38,20 @@ Documentación de referencia. No se modificó `school-backend/`.
 
 - `POST /v1/refresh` y revocación (denylist): hoy logout es descartar
   el token en el cliente y el vencimiento lo invalida en el servidor.
-- Nombre del docente en la cabecera y alta con docente por HTTP.
+- Alta con docente por HTTP (el perfil del docente ya llega en
+  `GET /v1/me` → `teacher`, y la foto propia en
+  `GET/PUT /v1/teachers/me/photo`: fase perfil).
 - Auditoría y throttling distribuido del login (pendientes de Ley 1581;
   el throttling actual es en memoria, por instancia).
 
 ## Bloqueos de dominio docente en el backend (pendientes, sin tocar)
 
 - **Vínculo `users.User` ↔ `Teacher.ID`: existe** (`TeacherID` + link
-  en seed + resolución en `GET /v1/teachers/me/schedule`). Falta
-  exponerlo por HTTP (alta con docente y vincular/desvincular) y el
-  nombre del docente en la cabecera, que llega con el login real.
-- **Roles en Postgres**: hoy viven en memoria, se pierden al reiniciar.
+  en seed + resolución en `GET /v1/teachers/me/schedule`) y ya se expone
+  por HTTP en `GET /v1/me` (`teacherID` + `teacher`) con la foto propia
+  auto-servida. Falta el alta con docente y vincular/desvincular por
+  HTTP.
+- **Roles en Postgres**: resueltos (`role_grants`), ver §estado real.
 - **Alta de cuentas por HTTP**: `POST /v1/users` y `POST /v1/roles`
   (este último ya existe pero el frontend aún no lo llama).
 - **Auditoría y throttling** de login (pendientes de Ley 1581).

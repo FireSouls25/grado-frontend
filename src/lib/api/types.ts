@@ -28,10 +28,37 @@ export function isOffline(err: unknown): boolean {
   return err instanceof ApiError && err.status === 0;
 }
 
+/** Personal summary of the teacher linked to the login (GET /v1/me). */
+export interface MeTeacher {
+  id: string;
+  names: string;
+  surnames: string;
+  documentID: string;
+  phone: string;
+  email: string;
+  /** ISO date (YYYY-MM-DD); empty when unknown. */
+  birthdate: string;
+  /** 'female' | 'male' | '' (not declared). */
+  sex: string;
+  active: boolean;
+}
+
+/**
+ * GET /v1/me: navigation (subject, roles, home) plus the personal
+ * profile of the login account. Account fields are optional so an
+ * older backend degrades honestly instead of inventing data.
+ */
 export interface Me {
   subject: string;
   roles: string[];
   home: string;
+  username?: string;
+  email?: string;
+  active?: boolean;
+  /** RFC3339 account creation time. */
+  createdAt?: string;
+  teacherID?: string;
+  teacher?: MeTeacher | null;
 }
 
 export interface Student {

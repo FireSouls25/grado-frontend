@@ -53,7 +53,8 @@ Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `GET /v1/teachers/attendance/revisions`,
 `PUT /v1/teachers/{id}/photo`, `GET /v1/teachers/{id}/photo`,
 `GET /v1/teachers/{id}/sessions`, `GET /v1/teachers/{id}/warnings-made`,
-`GET /v1/sessions/history`, `GET /v1/sessions/{id}`.
+`GET /v1/sessions/history`, `GET /v1/sessions/{id}`,
+`GET /v1/teachers/me/photo`, `PUT /v1/teachers/me/photo`.
 
 Notas de los endpoints de edición:
 
@@ -67,14 +68,24 @@ Notas de los endpoints de edición:
   `ClassLabel` y `AuthorName` ya resueltos (ver `backend/docs/api.md`).
   La pantalla `/admin/llamados` los muestra con filtros y crea llamados
   con `POST /v1/warnings/batch`, el mismo endpoint del docente.
+- `GET /v1/me` devuelve además el perfil personal de la cuenta:
+  `username`, `email`, `active`, `createdAt`, `teacherID` y `teacher`
+  opcional (`names`, `surnames`, `documentID`, `phone`, `email`,
+  `birthdate` ISO `YYYY-MM-DD`, `sex` `female|male|''`). Los campos de
+  cuenta son opcionales en `types.ts` para degradar honesto contra un
+  backend anterior. `lib/shell/profile.ts` lo consume en el panel de
+  perfil (`lib/shell/ProfilePanel.svelte`), abierto desde `TopActions`.
+- `GET/PUT /v1/teachers/me/photo` son el gemelo auto-servido de las
+  fotos de docente: resuelven por el vínculo `users.TeacherID` (o por el
+  subject si ya es un id de docente), 404 honesto sin foto y `403` sin
+  perfil propio. El PUT acepta data URL o base64 y vacío para quitar.
 
 ## Bloqueos para el dominio docente (documentados)
 
 - `GET /v1/teachers/me/schedule` ya resuelve por el vínculo
   `users.TeacherID` (ver `docs/auth-backend.md`); el nombre del docente
-  en la cabecera sigue pendiente del login real.
-- Falta `POST /v1/login` (la capability `users` ya tiene `Authenticate`,
-  pero no hay endpoint ni token). Ver `docs/auth-backend.md`.
+  ya no está pendiente: `GET /v1/me` trae el perfil (`teacher.names`,
+  `teacher.surnames`) y el panel de perfil lo muestra.
 - `POST /v1/roles` ya existe (admin) pero el frontend aún no lo invoca
   al crear un docente con cuenta.
 

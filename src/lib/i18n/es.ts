@@ -12,6 +12,7 @@ export const es = {
     sections: 'Secciones',
     actions: 'Acciones',
     theme: 'Tema',
+    profile: 'Perfil',
     prevYear: 'Año anterior',
     nextYear: 'Año siguiente'
   },
@@ -659,6 +660,10 @@ export const es = {
     formCaregiverPhone: 'Teléfono del acudiente',
     formPhone: 'Teléfono',
     formEmail: 'Correo',
+    formSex: 'Sexo',
+    formSexNone: 'No declarado',
+    formSexFemale: 'Femenino',
+    formSexMale: 'Masculino',
     formUsername: 'Usuario de acceso (opcional)',
     formUsernamePlaceholder: 'nombre.apellido',
     formPassword: 'Contraseña inicial (opcional)',
@@ -789,6 +794,34 @@ export const es = {
   },
   charts: {
     noData: 'Sin datos todavía'
+  },
+  profile: {
+    title: 'Perfil',
+    subtitle: 'Datos de la cuenta con la que iniciaste sesión.',
+    roles: 'Rol',
+    roleAdmin: 'Administrador',
+    roleTeacher: 'Docente',
+    roleStudent: 'Estudiante',
+    username: 'Usuario',
+    email: 'Correo',
+    phone: 'Celular',
+    document: 'Cédula',
+    birthdate: 'Nacimiento',
+    age: 'Edad',
+    ageYears: (n: number) => `${n} ${n === 1 ? 'año' : 'años'}`,
+    sex: 'Sexo',
+    sexFemale: 'Femenino',
+    sexMale: 'Masculino',
+    memberSince: 'Miembro desde',
+    accountID: 'ID de cuenta',
+    noTeacherTitle: 'Sin ficha personal vinculada',
+    noTeacherBody:
+      'Tu cuenta todavía no tiene un perfil docente asociado: aquí solo se muestran los datos de la cuenta.',
+    photoChange: 'Cambiar foto',
+    photoRemove: 'Quitar foto',
+    photoTooLarge: 'La foto supera el tamaño máximo de 2 MB.',
+    loading: 'Cargando perfil…',
+    loadError: 'No se pudo cargar el perfil. Revisa tu conexión e intenta de nuevo.'
   },
   settings: {
     title: 'Ajustes',

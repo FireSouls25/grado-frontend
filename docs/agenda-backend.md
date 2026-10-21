@@ -5,7 +5,9 @@ La página `src/domains/teacher/Agenda.svelte` (`/agenda`, `/mi-agenda`,
 respaldo local para Lun 18. En cuanto el backend exponga lo siguiente,
 la agenda enciende sola (ver `domains/teacher/api.ts`, `isMissing()`).
 
-No se tocó `school-backend/` por pedido explícito.
+No se tocó `school-backend/` por pedido explícito en esta fase; la fase
+posterior del perfil sí lo extendió en la rama `dev/perfil` (worktree
+`school-backend-perfil`), ver §2.
 
 ## 1. Horario con salón, grado y estado
 
@@ -41,13 +43,18 @@ Para la imagen hace falta (propuesta, sin romper lo existente):
 
 ## 2. Perfil docente para el encabezado
 
-La cabecera muestra `Prof. Carlos Mendoza · ID: #40582` + buscador.
+**Resuelto en la fase de perfil.** `GET /v1/me` ahora devuelve, además
+de `{ subject, roles, home }`, el perfil de la cuenta: `username`,
+`email`, `active`, `createdAt`, `teacherID` y `teacher` opcional con
+`names`, `surnames`, `documentID`, `phone`, `email`, `birthdate`
+(`YYYY-MM-DD`) y `sex` (`female|male|''`). La foto propia se sirve con
+`GET/PUT /v1/teachers/me/photo` (auto-servido, por el vínculo
+`users.TeacherID`).
 
-- `GET /v1/me` hoy devuelve `{ subject, roles, home }`. Propuesta:
-  añadir `displayName` y `shortID` (o exponer `GET /v1/teachers/me`
-  con `Names, Surnames, DocumentID`) para no hardcodear el nombre.
-- El frontend hoy resuelve el nombre desde
-  `domains/auth/accounts.ts` (dev) con respaldo a i18n.
+El panel `lib/shell/ProfilePanel.svelte` (botón de usuario en
+`TopActions`, la misma fila de tema y ajustes) consume todo esto vía
+`lib/shell/profile.ts`. El encabezado ya no necesita hardcodear el
+nombre: puede leerlo de `$profile.me.teacher`.
 
 ## 3. Buscador `Buscar estudiante o clase…`
 
