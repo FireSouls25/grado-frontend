@@ -9,6 +9,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import TeacherTabs from './TeacherTabs.svelte';
   import { classRoster, isMissing, openSession, recordMark } from './api';
+  import { dateKey, saveRollcall } from './rollcall';
   import type { RosterEntry } from '$lib/api/types';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
@@ -161,6 +162,19 @@
     feedback = '';
   }
 
+  // Instantánea del resumen para la Agenda: tanto si el backend guardó
+  // como si quedó local, el estado final es lo que se anota.
+  function snapshotRollcall() {
+    saveRollcall({
+      Date: dateKey(),
+      GroupID: groupID,
+      Students: roster.length,
+      Present: presentCount,
+      Absent: absentCount,
+      Permission: permissionCount
+    });
+  }
+
   async function save() {
     feedback = '';
     feedbackError = false;
@@ -172,6 +186,7 @@
         // Sin sesión en el backend: se conserva el estado local y se dice.
         presentInit = new Set(present);
         permissionInit = new Set(permission);
+        snapshotRollcall();
         feedback = $t.attendance.savedLocal;
         return;
       }
@@ -196,6 +211,7 @@
       }
       presentInit = new Set(present);
       permissionInit = new Set(permission);
+      snapshotRollcall();
       feedback = $t.attendance.saved;
     } catch (err) {
       feedbackError = true;

@@ -10,6 +10,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import TeacherTabs from './TeacherTabs.svelte';
   import { daySchedule, isMissing, type TeacherClass } from './api';
+  import { loadRollcall } from './rollcall';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { profile } from '$lib/shell/profile';
@@ -140,6 +141,13 @@
   function openClass(item: AgendaItem) {
     push(`/clase/${encodeURIComponent(item.GroupID)}?materia=${encodeURIComponent(item.SubjectID)}`);
   }
+
+  // Resumen local del llamado de hoy para una tarjeta (solo si el docente
+  // guardó el llamado de ese salón en este dispositivo hoy).
+  $: rollsOfToday =
+    selectedDay === todayIdx && todayIdx !== -1
+      ? new Map(visible.map((c) => [c.GroupID, loadRollcall(c.GroupID)]))
+      : new Map<string, null>();
 </script>
 
 <div class="agenda">
@@ -209,6 +217,7 @@
       <ol class="timeline">
         {#each visible as item (item.GroupID + item.Start)}
           {@const st = statusOf(item)}
+          {@const rec = rollsOfToday.get(item.GroupID) ?? null}
           <li class={st}>
             <span class="rail" aria-hidden="true"><span class="pip"></span></span>
             <div class="tblock">
@@ -220,6 +229,18 @@
                 <span class="factpill"><Icon name="list" /> {$t.agenda.gradeLabel(item.Grade)}</span>
                 {#if item.Room}
                   <span class="factpill"><Icon name="pin" /> {$t.agenda.roomLabel(item.Room)}</span>
+                {/if}
+                {#if rec}
+                  <span
+                    class="factpill roll"
+                    title={$t.agenda.rollTooltip}
+                    aria-label={$t.agenda.rollCounts(rec.Present, rec.Absent, rec.Permission)}
+                  >
+                    <i class="dot p"></i>{rec.Present}
+                    <i class="dot a"></i>{rec.Absent}
+                    <i class="dot x"></i>{rec.Permission}
+                    <small class="tag">{$t.agenda.rollLocalTag}</small>
+                  </span>
                 {/if}
               </div>
             </div>
@@ -472,6 +493,32 @@
   .factpill :global(svg) {
     width: 15px;
     height: 15px;
+  }
+  .factpill.roll {
+    font-variant-numeric: tabular-nums;
+  }
+  .factpill.roll i.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    flex: none;
+  }
+  .factpill.roll i.dot.p {
+    background: var(--m-present);
+  }
+  .factpill.roll i.dot.a {
+    background: var(--m-absent);
+  }
+  .factpill.roll i.dot.x {
+    background: var(--m-permission);
+  }
+  .factpill.roll small.tag {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-left: 2px;
   }
   li.done {
     opacity: 0.65;

@@ -92,6 +92,10 @@ export const es = {
     statusPending: 'Pendiente',
     gradeLabel: (grade: string) => `Grado: ${grade}`,
     roomLabel: (room: string) => `Salón ${room}`,
+    rollLocalTag: 'Local',
+    rollTooltip: 'Llamado de hoy guardado en este dispositivo (registro local).',
+    rollCounts: (p: number, a: number, x: number) =>
+      `${p} presentes · ${a} ausentes · ${x} con permiso`,
     loading: 'Cargando tu agenda…',
     emptyTitle: 'Sin clases este día',
     emptyBody: 'No tienes clases asignadas para este día. Elige otro día de la semana.',

@@ -79,6 +79,14 @@ Propuesta mínima (fase siguiente):
   directo en `Agenda de Clases` sin cambiar backend.
 - `Abrir Clase` navega a `/clase/:groupID?materia=...` (nuevo
   `ClassDetail.svelte` = Control de Asistencia de la imagen).
+- Chip local del día: al guardar la lista, `ClassDetail` anota el
+  resumen (presentes/ausentes/con permiso) en localStorage vía
+  `domains/teacher/rollcall.ts` (clave `grado.rollcalls.v1`, solo
+  registros de la fecha local de hoy); la Agenda lo muestra como
+  `factpill` con tres puntos y la etiqueta `Local`, con tooltip
+  honesto. El backend no expone aún "el llamado de hoy por salón":
+  cuando exista, el chip puede alimentarse del servidor y desaparecer
+  la etiqueta `Local`.
 
 ## 5. Control de Asistencia (`/clase/:groupID`)
 
