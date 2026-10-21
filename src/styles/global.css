@@ -36,6 +36,8 @@
   /* Asistencia: presente tinta; el resto grises cálidos. */
   --m-present: hsl(104, 42%, 39%);
   --m-absent: hsl(26, 55%, 45%);
+  --m-permission: hsl(105, 42%, 36%);
+  --m-permission-bg: hsl(105, 45%, 89%);
   --m-evasion: hsl(249, 17%, 56%);
   --m-late: hsl(202, 38%, 53%);
 
@@ -86,6 +88,8 @@
 
   --m-present: hsl(105, 45%, 67%);
   --m-absent: hsl(26, 60%, 62%);
+  --m-permission: hsl(105, 50%, 70%);
+  --m-permission-bg: hsl(105, 40%, 22%);
   --m-evasion: hsl(250, 35%, 75%);
   --m-late: hsl(203, 65%, 74%);
 
@@ -134,6 +138,8 @@
 
     --m-present: hsl(105, 45%, 67%);
     --m-absent: hsl(26, 60%, 62%);
+    --m-permission: hsl(105, 50%, 70%);
+    --m-permission-bg: hsl(105, 40%, 22%);
     --m-evasion: hsl(250, 35%, 75%);
     --m-late: hsl(203, 65%, 74%);
 

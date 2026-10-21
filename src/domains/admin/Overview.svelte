@@ -69,7 +69,7 @@
   let teachersKnown = false;
   let groups: YearGroup[] = [];
   let groupsKnown = false;
-  let totals = { presences: 0, absences: 0, evasions: 0, lates: 0, sessions: 0 };
+  let totals = { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0, sessions: 0 };
   let reportsKnown = false;
   let reportCount = 0;
   let salonRates: { label: string; rate: number }[] = [];
@@ -155,7 +155,7 @@
   }
 
   async function loadReports() {
-    totals = { presences: 0, absences: 0, evasions: 0, lates: 0, sessions: 0 };
+    totals = { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0, sessions: 0 };
     salonRates = [];
     risk = [];
     reportCount = 0;
@@ -164,7 +164,7 @@
     // aporta su reporte por ID. Sin grupos no hay reportes que sumar.
     const byStudent = new Map<
       string,
-      { names: string; surnames: string; presences: number; absences: number; evasions: number; lates: number; sessions: number }
+      { names: string; surnames: string; presences: number; absences: number; excused: number; evasions: number; lates: number; sessions: number }
     >();
     const labelOf = new Map(groups.map((g) => [g.GroupID, g.ClassLabel]));
     // En paralelo con tope: un salon sin reporte es vacio honesto y no
@@ -179,6 +179,7 @@
       totals.sessions += report.Sessions;
       totals.presences += report.Totals.Presences;
       totals.absences += report.Totals.Absences;
+      totals.excused += report.Totals.Excused;
       totals.evasions += report.Totals.Evasions;
       totals.lates += report.Totals.Lates;
       const label = labelOf.get(report.ClassGroupID) ?? '';
@@ -197,12 +198,14 @@
           surnames: s.Surnames,
           presences: 0,
           absences: 0,
+          excused: 0,
           evasions: 0,
           lates: 0,
           sessions: 0
         };
         prev.presences += s.Presences;
         prev.absences += s.Absences;
+        prev.excused += s.Excused;
         prev.evasions += s.Evasions;
         prev.lates += s.Lates;
         prev.sessions += s.Sessions;
@@ -233,8 +236,8 @@
       summary = data ?? null;
       if (summary) {
         const m = summary.MarksLast7d;
-        if (m.Presences + m.Absences + m.Evasions + m.Lates > 0) {
-          totals = { presences: m.Presences, absences: m.Absences, evasions: m.Evasions, lates: m.Lates, sessions: 0 };
+        if (m.Presences + m.Absences + m.Excused + m.Evasions + m.Lates > 0) {
+          totals = { presences: m.Presences, absences: m.Absences, excused: m.Excused, evasions: m.Evasions, lates: m.Lates, sessions: 0 };
         }
       }
     } catch {
@@ -311,7 +314,7 @@
   $: visibleRisk = risk.filter((r) => (q ? r.name.toLowerCase().includes(q) : true));
   $: openTasks = tasks.filter((t) => !t.done).length;
 
-  $: marksTotal = totals.presences + totals.absences + totals.evasions + totals.lates;
+  $: marksTotal = totals.presences + totals.absences + totals.excused + totals.evasions + totals.lates;
   $: hasDonut = marksTotal > 0;
   $: donutRate = hasDonut ? Math.round((totals.presences / marksTotal) * 100) : 0;
 
@@ -349,6 +352,7 @@
             ? [
                 { value: marks.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#4e8a3c') } },
                 { value: marks.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#b26a35') } },
+                { value: marks.excused, name: $t.admin.markPermission, itemStyle: { color: cssVar('--m-permission', '#4c8757') } },
                 { value: marks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#8377a8') } },
                 { value: marks.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#5b93b5') } }
               ]
@@ -515,6 +519,7 @@
                   <div class="legend pills">
                     <span><i class="sw k-present"></i>{$t.admin.markPresent}</span>
                     <span><i class="sw k-absent"></i>{$t.admin.markAbsence}</span>
+                    <span><i class="sw k-permission"></i>{$t.admin.markPermission}</span>
                     <span><i class="sw k-evasion"></i>{$t.admin.markEvasion}</span>
                     <span><i class="sw k-late"></i>{$t.admin.markLate}</span>
                   </div>
@@ -980,6 +985,9 @@
   }
   .sw.k-absent {
     background: var(--m-absent);
+  }
+  .sw.k-permission {
+    background: var(--m-permission);
   }
   .sw.k-evasion {
     background: var(--m-evasion);

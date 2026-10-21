@@ -43,17 +43,19 @@
   }
 
   function markName(m: string): string {
-    return m === 'absence' ? $t.admin.markAbsence : m === 'late' ? $t.admin.markLate : m === 'evasion' ? $t.admin.markEvasion : $t.admin.markPresent;
+    if (m === 'absence') return $t.admin.markAbsence;
+    if (m === 'absence-permission') return $t.admin.markPermission;
+    if (m === 'late') return $t.admin.markLate;
+    if (m === 'evasion') return $t.admin.markEvasion;
+    return $t.admin.markPresent;
   }
 
   function markClass(m: string): string {
-    return m === 'absence' || m === 'absent'
-      ? 'is-absent'
-      : m === 'late'
-        ? 'is-late'
-        : m === 'evasion'
-          ? 'is-evasion'
-          : 'is-present';
+    if (m === 'absence' || m === 'absent') return 'is-absent';
+    if (m === 'absence-permission') return 'is-permission';
+    if (m === 'late') return 'is-late';
+    if (m === 'evasion') return 'is-evasion';
+    return 'is-present';
   }
 
   let groupID = '';
@@ -64,7 +66,7 @@
   // que acompaña a las marcas no presentes del lote.
   let correcting = false;
   let correctingId = '';
-  let corrSel: Record<string, '' | 'absence' | 'evasion' | 'late'> = {};
+  let corrSel: Record<string, '' | 'absence' | 'absence-permission' | 'evasion' | 'late'> = {};
   let correctNote = '';
   let savingCorrection = false;
   let correctionError = '';
@@ -77,7 +79,7 @@
     correcting = true;
   }
 
-  function corrSet(studentID: string, mark: '' | 'absence' | 'evasion' | 'late') {
+  function corrSet(studentID: string, mark: '' | 'absence' | 'absence-permission' | 'evasion' | 'late') {
     corrSel = { ...corrSel, [studentID]: mark };
   }
 
@@ -157,7 +159,7 @@
     if (!detail) return [];
     return detail.Session.Roster.filter((s) => {
       const m = detail?.Marks[s.StudentID] ?? '';
-      return m === 'absence' || m === 'evasion' || m === 'late';
+      return m === 'absence' || m === 'absence-permission' || m === 'evasion' || m === 'late';
     }).map((s) => ({ ...s, mark: detail?.Marks[s.StudentID] ?? '' }));
   })();
   $: presentRows = (() => {
@@ -389,6 +391,9 @@
               </button>
               <button type="button" class:absent={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence'} on:click={() => corrSet(s.StudentID, 'absence')}>
                 {$t.admin.markAbsence}
+              </button>
+              <button type="button" class:perm={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence-permission'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence-permission'} on:click={() => corrSet(s.StudentID, 'absence-permission')}>
+                {$t.admin.markPermission}
               </button>
               <button type="button" class:evasion={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} on:click={() => corrSet(s.StudentID, 'evasion')}>
                 {$t.admin.markEvasion}
@@ -743,6 +748,10 @@
     background: var(--chip-pink-bg);
     color: var(--g-grave-ink);
   }
+  .seg button.perm {
+    background: var(--m-permission-bg);
+    color: var(--m-permission);
+  }
   .seg button.evasion {
     background: var(--chip-purple-bg);
     color: var(--chip-purple-ink);
@@ -810,6 +819,10 @@
     color: var(--g-grave-ink);
     border-color: var(--g-grave-ink);
   }
+  .mk.is-permission {
+    color: var(--m-permission);
+    border-color: var(--m-permission);
+  }
   .mk.is-late {
     color: var(--chip-yellow-ink);
     border-color: var(--chip-yellow-ink);
@@ -824,6 +837,10 @@
   }
   .mk.solid.is-absent {
     background: var(--chip-pink-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-permission {
+    background: var(--m-permission-bg);
     border-color: transparent;
   }
   .mk.solid.is-late {

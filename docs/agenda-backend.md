@@ -90,8 +90,11 @@ Reescritura visual tal cual la referencia, sin tocar backend:
   apellido); si 404 o vacía usa la nómina demo de la imagen
   (#10024…#10301, 5 presentes + 2 ausentes iniciales).
 - Guardar: `POST /v1/sessions/open` + `POST /v1/sessions/{id}/marks`
-  (`mark ""` = presente, `"absence"` = ausente); si el backend está
-  apagado conserva el estado local y muestra `Asistencia guardada.`
+  (`mark ""` = presente, `"absence"` = falta injustificada,
+  `"absence-permission"` = falta con permiso — la píldora del ausente
+  alterna entre ambas y cada cambio es una revisión); si el backend
+  está apagado conserva el estado local y muestra
+  `Asistencia guardada.`
 - `Llamado de Atención Colectivo` navega a `/llamado/:groupID`
   (página de registro, §6) en vez del Sheet anterior.
 - Pendiente backend útil: `GET /v1/sessions/today?groupID=` con el

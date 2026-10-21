@@ -383,6 +383,7 @@ export interface ClassSessionCard {
   Students: number;
   Present: number;
   Absent: number;
+  Permission: number;
   Evasion: number;
   Late: number;
 }
@@ -437,7 +438,7 @@ export async function sessionDetail(id: string): Promise<SessionDetailData | nul
 export async function recordSessionMark(
   sessionID: string,
   studentID: string,
-  mark: '' | 'absence' | 'evasion' | 'late',
+  mark: '' | 'absence' | 'absence-permission' | 'evasion' | 'late',
   note: string
 ): Promise<void> {
   await api.post(`/v1/sessions/${encodeURIComponent(sessionID)}/marks`, {
@@ -592,13 +593,14 @@ export interface ClassReport {
     Sessions: number;
     Presences: number;
     Absences: number;
+    Excused: number;
     Evasions: number;
     Lates: number;
   }[];
-  Totals: { Sessions: number; Presences: number; Absences: number; Evasions: number; Lates: number };
+  Totals: { Sessions: number; Presences: number; Absences: number; Excused: number; Evasions: number; Lates: number };
 }
 
-const EMPTY_TOTALS = { Sessions: 0, Presences: 0, Absences: 0, Evasions: 0, Lates: 0 };
+const EMPTY_TOTALS = { Sessions: 0, Presences: 0, Absences: 0, Excused: 0, Evasions: 0, Lates: 0 };
 
 export async function classReport(groupID: string): Promise<ClassReport> {
   const r = await api.get<ClassReport>(`/v1/statistics/class/${encodeURIComponent(groupID)}`);
@@ -620,6 +622,7 @@ export interface StudentReport {
   Sessions: StudentSessionEntry[];
   Presences: number;
   Absences: number;
+  Excused: number;
   Evasions: number;
   Lates: number;
   WarningsMild: number;
@@ -726,7 +729,7 @@ export interface DashboardSummary {
   Totals: { Teachers: number; Students: number; Groups: number };
   GroupsTruncated: boolean;
   WarningsLast7d: { Mild: number; Moderate: number; Severe: number };
-  MarksLast7d: { Presences: number; Absences: number; Evasions: number; Lates: number };
+  MarksLast7d: { Presences: number; Absences: number; Excused: number; Evasions: number; Lates: number };
   TopRisk: {
     StudentID: string;
     Names: string;
@@ -747,7 +750,7 @@ export async function dashboardSummary(year: number): Promise<DashboardSummary> 
   if (!d) throw missing('Resumen');
   return {
     ...d,
-    MarksLast7d: d.MarksLast7d ?? { Presences: 0, Absences: 0, Evasions: 0, Lates: 0 },
+    MarksLast7d: d.MarksLast7d ?? { Presences: 0, Absences: 0, Excused: 0, Evasions: 0, Lates: 0 },
     WarningsLast7d: d.WarningsLast7d ?? { Mild: 0, Moderate: 0, Severe: 0 },
     TopRisk: d.TopRisk ?? [],
     RecentWarnings: d.RecentWarnings ?? []

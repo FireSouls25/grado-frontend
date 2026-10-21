@@ -59,6 +59,10 @@
   let roster: RosterEntry[] = [];
   let present = new Set<string>();
   let presentInit = new Set<string>();
+  // Ausentes separados por permiso: el docente registra la falta con
+  // permiso (absence-permission) por estudiante antes de guardar.
+  let permission = new Set<string>();
+  let permissionInit = new Set<string>();
   let sessionID = '';
   let sessionMissing = false;
   let feedback = '';
@@ -86,11 +90,15 @@
       roster = [...data].sort(bySurname);
       present = new Set(roster.map((r) => r.StudentID));
       presentInit = new Set(present);
+      permission = new Set();
+      permissionInit = new Set();
     } catch {
       // Backend sin nómina todavía (404 o error): vacío honesto, no lista falsa.
       roster = [];
       present = new Set();
       presentInit = new Set();
+      permission = new Set();
+      permissionInit = new Set();
     } finally {
       loading = false;
     }
@@ -100,13 +108,29 @@
 
   function toggle(id: string) {
     if (present.has(id)) present.delete(id);
-    else present.add(id);
+    else {
+      present.add(id);
+      permission.delete(id); // presente y con permiso son excluyentes
+    }
     present = present;
+    permission = permission;
+    feedback = '';
+  }
+
+  // Alterna la ausencia marcada entre falta injustificada y falta con
+  // permiso; solo aplica a quien no está presente.
+  function cyclePermission(id: string) {
+    if (present.has(id)) return;
+    if (permission.has(id)) permission.delete(id);
+    else permission.add(id);
+    permission = permission;
     feedback = '';
   }
 
   $: presentCount = roster.filter((r) => present.has(r.StudentID)).length;
-  $: absentCount = roster.length - presentCount;
+  $: notPresent = roster.filter((r) => !present.has(r.StudentID));
+  $: permissionCount = notPresent.filter((r) => permission.has(r.StudentID)).length;
+  $: absentCount = notPresent.length - permissionCount;
   $: presentPct = roster.length ? Math.round((presentCount / roster.length) * 100) : 0;
 
   async function ensureSession(): Promise<boolean> {
@@ -128,6 +152,7 @@
     const next = new Set<string>();
     for (const r of roster) next.add(r.StudentID);
     present = next;
+    permission = new Set();
     feedback = '';
   }
 
@@ -146,20 +171,31 @@
       if (!ok || !sessionID) {
         // Sin sesión en el backend: se conserva el estado local y se dice.
         presentInit = new Set(present);
+        permissionInit = new Set(permission);
         feedback = $t.attendance.savedLocal;
         return;
       }
       for (const r of roster) {
-        const wasPresent = presentInit.has(r.StudentID);
-        const isPresent = present.has(r.StudentID);
-        if (wasPresent === isPresent) continue;
+        // Marca equivalente de cada estado (presente = "").
+        const wasMark = presentInit.has(r.StudentID)
+          ? ''
+          : permissionInit.has(r.StudentID)
+            ? 'absence-permission'
+            : 'absence';
+        const isMark = present.has(r.StudentID)
+          ? ''
+          : permission.has(r.StudentID)
+            ? 'absence-permission'
+            : 'absence';
+        if (wasMark === isMark) continue;
         try {
-          await recordMark(sessionID, r.StudentID, isPresent ? '' : 'absence', '');
+          await recordMark(sessionID, r.StudentID, isMark, '');
         } catch {
           /* marca no enviada: se conserva el estado local */
         }
       }
       presentInit = new Set(present);
+      permissionInit = new Set(permission);
       feedback = $t.attendance.saved;
     } catch (err) {
       feedbackError = true;
@@ -212,6 +248,7 @@
             <p class="rate"><strong>{presentPct}%</strong><span class="rbar"><span style={`width: ${presentPct}%`}></span></span></p>
             <p class="sum-row"><span class="dot present"></span> {$t.attendance.presentLabel} <strong>{$t.attendance.studentsCount(presentCount)}</strong></p>
             <p class="sum-row"><span class="dot absent"></span> {$t.attendance.absentLabel} <strong>{$t.attendance.studentsCount(absentCount)}</strong></p>
+            <p class="sum-row"><span class="dot permission"></span> {$t.attendance.permissionLabel} <strong>{$t.attendance.studentsCount(permissionCount)}</strong></p>
           </div>
           {#if sessionMissing}
             <p class="note">{$t.attendance.noSessionNote}</p>
@@ -248,9 +285,19 @@
                 </button>
                 <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
                 <span class="who"><strong>{r.Surnames}, {r.Names}</strong><small>{r.StudentID}</small></span>
-                <span class={`markpill ${present.has(r.StudentID) ? 'present' : 'absent'}`}>
-                  {present.has(r.StudentID) ? $t.roster.present : $t.roster.absent}
-                </span>
+                {#if present.has(r.StudentID)}
+                  <span class="markpill present">{$t.roster.present}</span>
+                {:else}
+                  <button
+                    type="button"
+                    class={`markpill togglable ${permission.has(r.StudentID) ? 'permitted' : 'absent'}`}
+                    aria-pressed={permission.has(r.StudentID)}
+                    title={$t.attendance.permissionHint}
+                    on:click={() => cyclePermission(r.StudentID)}
+                  >
+                    {permission.has(r.StudentID) ? $t.roster.permission : $t.roster.absent}
+                  </button>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -450,6 +497,9 @@
     background: var(--m-absent);
     border: 1px solid var(--m-evasion);
   }
+  .dot.permission {
+    background: var(--m-permission);
+  }
   .note {
     color: var(--muted);
     font-size: 0.78rem;
@@ -597,6 +647,19 @@
   .markpill.absent {
     background: var(--g-medio-bg);
     color: var(--g-medio-ink);
+  }
+  .markpill.permitted {
+    background: var(--m-permission-bg);
+    color: var(--m-permission);
+  }
+  button.markpill.togglable {
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.7rem;
+  }
+  button.markpill.togglable:hover {
+    filter: brightness(0.96);
   }
   .hint {
     color: var(--muted);

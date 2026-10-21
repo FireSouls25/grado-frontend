@@ -231,6 +231,7 @@
     if (mark === 'evasion') return $t.roster.evasion;
     if (mark === 'late') return $t.roster.late;
     if (mark === 'absence') return $t.roster.absent;
+    if (mark === 'absence-permission') return $t.roster.permission;
     return $t.roster.present;
   }
 
@@ -507,6 +508,7 @@
               <div class="kpis">
                 <div class="kpi"><small>{$t.admin.markPresent}</small><strong>{report.Presences}</strong></div>
                 <div class="kpi"><small>{$t.admin.markAbsence}</small><strong>{report.Absences}</strong></div>
+                <div class="kpi"><small>{$t.admin.markPermission}</small><strong>{report.Excused}</strong></div>
                 <div class="kpi"><small>{$t.admin.markEvasion}</small><strong>{report.Evasions}</strong></div>
                 <div class="kpi"><small>{$t.admin.markLate}</small><strong>{report.Lates}</strong></div>
               </div>

@@ -18,7 +18,7 @@ gris violeta contenido estilo Dracula (oscuro).
 | `--accent` (+ ink/soft) | terracota `52%` | naranja `68%` |
 | `--coral` | puntos de datos claro | rosa Dracula oscuro |
 | `--g-leve/medio/grave` (-bg/-ink) | azul / amarillo / rojo | cian / amarillo / rojo Dracula |
-| `--m-present/absent/evasion/late` | tinta / grises cálidos | tinta clara / grises neutros |
+| `--m-present/absent/permission/evasion/late` (+ `--m-permission-bg`) | tinta / grises cálidos / verde permiso | tinta clara / grises neutros / verde permiso |
 | `--chip-*` | compatibilidad: amarillos/rosas/cielos delegan a `--g-*` | idem en oscuro |
 
 Radios: tarjetas 16px, chips 10px, píldoras 999px. Sombra sutil en
