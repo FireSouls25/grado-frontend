@@ -55,7 +55,7 @@ Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `GET /v1/teachers/{id}/sessions`, `GET /v1/teachers/{id}/warnings-made`,
 `GET /v1/sessions/history`, `GET /v1/sessions/{id}`,
 `GET /v1/teachers/me/photo`, `PUT /v1/teachers/me/photo`,
-`PUT /v1/me/password`.
+`PUT /v1/me/password`, `GET /v1/me/photo`, `PUT /v1/me/photo`.
 
 Notas de los endpoints de edición:
 
@@ -81,6 +81,13 @@ Notas de los endpoints de edición:
   fotos de docente: resuelven por el vínculo `users.TeacherID` (o por el
   subject si ya es un id de docente), 404 honesto sin foto y `403` sin
   perfil propio. El PUT acepta data URL o base64 y vacío para quitar.
+- `GET/PUT /v1/me/photo` (`lib/shell/profile.ts`, panel de perfil) es la
+  foto unificada de la llamada: si hay docente vinculado resuelve y
+  escribe en su ficha (`teachers.photo`, fuente única); si no, guarda la
+  imagen en la propia cuenta (`users.photo`). Por eso admins ya pueden
+  cambiar su foto desde el perfil. Cap 2 MiB y `data` vacío para quitar,
+  404 honesto sin foto. Estudiantes siguen pendientes: el backend no
+  tiene todavía el vínculo `users.StudentID` con fichas de estudiantes.
 - `PUT /v1/me/password` (`{'currentPassword','newPassword'}`, `204`)
   cambia la contraseña de la propia cuenta: el backend verifica la
   actual antes (`401` con `users.err_invalid_credentials` si falla) y la

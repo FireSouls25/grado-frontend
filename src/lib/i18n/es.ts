@@ -87,8 +87,6 @@ export const es = {
     monthLabel: 'Noviembre 2026',
     listTitle: 'Listado de clases asignadas',
     searchPlaceholder: 'Buscar estudiante o clase…',
-    teacherName: 'Prof. Carlos Mendoza',
-    teacherId: 'ID: #40582',
     openClass: 'Abrir Clase',
     statusDone: 'Finalizado',
     statusPending: 'Pendiente',

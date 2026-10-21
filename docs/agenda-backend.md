@@ -53,8 +53,14 @@ de `{ subject, roles, home }`, el perfil de la cuenta: `username`,
 
 El panel `lib/shell/ProfilePanel.svelte` (botón de usuario en
 `TopActions`, la misma fila de tema y ajustes) consume todo esto vía
-`lib/shell/profile.ts`. El encabezado ya no necesita hardcodear el
-nombre: puede leerlo de `$profile.me.teacher`.
+`lib/shell/profile.ts`. El encabezado de la Agenda ya lo consumió:
+`Agenda.svelte` lee `$profile.me.teacher` y muestra el nombre real
+debajo del título (mientras carga queda la copia neutra, cero datos
+inventados; las claves viejas `agenda.teacherName` / `agenda.teacherId`
+se eliminaron). Unificado: la foto ahora va por `GET/PUT /v1/me/photo`,
+que resuelve la ficha docente cuando hay vínculo y la cuenta cuando no
+(docentes vinculados siguen devolviendo/el guardando en `teachers.photo`;
+admins ya tienen foto propia en `users.photo`).
 
 ## 3. Buscador `Buscar estudiante o clase…`
 

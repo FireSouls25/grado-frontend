@@ -169,19 +169,17 @@
             <span class="chip">{roleLabel(role)}</span>
           {/each}
         </div>
-        {#if teacher}
-          <div class="photolinks">
-            <button type="button" class="link" on:click={() => photoInput?.click()}>
-              {$t.profile.photoChange}
+        <div class="photolinks">
+          <button type="button" class="link" on:click={() => photoInput?.click()}>
+            {$t.profile.photoChange}
+          </button>
+          {#if $profile.photoUrl}
+            <button type="button" class="link danger" on:click={removePhoto}>
+              {$t.profile.photoRemove}
             </button>
-            {#if $profile.photoUrl}
-              <button type="button" class="link danger" on:click={removePhoto}>
-                {$t.profile.photoRemove}
-              </button>
-            {/if}
-          </div>
-          {#if photoError}<p class="flash" role="alert">{photoError}</p>{/if}
-        {/if}
+          {/if}
+        </div>
+        {#if photoError}<p class="flash" role="alert">{photoError}</p>{/if}
       </div>
     </div>
 
@@ -262,16 +260,13 @@
     </section>
   {/if}
 
-  {#if teacher}
-    <input
-      bind:this={photoInput}
-      type="file"
-      accept="image/*"
-      hidden
-      on:change={onPhotoPicked}
-    />
-  {/if}
-</div>
+  <input
+    bind:this={photoInput}
+    type="file"
+    accept="image/*"
+    hidden
+    on:change={onPhotoPicked}
+  /></div>
 
 <style>
   .body {

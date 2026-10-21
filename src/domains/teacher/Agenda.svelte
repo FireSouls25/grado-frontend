@@ -12,6 +12,12 @@
   import { daySchedule, isMissing, type TeacherClass } from './api';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
+  import { profile } from '$lib/shell/profile';
+
+  // El nombre de cabecera llega de la propia cuenta (GET /v1/me):
+  // mientras carga se queda la copia neutra, sin datos inventados.
+  $: profileTeacher = $profile.me?.teacher ?? null;
+  $: headerName = profileTeacher ? `${profileTeacher.surnames} ${profileTeacher.names}` : '';
 
   interface AgendaItem extends TeacherClass {
     Room: string;
@@ -86,6 +92,7 @@
 
   onMount(() => {
     load();
+    if ($profile.state === 'idle') void profile.refresh();
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (
@@ -141,6 +148,9 @@
   <div class="pagehead">
     <p class="eyebrow">{$t.agenda.eyebrow}</p>
     <h1 class="title">{$t.agenda.title}</h1>
+    {#if headerName}
+      <p class="who-name">{headerName}</p>
+    {/if}
     <div class="controlbar">
       <label class="search">
         <Icon name="search" />
@@ -252,6 +262,11 @@
     line-height: 1.05;
     margin-bottom: 12px;
     font-variant-numeric: tabular-nums;
+  }
+  .who-name {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin: -8px 0 12px;
   }
   .controlbar {
     display: flex;

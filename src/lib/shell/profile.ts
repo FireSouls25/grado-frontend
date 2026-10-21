@@ -24,7 +24,7 @@ function createProfile() {
 
   async function loadPhoto(): Promise<string | null> {
     try {
-      const photo = await api.get<PhotoPayload>('/v1/teachers/me/photo');
+      const photo = await api.get<PhotoPayload>('/v1/me/photo');
       return `data:${photo.contentType};base64,${photo.data}`;
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) return null;
@@ -35,20 +35,18 @@ function createProfile() {
   return {
     subscribe,
 
-    /** Fetches the account profile (and photo, when linked). Safe to
-     *  call on every panel open: an already-ready panel still refreshes
-     *  so a photo change elsewhere shows up. */
+    /** Fetches the account profile (with photo). Safe to call on every
+     *  panel open: an already-ready panel still refreshes so a photo
+     *  change elsewhere shows up. */
     async refresh() {
       update((s) => ({ ...s, state: 'loading', error: null }));
       try {
         const me = await api.get<Me>('/v1/me');
         let photoUrl: string | null = null;
-        if (me.teacher) {
-          try {
-            photoUrl = await loadPhoto();
-          } catch {
-            photoUrl = null;
-          }
+        try {
+          photoUrl = await loadPhoto();
+        } catch {
+          photoUrl = null;
         }
         update(() => ({ state: 'ready', me, photoUrl, error: null }));
       } catch (err) {
@@ -56,9 +54,10 @@ function createProfile() {
       }
     },
 
-    /** Stores (or clears, when empty) the own teacher photo. */
+    /** Stores (or clears, when empty) the own photo: writes through to
+     *  the linked teacher profile, or to the account row otherwise. */
     async savePhoto(dataUrl: string) {
-      await api.put('/v1/teachers/me/photo', { data: dataUrl });
+      await api.put('/v1/me/photo', { data: dataUrl });
       update((s) => ({ ...s, photoUrl: dataUrl || null }));
     },
 
