@@ -38,9 +38,9 @@
     // Resolved live from theme tokens: canvas cannot read var() directly,
     // and render() already re-runs on theme change (see onMount).
     return {
-      text: cssVar('--ink', '#1b2340'),
-      muted: cssVar('--muted', '#68738f'),
-      line: cssVar('--line', '#e2e8f3')
+      text: cssVar('--ink', '#201d18'),
+      muted: cssVar('--muted', '#999894'),
+      line: cssVar('--line', '#e4e1d8')
     };
   }
 
@@ -71,7 +71,7 @@
     });
   });
 
-  $: if (chart) render();
+  $: option, chart && render();
 </script>
 
 <div class="wrap" style={`height: ${height}px`}>

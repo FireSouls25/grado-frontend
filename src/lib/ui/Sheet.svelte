@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
   import Icon from './Icon.svelte';
   import { t } from '$lib/i18n';
   import { portal } from './portal';
@@ -7,11 +6,10 @@
   export let open = false;
   export let title: string;
   export let closeLabel = '';
-
-  const dispatch = createEventDispatcher<{ close: void }>();
+  export let onClose: () => void = () => {};
 
   function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') dispatch('close');
+    if (e.key === 'Escape') onClose();
   }
 </script>
 
@@ -19,15 +17,16 @@
 
 {#if open}
   <div use:portal>
-    <div class="scrim" on:click={() => dispatch('close')} aria-hidden="true"></div>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label={title}>
+    <div class="scrim" on:click={onClose} aria-hidden="true"></div>
+    <!-- The scrim is a sibling: clicks inside the sheet never reach it. -->
+    <div class="sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label={title}>
       <div class="grab" aria-hidden="true"></div>
       <div class="head">
         <h2>{title}</h2>
         <button
           class="icon-btn"
           type="button"
-          on:click={() => dispatch('close')}
+          on:click={onClose}
           aria-label={closeLabel || $t.a11y.close}
         >
           <Icon name="close" />
@@ -44,7 +43,7 @@
   .scrim {
     position: fixed;
     inset: 0;
-    background: rgba(15, 20, 36, 0.45);
+    background: var(--scrim);
     animation: fade 0.2s ease both;
     z-index: 40;
   }
@@ -61,15 +60,24 @@
     display: flex;
     flex-direction: column;
     overscroll-behavior: contain;
-    animation: up 0.25s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+    animation: rise 0.25s cubic-bezier(0.2, 0.9, 0.3, 1) both;
     padding-bottom: env(safe-area-inset-bottom);
+    pointer-events: auto;
   }
   @media (min-width: 900px) {
+    /* Centered dialog on desktop (not a bottom sheet). The entrance
+       animates the `translate` property so it never fights the
+       `transform` centering below (a filled `transform` keyframe would
+       override translateX(-50%) and shove the panel to the right). */
     .sheet {
       left: 50%;
       right: auto;
-      width: 560px;
-      transform: translateX(-50%);
+      top: 50%;
+      bottom: auto;
+      width: min(560px, calc(100vw - 32px));
+      transform: translate(-50%, -50%);
+      border-radius: 20px;
+      padding-bottom: 8px;
     }
   }
   .grab {
@@ -79,11 +87,20 @@
     background: var(--line);
     margin: 10px auto 0;
   }
+  @media (min-width: 900px) {
+    .grab {
+      display: none;
+    }
+  }
   .head {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     padding: 8px 8px 8px 20px;
+  }
+  .head h2 {
+    font-size: 1.05rem;
   }
   .body {
     overflow-y: auto;
@@ -92,6 +109,7 @@
     padding: 4px 20px 20px;
   }
   .icon-btn {
+    flex: none;
     width: 44px;
     height: 44px;
     display: inline-flex;
@@ -99,19 +117,20 @@
     justify-content: center;
     border-radius: var(--radius-pill);
     color: var(--muted);
+    cursor: pointer;
   }
   .icon-btn:hover {
     background: var(--surface-2);
     color: var(--ink);
   }
-  @keyframes up {
+  @keyframes rise {
     from {
       opacity: 0.5;
-      transform: translateY(40px);
+      translate: 0 40px;
     }
     to {
       opacity: 1;
-      transform: none;
+      translate: 0 0;
     }
   }
   @keyframes fade {

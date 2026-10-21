@@ -19,10 +19,46 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * True when the server was never reached (connection refused, DNS, CORS
+ * preflight) or the request timed out. Both are worth retrying, and both
+ * mean "the data is not wrong, the connection is".
+ */
+export function isOffline(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 0;
+}
+
+/** Personal summary of the teacher linked to the login (GET /v1/me). */
+export interface MeTeacher {
+  id: string;
+  names: string;
+  surnames: string;
+  documentID: string;
+  phone: string;
+  email: string;
+  /** ISO date (YYYY-MM-DD); empty when unknown. */
+  birthdate: string;
+  /** 'female' | 'male' | '' (not declared). */
+  sex: string;
+  active: boolean;
+}
+
+/**
+ * GET /v1/me: navigation (subject, roles, home) plus the personal
+ * profile of the login account. Account fields are optional so an
+ * older backend degrades honestly instead of inventing data.
+ */
 export interface Me {
   subject: string;
   roles: string[];
   home: string;
+  username?: string;
+  email?: string;
+  active?: boolean;
+  /** RFC3339 account creation time. */
+  createdAt?: string;
+  teacherID?: string;
+  teacher?: MeTeacher | null;
 }
 
 export interface Student {
@@ -82,4 +118,62 @@ export interface Warning {
   Title: string;
   Description: string;
   GroupID: string;
+  // Display names resolved by list endpoints (recent, per-student).
+  StudentName?: string;
+  ClassLabel?: string;
+  AuthorName?: string;
+  Snapshot?: {
+    Names: string;
+    Surnames: string;
+    DocumentID: string;
+    ClassID: string;
+    Birthdate: string;
+    Age: number;
+    CaregiverName: string;
+    CaregiverPhone: string;
+  };
+}
+
+/** Yes/no profile item with a detail when affirmative (vision, hearing…). */
+export interface Condition {
+  Has: boolean;
+  Detail: string;
+}
+
+export interface Guardian {
+  Names: string;
+  DocumentID: string;
+  Phone: string;
+  Occupation: string;
+  Address: string;
+}
+
+/** Full student profile: GET /v1/students/{id}. */
+export interface StudentProfile {
+  ID: string;
+  Names: string;
+  Surnames: string;
+  ClassID: string;
+  DocumentID: string;
+  Phone: string;
+  Address: string;
+  Birthplace: string;
+  Birthdate: string;
+  Email: string;
+  Vision: Condition;
+  Hearing: Condition;
+  BloodType: string;
+  IsNew: boolean;
+  PreviousSchool: string;
+  TransferReason: string;
+  RepeatCount: number;
+  Mother: Guardian;
+  Father: Guardian;
+  Caregiver: Guardian;
+  LivesWith: string;
+  Siblings: { Name: string; ClassID: string }[];
+  MedicalReport: string;
+  DiversityCondition: string;
+  SpecialistReport: Condition;
+  Status: 'active' | 'graduated';
 }

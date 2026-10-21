@@ -2,8 +2,7 @@
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
   import { session } from './session';
-  import { resolveDevAccount, checkDevPassword } from './accounts';
-  import { me } from '../teacher/api';
+  import { me, login } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { push } from 'svelte-spa-router';
 
@@ -34,35 +33,33 @@
 
   async function submit() {
     error = '';
-    const account = resolveDevAccount(identifier);
     if (!identifier.trim() || !password) {
       error = $t.login.missingCredentials;
       return;
     }
-    if (!account) {
-      error = $t.login.unknownAccount;
-      return;
-    }
-    if (!checkDevPassword(account, password)) {
-      error = $t.login.invalidPassword;
-      return;
-    }
-    session.login(account.id);
-    try {
-      localStorage.removeItem(DRAFT_KEY);
-    } catch {
-      /* ignore */
-    }
     busy = true;
     try {
+      const result = await login(identifier.trim(), password);
+      password = '';
+      if (!session.login(result.token)) {
+        error = $t.common.loadError;
+        busy = false;
+        return;
+      }
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
       const profile = await me();
-      push(profile.home || '/hoy');
+      push(result.home || profile.home || '/hoy');
     } catch (err) {
-      // Visible failure: wrong navigation hides real problems. Tell the
-      // user what happened and stay put instead of landing on an
-      // unrelated page.
+      // Wrong credentials and unknown accounts share one message: the
+      // backend refuses to say which half failed.
       busy = false;
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.status === 401) {
+        error = err.message || $t.login.invalidPassword;
+      } else if (err instanceof ApiError) {
         error = err.message || $t.common.loadError;
       } else {
         error = $t.common.loadError;

@@ -1,5 +1,7 @@
 /* Grado design tokens. Single source of truth for themes and colors.
    Never hardcode a color in components: always reference a var() below.
+   Visual authority: docs/diseno.md (warm paper light, Dracula dark).
+   Severity: --g-leve/medio/grave (blue/yellow/red). Attendance: --m-*.
    Themes: [data-theme="light"] (default), [data-theme="dark"],
    [data-theme="auto"] (follows the OS preference). */
 
@@ -7,30 +9,52 @@
 [data-theme='light'] {
   color-scheme: light;
 
-  --bg: #edf0f7;
-  --surface: #ffffff;
-  --surface-2: #f3f5fa;
-  --ink: #1b2340;
-  --muted: #68738f;
-  --line: #e2e8f3;
+  --bg: hsl(36, 9%, 94%);
+  --surface: hsl(0, 0%, 100%);
+  --surface-2: hsl(40, 12%, 97%);
+  --card: hsl(44, 20%, 95.5%);
+  --tint: hsl(45, 8%, 91%);
+  --ink: hsl(45, 10%, 10%);
+  --ink-soft: hsl(40, 6%, 28%);
+  --muted: hsl(60, 2%, 52%);
+  --line: hsl(45, 10%, 88%);
+  --grid: hsl(43, 12%, 68%);
 
-  --accent: #2f6bff;
-  --accent-ink: #ffffff;
-  --accent-soft: #dbe6ff;
+  --accent: hsl(28, 40%, 52%);
+  --accent-ink: hsl(0, 0%, 100%);
+  --accent-soft: hsl(28, 45%, 93%);
+  --coral: hsl(343, 68%, 48%);
 
-  --chip-green-bg: #d8f1e2;
-  --chip-green-ink: #1c7a4d;
-  --chip-yellow-bg: #fdf0c2;
-  --chip-yellow-ink: #8a6d1a;
-  --chip-purple-bg: #e5ddfd;
-  --chip-purple-ink: #5b3df0;
-  --chip-pink-bg: #ffd9e3;
-  --chip-pink-ink: #c22e5c;
-  --chip-sky-bg: #d4e6fd;
-  --chip-sky-ink: #1f5fc4;
+  /* Severidad: azul leve, amarillo medio, rojo grave. */
+  --g-leve-bg: hsl(203, 70%, 91%);
+  --g-leve-ink: hsl(198, 72%, 45%);
+  --g-medio-bg: hsl(46, 75%, 87%);
+  --g-medio-ink: hsl(45, 85%, 31%);
+  --g-grave-bg: hsl(6, 70%, 91%);
+  --g-grave-ink: hsl(0, 60%, 51%);
 
-  --danger: #c22e5c;
-  --shadow: 0 10px 28px rgba(27, 35, 64, 0.09);
+  /* Asistencia: presente tinta; el resto grises cálidos. */
+  --m-present: hsl(104, 42%, 39%);
+  --m-absent: hsl(26, 55%, 45%);
+  --m-permission: hsl(105, 42%, 36%);
+  --m-permission-bg: hsl(105, 45%, 89%);
+  --m-evasion: hsl(249, 17%, 56%);
+  --m-late: hsl(202, 38%, 53%);
+
+  /* Compatibilidad: componentes actuales; los nuevos usan --g-* y --m-*. */
+  --chip-green-bg: hsl(105, 30%, 90%);
+  --chip-green-ink: hsl(110, 38%, 30%);
+  --chip-yellow-bg: var(--g-medio-bg);
+  --chip-yellow-ink: var(--g-medio-ink);
+  --chip-purple-bg: hsl(285, 30%, 92%);
+  --chip-purple-ink: hsl(288, 32%, 40%);
+  --chip-pink-bg: var(--g-grave-bg);
+  --chip-pink-ink: var(--g-grave-ink);
+  --chip-sky-bg: var(--g-leve-bg);
+  --chip-sky-ink: var(--g-leve-ink);
+
+  --danger: hsl(0, 60%, 51%);
+  --shadow: 0 1px 2px hsla(45, 9%, 12%, 0.05);
   --radius-card: 16px;
   --radius-chip: 10px;
   --radius-pill: 999px;
@@ -39,60 +63,100 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #0e1322;
-  --surface: #18203a;
-  --surface-2: #111a30;
-  --ink: #eef1f7;
-  --muted: #9aa3c0;
-  --line: #26304d;
+  --bg: hsl(230, 10%, 17%);
+  --surface: hsl(230, 12%, 11%);
+  --surface-2: hsl(230, 10%, 14%);
+  --card: hsl(230, 10%, 21%);
+  --tint: hsl(230, 10%, 18%);
+  --ink: hsl(60, 25%, 95%);
+  --ink-soft: hsl(45, 8%, 76%);
+  --muted: hsl(45, 6%, 60%);
+  --line: hsl(45, 6%, 26%);
+  --grid: hsl(45, 6%, 34%);
 
-  --accent: #5b8cff;
-  --accent-ink: #0e1322;
-  --accent-soft: #22325e;
+  --accent: hsl(31, 95%, 68%);
+  --accent-ink: hsl(30, 45%, 8%);
+  --accent-soft: hsl(30, 40%, 18%);
+  --coral: hsl(330, 100%, 73%);
 
-  --chip-green-bg: #123b2a;
-  --chip-green-ink: #7fd6a4;
-  --chip-yellow-bg: #3d3413;
-  --chip-yellow-ink: #f0d47a;
-  --chip-purple-bg: #2a2358;
-  --chip-purple-ink: #b9a8ff;
-  --chip-pink-bg: #47202f;
-  --chip-pink-ink: #ff9ebb;
-  --chip-sky-bg: #17334f;
-  --chip-sky-ink: #8fc0ff;
+  --g-leve-bg: hsl(195, 55%, 20%);
+  --g-leve-ink: hsl(190, 100%, 80%);
+  --g-medio-bg: hsl(55, 55%, 20%);
+  --g-medio-ink: hsl(60, 95%, 77%);
+  --g-grave-bg: hsl(355, 55%, 22%);
+  --g-grave-ink: hsl(0, 100%, 71%);
 
-  --danger: #ff7d9c;
-  --shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  --m-present: hsl(105, 45%, 67%);
+  --m-absent: hsl(26, 60%, 62%);
+  --m-permission: hsl(105, 50%, 70%);
+  --m-permission-bg: hsl(105, 40%, 22%);
+  --m-evasion: hsl(250, 35%, 75%);
+  --m-late: hsl(203, 65%, 74%);
+
+  --chip-green-bg: hsl(105, 30%, 16%);
+  --chip-green-ink: hsl(105, 45%, 68%);
+  --chip-yellow-bg: var(--g-medio-bg);
+  --chip-yellow-ink: var(--g-medio-ink);
+  --chip-purple-bg: hsl(285, 30%, 20%);
+  --chip-purple-ink: hsl(285, 45%, 74%);
+  --chip-pink-bg: var(--g-grave-bg);
+  --chip-pink-ink: var(--g-grave-ink);
+  --chip-sky-bg: var(--g-leve-bg);
+  --chip-sky-ink: var(--g-leve-ink);
+
+  --danger: hsl(0, 100%, 71%);
+  --scrim: hsla(0, 0%, 0%, 0.6);
+  --shadow: 0 10px 28px hsla(0, 0%, 0%, 0.45);
 }
 
 @media (prefers-color-scheme: dark) {
   [data-theme='auto'] {
     color-scheme: dark;
 
-    --bg: #0e1322;
-    --surface: #18203a;
-    --surface-2: #111a30;
-    --ink: #eef1f7;
-    --muted: #9aa3c0;
-    --line: #26304d;
+    --bg: hsl(230, 10%, 17%);
+    --surface: hsl(230, 12%, 11%);
+    --surface-2: hsl(230, 10%, 14%);
+    --card: hsl(230, 10%, 21%);
+    --tint: hsl(230, 10%, 18%);
+    --ink: hsl(60, 25%, 95%);
+    --ink-soft: hsl(45, 8%, 76%);
+    --muted: hsl(45, 6%, 60%);
+    --line: hsl(45, 6%, 26%);
+  --grid: hsl(45, 6%, 34%);
 
-    --accent: #5b8cff;
-    --accent-ink: #0e1322;
-    --accent-soft: #22325e;
+    --accent: hsl(31, 95%, 68%);
+    --accent-ink: hsl(30, 45%, 8%);
+    --accent-soft: hsl(30, 40%, 18%);
+    --coral: hsl(330, 100%, 73%);
 
-    --chip-green-bg: #123b2a;
-    --chip-green-ink: #7fd6a4;
-    --chip-yellow-bg: #3d3413;
-    --chip-yellow-ink: #f0d47a;
-    --chip-purple-bg: #2a2358;
-    --chip-purple-ink: #b9a8ff;
-    --chip-pink-bg: #47202f;
-    --chip-pink-ink: #ff9ebb;
-    --chip-sky-bg: #17334f;
-    --chip-sky-ink: #8fc0ff;
+    --g-leve-bg: hsl(195, 55%, 20%);
+    --g-leve-ink: hsl(190, 100%, 80%);
+    --g-medio-bg: hsl(55, 55%, 20%);
+    --g-medio-ink: hsl(60, 95%, 77%);
+    --g-grave-bg: hsl(355, 55%, 22%);
+    --g-grave-ink: hsl(0, 100%, 71%);
 
-    --danger: #ff7d9c;
-    --shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    --m-present: hsl(105, 45%, 67%);
+    --m-absent: hsl(26, 60%, 62%);
+    --m-permission: hsl(105, 50%, 70%);
+    --m-permission-bg: hsl(105, 40%, 22%);
+    --m-evasion: hsl(250, 35%, 75%);
+    --m-late: hsl(203, 65%, 74%);
+
+    --chip-green-bg: hsl(105, 30%, 16%);
+    --chip-green-ink: hsl(105, 45%, 68%);
+    --chip-yellow-bg: var(--g-medio-bg);
+    --chip-yellow-ink: var(--g-medio-ink);
+    --chip-purple-bg: hsl(285, 30%, 20%);
+    --chip-purple-ink: hsl(285, 45%, 74%);
+    --chip-pink-bg: var(--g-grave-bg);
+    --chip-pink-ink: var(--g-grave-ink);
+    --chip-sky-bg: var(--g-leve-bg);
+    --chip-sky-ink: var(--g-leve-ink);
+
+    --danger: hsl(0, 100%, 71%);
+    --scrim: hsla(0, 0%, 0%, 0.6);
+    --shadow: 0 10px 28px hsla(0, 0%, 0%, 0.45);
   }
 }
 
@@ -133,6 +197,7 @@ h1 {
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
 h2 {

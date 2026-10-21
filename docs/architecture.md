@@ -43,8 +43,8 @@ Colores solo vía `var(--*)` (global.css); textos UI solo vía `t` (es.ts).
 ## API desde el principio
 
 Base en `VITE_API_URL` (`.env`, sensible fuera del repo; `.env.example`
-documenta las claves). El cliente envía `X-Subject-ID` desde la sesión
-(`VITE_DEV_SUBJECT_ID` solo como conveniencia dev) y traduce errores al
+documenta las claves). El cliente envía `Authorization: Bearer <token>`
+desde la sesión (login real contra `POST /v1/login`) y traduce errores al
 contrato del backend: 401 → login, 403 → atrás o home del rol
 (`lib/nav.ts`). Endpoints usados hoy: `GET /v1/me`. Los de horario,
 lista, apertura de sesión y lote de llamados aún no existen en el
@@ -63,9 +63,15 @@ suave a vacíos y se encienden solos cuando el backend los exponga.
 3. ✅ Dominio docente: home (hoy/próxima/vacío), detalle de clase
    (lista alfabética, marcas, llamado multiselección), tab horario
 4. ✅ Dominio admin (drafts honestos): Resumen con ECharts (donut +
-   barras, overlay vacío), Docentes + ficha (materias, salones, asignar),
+   barras, overlay vacío), Docentes + ficha (lista diaria, calendario
+   de asistencia, materias y salones leídos del horario),
    Estudiantes por año/salón, tablero semanal estilo `reference/` con
-   overlay de edición. Login enruta por rol (`/v1/me` → home).
+   overlay de edición y catálogo de materias integrado (arrastrar al
+   horario). Docentes como lista única con ficha completa (foto,
+   calendario de asistencia y deltas); lista diaria en pantalla propia
+   con esperados del horario y nada preseleccionado; historial de
+   listas por día con tarjetas expandibles. Login enruta por rol
+   (`/v1/me` → home).
 5. ✅ Login profesional (Observador Estudiantil): correo o usuario
    (`nombre.apellido`, creado por admins), contraseña con mostrar/ocultar,
    mockup de recuperación, layout dividido en escritorio. Cuentas dev en

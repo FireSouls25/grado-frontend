@@ -22,7 +22,7 @@ function apply(theme: Theme) {
       window.matchMedia('(prefers-color-scheme: dark)').matches);
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', dark ? '#0e1322' : '#eef1f7');
+    ?.setAttribute('content', dark ? '#262a38' : '#f3f1ec');
 }
 
 function createTheme() {

@@ -7,6 +7,21 @@ export async function me(): Promise<Me> {
   return api.get<Me>('/v1/me');
 }
 
+export interface LoginResult {
+  token: string;
+  expiresAt: string;
+  subject: string;
+  roles: string[];
+  home: string;
+}
+
+/** Real login: credentials travel to the backend, which verifies the
+ *  bcrypt hash server-side and returns a bearer for later calls.
+ *  Unknown identifier and wrong password share one 401 code. */
+export async function login(identifier: string, password: string): Promise<LoginResult> {
+  return api.post<LoginResult>('/v1/login', { identifier, password });
+}
+
 /** True when the backend has no such route yet (draft phase). Callers
  *  render honest empty states instead of error screens. */
 export function isMissing(err: unknown): boolean {
@@ -26,16 +41,19 @@ export interface TeacherClass {
   Weekday: number;
   Start: string;
   End: string;
+  /** Salón físico. Opcional: el endpoint actual aún no lo trae y la
+   *  tarjeta lo omite en vez de inventarlo. */
+  Room?: string;
 }
 
 /** Weekly schedule entries for a weekday. Pending: GET /v1/teachers/me/schedule. */
 export async function daySchedule(weekday: number): Promise<TeacherClass[]> {
-  return api.get<TeacherClass[]>(`/v1/teachers/me/schedule?weekday=${weekday}`);
+  return (await api.get<TeacherClass[]>(`/v1/teachers/me/schedule?weekday=${weekday}`)) ?? [];
 }
 
 export async function classRoster(groupID: string): Promise<RosterEntry[]> {
-  return api.get<RosterEntry[]>(
-    `/v1/classes/${encodeURIComponent(groupID)}/roster`
+  return (
+    (await api.get<RosterEntry[]>(`/v1/classes/${encodeURIComponent(groupID)}/roster`)) ?? []
   );
 }
 
@@ -73,5 +91,5 @@ export interface WarningSnapshot {
 }
 
 export async function issueWarnings(draft: WarningDraft): Promise<Warning[]> {
-  return api.post<Warning[]>('/v1/warnings/batch', draft);
+  return (await api.post<Warning[]>('/v1/warnings/batch', draft)) ?? [];
 }

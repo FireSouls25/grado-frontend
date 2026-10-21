@@ -1,21 +1,21 @@
 import { writable } from 'svelte/store';
-import { clearSubject, getSubject, setSubject } from '$lib/api/client';
+import { clearToken, getToken, setToken } from '$lib/api/client';
 
-/** Authenticated subject id. Empty means logged out. */
+/** Authenticated token. Empty means logged out; App gates routes on it. */
 function createSession() {
-  const { subscribe, set } = writable<string>(getSubject());
+  const { subscribe, set } = writable<string>(getToken());
 
   return {
     subscribe,
-    login(id: string) {
-      const trimmed = id.trim();
+    login(token: string) {
+      const trimmed = token.trim();
       if (!trimmed) return false;
-      setSubject(trimmed);
+      setToken(trimmed);
       set(trimmed);
       return true;
     },
     logout() {
-      clearSubject();
+      clearToken();
       set('');
     }
   };

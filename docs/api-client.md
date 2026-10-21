@@ -11,10 +11,10 @@
   `undefined` en runtime.
 - Desarrollo en navegador: el backend debe permitir el origen dev
   (`ALLOWED_ORIGINS=http://127.0.0.1:1420,http://localhost:1420`), o los
-  fetch con `X-Subject-ID` mueren en preflight y todo se ve como error de
-  red. En Tauri el origen será el del webview (`tauri.localhost`).
-- Identidad: header `X-Subject-ID` desde la sesión (login la guarda,
-  `VITE_DEV_SUBJECT_ID` solo para desarrollo).
+  fetch mueren en preflight y todo se ve como error de red. En Tauri
+  el origen será el del webview (`tauri.localhost`).
+- Identidad: `Authorization: Bearer <token>` desde la sesión (login
+  real contra `POST /v1/login`; el token vive en `grado.token`).
 - `ApiError { code, status }`: `code` es la clave estable del backend
   (`http.err_forbidden`, …), `message` ya viene en español.
 - `guarded()` implementa el contrato del backend: 401 → `/login`,
@@ -26,8 +26,92 @@
 
 ## Pendiente del backend (para encender el flujo docente)
 
-- `GET /v1/teachers/me/schedule?weekday=N` — clases del día
-- `GET /v1/classes/{groupID}/roster` — nómina del salón
-- `POST /v1/sessions/open` — abrir llamado a lista
-- `POST /v1/warnings/batch` — lote de llamados (existe `POST
-  /v1/sessions/{id}/marks` y ya se usa para marcar)
+Nada pendiente: todos los endpoints que el frontend llama existen.
+Lo que falta es producto nuevo, no huecos (login con token, lecturas
+propias del docente, notificaciones).
+
+Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
+`GET /v1/teachers/{id}`, `GET /v1/subjects`, `GET /v1/subjects/{id}`,
+`POST /v1/subjects`, `PUT /v1/subjects/{id}`,
+`DELETE /v1/subjects/{id}`, `GET /v1/subjects/{id}/assignments`,
+`POST /v1/assignments`, `POST /v1/assignments/{id}/end`,
+`DELETE /v1/assignments/{id}`, `GET /v1/teachers/{id}/assignments`,
+`GET /v1/schedule`, `POST /v1/schedule`, `PUT /v1/schedule/{id}`,
+`DELETE /v1/schedule/{id}`, `POST /v1/students`, `PUT /v1/students/{id}`,
+`POST /v1/teachers`, `PUT /v1/teachers/{id}`,
+`POST /v1/sessions/{id}/marks`,
+`GET /v1/statistics/class/{groupID}`, `GET /v1/statistics/student/{id}`,
+`GET /v1/students/{id}`, `GET /v1/students/{id}/warnings` (ahora con nombres resueltos),
+`POST /v1/warnings/batch`, `GET /v1/warnings/recent`,
+`PUT /v1/warnings/{id}`, `GET /v1/warnings/{id}/revisions`,
+`GET /v1/incidents/recent`, `GET /v1/classes?year=N`,
+`GET /v1/classes/{groupID}/roster`, `GET /v1/teachers/me/schedule`,
+`POST /v1/sessions/open`, `GET /v1/dashboard/summary`, `POST /v1/users`,
+`GET /v1/audit`, `POST /v1/classes`, `POST /v1/teachers/attendance`,
+`GET /v1/teachers/attendance`, `GET /v1/teachers/{id}/attendance`,
+`GET /v1/teachers/roll`, `GET /v1/teachers/attendance/history`,
+`GET /v1/teachers/attendance/revisions`,
+`PUT /v1/teachers/{id}/photo`, `GET /v1/teachers/{id}/photo`,
+`GET /v1/teachers/{id}/sessions`, `GET /v1/teachers/{id}/warnings-made`,
+`GET /v1/sessions/history`, `GET /v1/sessions/{id}`,
+`GET /v1/teachers/me/photo`, `PUT /v1/teachers/me/photo`,
+`PUT /v1/me/password`, `GET /v1/me/photo`, `PUT /v1/me/photo`.
+
+Notas de los endpoints de edición:
+
+- `PUT /v1/students/{id}` **reemplaza** el perfil completo (el estado lo
+  administra el servidor). El frontend envía la ficha tal como la cargó,
+  con los campos editados.
+- `PUT /v1/teachers/{id}` es **parcial**: lo que no se envía se conserva,
+  así un formulario a medias nunca borra el teléfono ni desactiva a un
+  docente por accidente. La ficha docente (`TeacherDetail.svelte`) edita
+  con él Nombres, Apellidos, Cédula, Celular, Correo y Sexo.
+- `GET /v1/warnings/recent` devuelve cada llamado con `StudentName`,
+  `ClassLabel` y `AuthorName` ya resueltos (ver `backend/docs/api.md`).
+  La pantalla `/admin/llamados` los muestra con filtros y crea llamados
+  con `POST /v1/warnings/batch`, el mismo endpoint del docente.
+- `GET /v1/me` devuelve además el perfil personal de la cuenta:
+  `username`, `email`, `active`, `createdAt`, `teacherID` y `teacher`
+  opcional (`names`, `surnames`, `documentID`, `phone`, `email`,
+  `birthdate` ISO `YYYY-MM-DD`, `sex` `female|male|''`). Los campos de
+  cuenta son opcionales en `types.ts` para degradar honesto contra un
+  backend anterior. `lib/shell/profile.ts` lo consume en el panel de
+  perfil (`lib/shell/ProfilePanel.svelte`), abierto desde `TopActions`.
+- `GET/PUT /v1/teachers/me/photo` son el gemelo auto-servido de las
+  fotos de docente: resuelven por el vínculo `users.TeacherID` (o por el
+  subject si ya es un id de docente), 404 honesto sin foto y `403` sin
+  perfil propio. El PUT acepta data URL o base64 y vacío para quitar.
+- `GET/PUT /v1/me/photo` (`lib/shell/profile.ts`, panel de perfil) es la
+  foto unificada de la llamada: si hay docente vinculado resuelve y
+  escribe en su ficha (`teachers.photo`, fuente única); si no, guarda la
+  imagen en la propia cuenta (`users.photo`). Por eso admins ya pueden
+  cambiar su foto desde el perfil. Cap 2 MiB y `data` vacío para quitar,
+  404 honesto sin foto. Estudiantes siguen pendientes: el backend no
+  tiene todavía el vínculo `users.StudentID` con fichas de estudiantes.
+- `PUT /v1/me/password` (`{'currentPassword','newPassword'}`, `204`)
+  cambia la contraseña de la propia cuenta: el backend verifica la
+  actual antes (`401` con `users.err_invalid_credentials` si falla) y la
+  política de contraseña vive en el backend (`400` con
+  `users.err_weak_password`). El panel de perfil abre el formulario con
+  "Cambiar contraseña"; los tokens ya emitidos quedan vigentes hasta
+  expirar (no hay denylist todavía).
+
+## Bloqueos para el dominio docente (documentados)
+
+- `GET /v1/teachers/me/schedule` ya resuelve por el vínculo
+  `users.TeacherID` (ver `docs/auth-backend.md`); el nombre del docente
+  ya no está pendiente: `GET /v1/me` trae el perfil (`teacher.names`,
+  `teacher.surnames`) y el panel de perfil lo muestra.
+- `POST /v1/roles` ya existe (admin) pero el frontend aún no lo invoca
+  al crear un docente con cuenta.
+
+## Autenticación
+
+Login real: `POST /v1/login {identifier, password}` verifica bcrypt en
+el servidor y devuelve `{token, expiresAt, subject, roles, home}`.
+El cliente guarda el token (`grado.token`) y lo envía como
+`Authorization: Bearer`. Identificador y contraseña comparten un único
+401 (`users.err_invalid_credentials`); el vencimiento redirige a
+`/login` vía `guarded()`. `docs/auth-backend.md` documenta el estado
+real de `users`, throttling y lo que sigue pendiente (refresh,
+revocación).
