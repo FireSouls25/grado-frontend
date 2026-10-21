@@ -1,0 +1,7 @@
+# Dependencias y salida del build: nunca al repositorio.
+node_modules/
+dist/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
