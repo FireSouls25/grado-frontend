@@ -820,6 +820,12 @@ export const es = {
     photoChange: 'Cambiar foto',
     photoRemove: 'Quitar foto',
     photoTooLarge: 'La foto supera el tamaño máximo de 2 MB.',
+    passwordEdit: 'Cambiar contraseña',
+    passwordCurrent: 'Contraseña actual',
+    passwordNew: 'Contraseña nueva',
+    passwordWeak: 'La contraseña nueva debe tener al menos 8 caracteres, con letra y número.',
+    passwordSaved: 'Contraseña actualizada. La próxima vez inicia sesión con la nueva.',
+    passwordSave: 'Guardar contraseña',
     loading: 'Cargando perfil…',
     loadError: 'No se pudo cargar el perfil. Revisa tu conexión e intenta de nuevo.'
   },

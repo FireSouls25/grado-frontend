@@ -54,7 +54,8 @@ Ya existen y el frontend los usa: `GET /v1/me`, `GET /v1/teachers`,
 `PUT /v1/teachers/{id}/photo`, `GET /v1/teachers/{id}/photo`,
 `GET /v1/teachers/{id}/sessions`, `GET /v1/teachers/{id}/warnings-made`,
 `GET /v1/sessions/history`, `GET /v1/sessions/{id}`,
-`GET /v1/teachers/me/photo`, `PUT /v1/teachers/me/photo`.
+`GET /v1/teachers/me/photo`, `PUT /v1/teachers/me/photo`,
+`PUT /v1/me/password`.
 
 Notas de los endpoints de edición:
 
@@ -63,7 +64,8 @@ Notas de los endpoints de edición:
   con los campos editados.
 - `PUT /v1/teachers/{id}` es **parcial**: lo que no se envía se conserva,
   así un formulario a medias nunca borra el teléfono ni desactiva a un
-  docente por accidente.
+  docente por accidente. La ficha docente (`TeacherDetail.svelte`) edita
+  con él Nombres, Apellidos, Cédula, Celular, Correo y Sexo.
 - `GET /v1/warnings/recent` devuelve cada llamado con `StudentName`,
   `ClassLabel` y `AuthorName` ya resueltos (ver `backend/docs/api.md`).
   La pantalla `/admin/llamados` los muestra con filtros y crea llamados
@@ -79,6 +81,13 @@ Notas de los endpoints de edición:
   fotos de docente: resuelven por el vínculo `users.TeacherID` (o por el
   subject si ya es un id de docente), 404 honesto sin foto y `403` sin
   perfil propio. El PUT acepta data URL o base64 y vacío para quitar.
+- `PUT /v1/me/password` (`{'currentPassword','newPassword'}`, `204`)
+  cambia la contraseña de la propia cuenta: el backend verifica la
+  actual antes (`401` con `users.err_invalid_credentials` si falla) y la
+  política de contraseña vive en el backend (`400` con
+  `users.err_weak_password`). El panel de perfil abre el formulario con
+  "Cambiar contraseña"; los tokens ya emitidos quedan vigentes hasta
+  expirar (no hay denylist todavía).
 
 ## Bloqueos para el dominio docente (documentados)
 

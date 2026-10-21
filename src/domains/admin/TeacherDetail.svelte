@@ -296,7 +296,7 @@
   let saving = false;
   let editError = '';
   let editFeedback = '';
-  let form = { Names: '', Surnames: '', DocumentID: '', Phone: '', Email: '' };
+  let form = { Names: '', Surnames: '', DocumentID: '', Phone: '', Email: '', Sex: '' };
 
   function startEdit() {
     if (!detail) return;
@@ -305,7 +305,8 @@
       Surnames: detail.Surnames,
       DocumentID: detail.DocumentID,
       Phone: detail.Phone ?? '',
-      Email: detail.Email ?? ''
+      Email: detail.Email ?? '',
+      Sex: detail.Sex ?? ''
     };
     editError = '';
     editFeedback = '';
@@ -626,7 +627,17 @@
       <label>{$t.admin.formDocument}<input bind:value={form.DocumentID} inputmode="numeric" autocomplete="off" /></label>
       <label>{$t.admin.formPhone}<input bind:value={form.Phone} inputmode="tel" autocomplete="off" /></label>
     </div>
-    <label>{$t.admin.formEmail}<input bind:value={form.Email} inputmode="email" autocomplete="off" /></label>
+    <div class="row2">
+      <label>{$t.admin.formEmail}<input bind:value={form.Email} inputmode="email" autocomplete="off" /></label>
+      <label
+        >{$t.admin.formSex}
+        <select bind:value={form.Sex}>
+          <option value="">{$t.admin.formSexNone}</option>
+          <option value="female">{$t.admin.formSexFemale}</option>
+          <option value="male">{$t.admin.formSexMale}</option>
+        </select></label
+      >
+    </div>
     {#if editError}<p class="flash error" role="alert">{editError}</p>{/if}
     <div class="actions">
       <button class="ghost" type="button" on:click={() => (editing = false)}>{$t.common.cancel}</button>
@@ -807,7 +818,18 @@
     font-size: 0.92rem;
     width: 100%;
   }
-  .form input:focus {
+  .form select {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    font-size: 0.92rem;
+    width: 100%;
+    color: var(--ink);
+    font: inherit;
+  }
+  .form input:focus,
+  .form select:focus {
     outline: 2px solid var(--accent);
     outline-offset: 0;
   }

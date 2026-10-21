@@ -60,6 +60,12 @@ function createProfile() {
     async savePhoto(dataUrl: string) {
       await api.put('/v1/teachers/me/photo', { data: dataUrl });
       update((s) => ({ ...s, photoUrl: dataUrl || null }));
+    },
+
+    /** Swaps the login password: the current one is verified first, so
+     *  a stolen bearer cannot silently take over the account. */
+    async changePassword(currentPassword: string, newPassword: string) {
+      await api.put('/v1/me/password', { currentPassword, newPassword });
     }
   };
 }

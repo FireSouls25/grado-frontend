@@ -96,6 +96,46 @@
       photoError = err instanceof ApiError ? err.message : $t.common.loadError;
     }
   }
+
+  // Cambio de contraseña: solo carga la política del backend, no la
+  // duplica; el mensaje de error llega traducido con la respuesta.
+  let pwOpen = false;
+  let pwSaving = false;
+  let pwError = '';
+  let pwFeedback = '';
+  let pwCurrent = '';
+  let pwNew = '';
+  let pwShow = false;
+
+  function togglePassword() {
+    pwOpen = !pwOpen;
+    pwError = '';
+    pwFeedback = '';
+    pwCurrent = '';
+    pwNew = '';
+    pwShow = false;
+  }
+
+  async function savePassword() {
+    if (pwSaving) return;
+    pwFeedback = '';
+    if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(pwNew)) {
+      pwError = $t.profile.passwordWeak;
+      return;
+    }
+    pwSaving = true;
+    try {
+      await profile.changePassword(pwCurrent, pwNew);
+      pwFeedback = $t.profile.passwordSaved;
+      pwCurrent = '';
+      pwNew = '';
+      pwShow = false;
+    } catch (err) {
+      pwError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      pwSaving = false;
+    }
+  }
 </script>
 
 <div class="body">
@@ -194,6 +234,32 @@
         </dl>
       </div>
     {/if}
+
+    <section class="pw">
+      <button type="button" class="pw-toggle" aria-expanded={pwOpen} on:click={togglePassword}>
+        {$t.profile.passwordEdit}
+      </button>
+      {#if pwOpen}
+        <form class="pwform" on:submit|preventDefault={savePassword}>
+          <label>
+            <span>{$t.profile.passwordCurrent}</span>
+            <input type={pwShow ? 'text' : 'password'} bind:value={pwCurrent} autocomplete="current-password" />
+          </label>
+          <label>
+            <span>{$t.profile.passwordNew}</span>
+            <input type={pwShow ? 'text' : 'password'} bind:value={pwNew} autocomplete="new-password" />
+          </label>
+          <button type="button" class="show" aria-pressed={pwShow} on:click={() => (pwShow = !pwShow)}>
+            {pwShow ? $t.login.hidePassword : $t.login.showPassword}
+          </button>
+          {#if pwError}<p class="flash" role="alert">{pwError}</p>{/if}
+          {#if pwFeedback}<p class="ok" role="status">{pwFeedback}</p>{/if}
+          <button type="submit" class="primary" disabled={pwSaving}>
+            {pwSaving ? '…' : $t.profile.passwordSave}
+          </button>
+        </form>
+      {/if}
+    </section>
   {/if}
 
   {#if teacher}
@@ -351,5 +417,73 @@
   .note span {
     color: var(--muted);
     font-size: 0.8rem;
+  }
+  .pw {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+  }
+  .pw-toggle {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.82rem;
+    min-height: 36px;
+    text-align: left;
+    padding: 0 2px;
+  }
+  .pwform {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 8px;
+  }
+  .pwform label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .pwform input {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    font-size: 0.88rem;
+  }
+  .pwform input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 0;
+  }
+  .pwform .show {
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    align-self: flex-start;
+    min-height: 28px;
+    padding: 0 2px;
+  }
+  .pwform .ok {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+    font-weight: 600;
+    font-size: 0.78rem;
+    border-radius: var(--radius-chip);
+    padding: 8px 10px;
+  }
+  .pwform .primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+    font-size: 0.85rem;
+    min-height: 44px;
+    border-radius: var(--radius-pill);
+  }
+  .pwform .primary:disabled {
+    opacity: 0.7;
   }
 </style>
