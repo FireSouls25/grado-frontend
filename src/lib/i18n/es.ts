@@ -31,6 +31,8 @@ export const es = {
     signingIn: 'Entrando…',
     missingCredentials: 'Escribe tu usuario y tu contraseña para continuar.',
     invalidPassword: 'La contraseña no coincide. Intenta de nuevo.',
+    rateLimited: 'Demasiados intentos. Espera un minuto e intenta de nuevo.',
+    sessionExpired: 'Tu sesión terminó. Entra de nuevo para continuar.',
     features: [
       {
         title: 'Lista en segundos',

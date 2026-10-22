@@ -1,10 +1,12 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
-  import { session } from './session';
+  import { authNotice, session } from './session';
   import { me, login } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { push } from 'svelte-spa-router';
+  import { onMount } from 'svelte';
+  import { get } from 'svelte/store';
 
   // Draft identifier only (never the password): survives any remount so
   // typed text is never lost. Cleared on successful login.
@@ -23,6 +25,14 @@
   let showPassword = false;
   let error = '';
   let busy = false;
+  let expiredNotice = false;
+
+  onMount(() => {
+    if (get(authNotice) === 'expired') {
+      expiredNotice = true;
+      authNotice.set('');
+    }
+  });
 
   $: try {
     if (identifier) localStorage.setItem(DRAFT_KEY, identifier);
@@ -41,7 +51,7 @@
     try {
       const result = await login(identifier.trim(), password);
       password = '';
-      if (!session.login(result.token)) {
+      if (!session.login(result.token, result.refreshToken, result.expiresAt)) {
         error = $t.common.loadError;
         busy = false;
         return;
@@ -59,6 +69,8 @@
       busy = false;
       if (err instanceof ApiError && err.status === 401) {
         error = err.message || $t.login.invalidPassword;
+      } else if (err instanceof ApiError && err.status === 429) {
+        error = err.message || $t.login.rateLimited;
       } else if (err instanceof ApiError) {
         error = err.message || $t.common.loadError;
       } else {
@@ -129,6 +141,9 @@
         </button>
       </div>
 
+      {#if expiredNotice}
+        <p class="notice" role="status">{$t.login.sessionExpired}</p>
+      {/if}
       {#if error}
         <p class="error" role="alert">{error}</p>
       {:else}

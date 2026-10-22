@@ -3,6 +3,7 @@ import { api } from './api/client';
 import type { Me } from './api/types';
 import { ApiError } from './api/types';
 import { readable } from 'svelte/store';
+import { authNotice, refreshNow, session } from '../domains/auth/session';
 
 /** Current hash path, reactive. Hash routing needs no server fallback. */
 export const path = readable<string>(
@@ -28,12 +29,21 @@ export async function backOrHome(): Promise<void> {
   }
 }
 
-/** Run an API call, routing 401 to login and 403 to back-or-home. */
+/** Run an API call: on 401 rotate once and retry; when the session is
+ *  really dead (revoked, disabled, rotated elsewhere) sign out locally,
+ *  flag the expiry notice and land on login. 403 keeps back-or-home. */
 export async function guarded<T>(fn: () => Promise<T>): Promise<T | null> {
   try {
     return await fn();
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
+      try {
+        if (await refreshNow()) return await fn();
+      } catch {
+        /* rotation failed: fall through to sign-out */
+      }
+      await session.logout();
+      authNotice.set('expired');
       push('/login');
       return null;
     }

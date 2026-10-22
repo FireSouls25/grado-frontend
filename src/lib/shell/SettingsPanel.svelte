@@ -11,8 +11,8 @@
     { value: 'auto', label: $t.settings.themeAuto, icon: 'auto' }
   ];
 
-  function signOut() {
-    session.logout();
+  async function signOut() {
+    await session.logout();
     push('/login');
   }
 </script>

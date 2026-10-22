@@ -10,6 +10,9 @@ export async function me(): Promise<Me> {
 export interface LoginResult {
   token: string;
   expiresAt: string;
+  /** Transitional JSON copy; the HttpOnly cookie is authoritative. */
+  refreshToken?: string;
+  refreshExpiresAt?: string;
   subject: string;
   roles: string[];
   home: string;

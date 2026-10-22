@@ -3,6 +3,7 @@ import { ApiError } from './types';
 const BASE_URL = import.meta.env.VITE_API_URL as string;
 
 const TOKEN_KEY = 'grado.token';
+const REFRESH_KEY = 'grado.refresh';
 
 // Requests give up after this long: the server may be unreachable, and a
 // pending fetch would leave the page on its skeleton for good.
@@ -29,6 +30,29 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   setToken('');
+}
+
+/** Rotating refresh token (transitional JSON copy; the HttpOnly cookie is
+ *  authoritative when present). Empty means no session to rotate. */
+export function getRefresh(): string {
+  try {
+    return localStorage.getItem(REFRESH_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setRefresh(token: string): void {
+  try {
+    if (token) localStorage.setItem(REFRESH_KEY, token);
+    else localStorage.removeItem(REFRESH_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearRefresh(): void {
+  setRefresh('');
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
