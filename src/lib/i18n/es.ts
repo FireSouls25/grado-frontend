@@ -754,6 +754,8 @@ export const es = {
     yearsTitle: 'Años lectivos',
     yearsNew: 'Nuevo año',
     yearsPeriods: 'Periodos',
+    yearsPeriodsTitle: 'Periodos',
+    yearsNoHolidays: 'Sin festivos registrados.',
     yearsPeriodsCount: (n: number) => `${n} periodos`,
     yearsStart: 'Inicio',
     yearsEnd: 'Fin',

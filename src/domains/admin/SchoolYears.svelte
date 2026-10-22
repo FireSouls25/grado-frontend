@@ -454,21 +454,32 @@
               {/if}
             </div>
           </div>
-          <p class="muted">{shortDay(y.StartDate)} → {shortDayYear(y.EndDate)} · {$t.admin.yearsHolidaysCount(y.Holidays.length)}{y.NoClassDays.length > 0 ? ` · ${$t.admin.yearsNoClassCount(y.NoClassDays.length)}` : ''}</p>
+          <p class="muted">{shortDay(y.StartDate)} → {shortDayYear(y.EndDate)}</p>
+          <div class="row-head">
+            <h3>{$t.admin.yearsHolidays} ({y.Holidays.length})</h3>
+          </div>
           {#if y.Holidays.length > 0}
             <p class="chips">
               {#each y.Holidays.map(isoDay) as h}
                 <span class="chip" title={h}>{shortDay(h)}</span>
               {/each}
             </p>
+          {:else}
+            <p class="muted">{$t.admin.yearsNoHolidays}</p>
           {/if}
           {#if y.NoClassDays.length > 0}
+            <div class="row-head">
+              <h3>{$t.admin.yearsNoClass} ({y.NoClassDays.length})</h3>
+            </div>
             <p class="chips">
               {#each y.NoClassDays.map(isoDay) as h}
-                <span class="chip chip-pink" title={h}>{$t.admin.yearsNoClassShort}: {shortDay(h)}</span>
+                <span class="chip chip-pink" title={h}>{shortDay(h)}</span>
               {/each}
             </p>
           {/if}
+          <div class="row-head">
+            <h3>{$t.admin.yearsPeriodsTitle} ({y.Periods})</h3>
+          </div>
           {#if y.PeriodRanges.length > 0}
             <PeriodBlocks
               ranges={y.PeriodRanges.map((r) => ({ start: isoDay(r.Start), end: isoDay(r.End) }))}
