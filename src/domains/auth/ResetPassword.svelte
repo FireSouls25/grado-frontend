@@ -4,6 +4,8 @@
   import { push } from 'svelte-spa-router';
   import { ApiError } from '$lib/api/types';
   import { resetPassword } from '../teacher/api';
+  import { createCooldown } from './cooldown';
+  import { onDestroy } from 'svelte';
 
   export let params: { token?: string } = {};
 
@@ -15,6 +17,8 @@
   let error = '';
   let busy = false;
   let done = false;
+  const cooldown = createCooldown();
+  onDestroy(() => cooldown.stop());
 
   function passwordOk(value: string): boolean {
     if (value.length < 8 || value.length > 72) return false;
@@ -46,6 +50,7 @@
         error = err.message || $t.recovery.invalidToken;
       } else if (err instanceof ApiError && err.status === 429) {
         error = err.message || $t.login.rateLimited;
+        cooldown.start(60);
       } else if (err instanceof ApiError) {
         error = err.message || $t.common.loadError;
       } else {
@@ -105,8 +110,8 @@
       {#if error}
         <p class="error" role="alert">{error}</p>
       {/if}
-      <button class="primary" type="submit" disabled={busy}>
-        {busy ? $t.recovery.resetting : $t.recovery.resetSubmit}
+      <button class="primary" type="submit" disabled={busy || $cooldown > 0}>
+        {busy ? $t.recovery.resetting : $cooldown > 0 ? $t.login.retryIn($cooldown) : $t.recovery.resetSubmit}
       </button>
       <a class="forgot" href="#/recuperar">{$t.recovery.requestNew}</a>
     </form>

@@ -5,8 +5,9 @@
   import { me, login } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { push } from 'svelte-spa-router';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
+  import { createCooldown } from './cooldown';
 
   // Draft identifier only (never the password): survives any remount so
   // typed text is never lost. Cleared on successful login.
@@ -26,6 +27,8 @@
   let error = '';
   let busy = false;
   let expiredNotice = false;
+  const cooldown = createCooldown();
+  onDestroy(() => cooldown.stop());
 
   onMount(() => {
     if (get(authNotice) === 'expired') {
@@ -71,6 +74,7 @@
         error = err.message || $t.login.invalidPassword;
       } else if (err instanceof ApiError && err.status === 429) {
         error = err.message || $t.login.rateLimited;
+        cooldown.start(60);
       } else if (err instanceof ApiError) {
         error = err.message || $t.common.loadError;
       } else {
@@ -150,8 +154,8 @@
         <p class="error empty" aria-hidden="true">&nbsp;</p>
       {/if}
 
-      <button class="primary" type="submit" disabled={busy}>
-        {busy ? $t.login.signingIn : $t.login.submit}
+      <button class="primary" type="submit" disabled={busy || $cooldown > 0}>
+        {busy ? $t.login.signingIn : $cooldown > 0 ? $t.login.retryIn($cooldown) : $t.login.submit}
       </button>
 
       <a class="forgot" href="#/recuperar">{$t.login.forgot}</a>

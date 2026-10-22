@@ -29,9 +29,9 @@ y `PUT /v1/users/{id}/active`. El frontend (`main` = ex-`dev/perfil`) solo consu
       estado del login, confirmación, feedback. (Hoy solo retirar perfil, no login.)
 
 ## Fase C — Respuesta a throttle (backend #4) [chico]
-- [ ] C1 login/recover/reset: 429 con mensaje del backend + botón deshabilitado con
-      cuenta regresiva simple (ventana 1 min).
-- [ ] C2 `es.ts`: clave `rateLimited` ("Demasiados intentos, espera un minuto").
+- [x] C1 login/recover/reset: 429 con mensaje del backend + botón deshabilitado con
+      cuenta regresiva (helper `cooldown.ts`, ventana 1 min).
+- [x] C2 `es.ts`: `rateLimited` + `retryIn(s)`; recover/reset reutilizan login.
 
 ## Fase D — Verificación perfil/revocación (backend #1/#2) [chico]
 - [ ] D1 re-verificar `ProfilePanel`/`profile.ts` (password/foto) contra backend `main`
