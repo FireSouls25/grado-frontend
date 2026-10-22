@@ -79,6 +79,18 @@
     return v ? v.slice(0, 10) : '';
   }
 
+  function shortDay(v: string): string {
+    const d = new Date(`${isoDay(v)}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return isoDay(v);
+    return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }).replace('.', '');
+  }
+
+  function shortDayYear(v: string): string {
+    const d = new Date(`${isoDay(v)}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return isoDay(v);
+    return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '');
+  }
+
   function toRFC3339(day: string): string {
     return new Date(day + 'T00:00:00Z').toISOString();
   }
@@ -213,6 +225,7 @@
       ranges: (y.PeriodRanges ?? []).map((r) => ({ start: isoDay(r.Start), end: isoDay(r.End) }))
     };
     editStarted = false;
+    if (editForm.ranges.length === 0) splitEven(editForm);
     try {
       const groups = await guarded(() => groupsByYear(y.Year));
       editStarted = groups !== null && groups.length > 0;
@@ -441,18 +454,18 @@
               {/if}
             </div>
           </div>
-          <p class="muted">{isoDay(y.StartDate)} → {isoDay(y.EndDate)} · {$t.admin.yearsHolidaysCount(y.Holidays.length)}{y.NoClassDays.length > 0 ? ` · ${$t.admin.yearsNoClassCount(y.NoClassDays.length)}` : ''}</p>
+          <p class="muted">{shortDay(y.StartDate)} → {shortDayYear(y.EndDate)} · {$t.admin.yearsHolidaysCount(y.Holidays.length)}{y.NoClassDays.length > 0 ? ` · ${$t.admin.yearsNoClassCount(y.NoClassDays.length)}` : ''}</p>
           {#if y.Holidays.length > 0}
             <p class="chips">
               {#each y.Holidays.map(isoDay) as h}
-                <span class="chip">{h}</span>
+                <span class="chip" title={h}>{shortDay(h)}</span>
               {/each}
             </p>
           {/if}
           {#if y.NoClassDays.length > 0}
             <p class="chips">
               {#each y.NoClassDays.map(isoDay) as h}
-                <span class="chip chip-pink">{$t.admin.yearsNoClassShort}: {h}</span>
+                <span class="chip chip-pink" title={h}>{$t.admin.yearsNoClassShort}: {shortDay(h)}</span>
               {/each}
             </p>
           {/if}
@@ -482,11 +495,14 @@
             {#if editStarted && !y.Closed}
               <p class="muted">{$t.admin.yearsStartedNote}</p>
             {/if}
-            {#if !editStarted && !y.Closed}
+            {#if (!editStarted || y.PeriodRanges.length === 0) && !y.Closed}
               <div class="row-head">
                 <h3>{$t.admin.yearsRanges}</h3>
                 <button type="button" class="mini" on:click={() => splitEven(editForm)}>{$t.admin.yearsSplitEven}</button>
               </div>
+              {#if editStarted && y.PeriodRanges.length === 0}
+                <p class="muted">{$t.admin.yearsCompleteRanges}</p>
+              {/if}
               <PeriodBlocks
                 bind:ranges={editForm.ranges}
                 min={editForm.start}
