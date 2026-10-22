@@ -94,7 +94,9 @@ Notas de los endpoints de edición:
   política de contraseña vive en el backend (`400` con
   `users.err_weak_password`). El panel de perfil abre el formulario con
   "Cambiar contraseña"; los tokens ya emitidos quedan vigentes hasta
-  expirar (no hay denylist todavía).
+  expirar: la rotación invalida por versión y revoca los refresh
+  (`token_version` + `RevokeAllForUser`). Tras cambiar la clave, el panel
+  cierra la sesión local y pide entrar de nuevo.
 
 ## Bloqueos para el dominio docente (documentados)
 
@@ -102,16 +104,20 @@ Notas de los endpoints de edición:
   `users.TeacherID` (ver `docs/auth-backend.md`); el nombre del docente
   ya no está pendiente: `GET /v1/me` trae el perfil (`teacher.names`,
   `teacher.surnames`) y el panel de perfil lo muestra.
-- `POST /v1/roles` ya existe (admin) pero el frontend aún no lo invoca
-  al crear un docente con cuenta.
+- `POST /v1/roles` ya existe (admin) y el alta de docente lo otorga
+  (`role: 'teacher'` en `createUser`); el vínculo docente se crea con
+  `teacherID` en el mismo llamado.
 
 ## Autenticación
 
 Login real: `POST /v1/login {identifier, password}` verifica bcrypt en
-el servidor y devuelve `{token, expiresAt, subject, roles, home}`.
-El cliente guarda el token (`grado.token`) y lo envía como
-`Authorization: Bearer`. Identificador y contraseña comparten un único
-401 (`users.err_invalid_credentials`); el vencimiento redirige a
-`/login` vía `guarded()`. `docs/auth-backend.md` documenta el estado
-real de `users`, throttling y lo que sigue pendiente (refresh,
-revocación).
+el servidor y devuelve `{token, expiresAt, refreshToken,
+refreshExpiresAt, subject, roles, home}`. El cliente guarda el par
+(`grado.token` + `grado.refresh`, más cookie HttpOnly cuando aplica) y
+envía `Authorization: Bearer`. `session.ts` rota proactivo (~80% TTL) y
+`guarded()` reintenta una vez ante 401; si la sesión murió (revocado,
+deshabilitado, rotado), limpia y va a `/login` con aviso. Logout avisa a
+`POST /v1/logout` best-effort. Throttle 429 con cuenta regresiva en los
+formularios; recuperación en `/recuperar` y `/recuperar/:token`.
+Detalle en `docs/auth-backend.md`; lo pendiente vive en
+`spec/BACKLOG.md`.
