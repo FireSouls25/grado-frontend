@@ -5,7 +5,7 @@ import { ApiError } from '$lib/api/types';
 
 /** Set when a guarded call dies with 401 even after rotation: the login
  *  page shows an expiry notice once, then clears it. */
-export const authNotice = writable<'' | 'expired'>('');
+export const authNotice = writable<'' | 'expired' | 'passwordChanged'>('');
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let inflight: Promise<boolean> | null = null;

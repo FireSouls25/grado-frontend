@@ -2,6 +2,8 @@
   import { t } from '$lib/i18n';
   import { ApiError } from '$lib/api/types';
   import { profile } from './profile';
+  import { authNotice, session } from '../../domains/auth/session';
+  import { push } from 'svelte-spa-router';
 
   let photoInput: HTMLInputElement | null = null;
   let photoError = '';
@@ -126,10 +128,14 @@
     pwSaving = true;
     try {
       await profile.changePassword(pwCurrent, pwNew);
-      pwFeedback = $t.profile.passwordSaved;
       pwCurrent = '';
       pwNew = '';
       pwShow = false;
+      pwOpen = false;
+      // Rotation kills this bearer too: every session closed, re-login.
+      authNotice.set('passwordChanged');
+      await session.logout();
+      push('/login');
     } catch (err) {
       pwError = err instanceof ApiError ? err.message : $t.common.loadError;
     } finally {

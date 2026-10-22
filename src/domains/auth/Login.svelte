@@ -26,13 +26,14 @@
   let showPassword = false;
   let error = '';
   let busy = false;
-  let expiredNotice = false;
+  let noticeKey: '' | 'sessionExpired' | 'passwordChanged' = '';
   const cooldown = createCooldown();
   onDestroy(() => cooldown.stop());
 
   onMount(() => {
-    if (get(authNotice) === 'expired') {
-      expiredNotice = true;
+    const v = get(authNotice);
+    if (v === 'expired' || v === 'passwordChanged') {
+      noticeKey = v === 'expired' ? 'sessionExpired' : 'passwordChanged';
       authNotice.set('');
     }
   });
@@ -145,8 +146,8 @@
         </button>
       </div>
 
-      {#if expiredNotice}
-        <p class="notice" role="status">{$t.login.sessionExpired}</p>
+      {#if noticeKey}
+        <p class="notice" role="status">{$t.login[noticeKey]}</p>
       {/if}
       {#if error}
         <p class="error" role="alert">{error}</p>

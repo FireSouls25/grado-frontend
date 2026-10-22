@@ -34,6 +34,7 @@ export const es = {
     rateLimited: 'Demasiados intentos. Espera un minuto e intenta de nuevo.',
     retryIn: (s: number) => `Espera ${s}s para reintentar.`,
     sessionExpired: 'Tu sesión terminó. Entra de nuevo para continuar.',
+    passwordChanged: 'Contraseña actualizada. Entra de nuevo con tu nueva contraseña.',
     features: [
       {
         title: 'Lista en segundos',
