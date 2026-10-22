@@ -34,9 +34,12 @@ y `PUT /v1/users/{id}/active`. El frontend (`main` = ex-`dev/perfil`) solo consu
 - [x] C2 `es.ts`: `rateLimited` + `retryIn(s)`; recover/reset reutilizan login.
 
 ## Fase D — Verificación perfil/revocación (backend #1/#2) [chico]
-- [ ] D1 re-verificar `ProfilePanel`/`profile.ts` (password/foto) contra backend `main`
-      real; tras cambio de clave avisar "las demás sesiones se cerraron".
-- [ ] D2 al caer a `/login` por 401 distinguir "sesión vencida/revocada" (flag o store).
+- [x] D1 `ProfilePanel`: tras cambio de clave cierra todo y va a `/login`
+      (aviso dedicado `passwordChanged`); verificado contra backend real:
+      login+refresh, rotación y reuso 401, cambio mata access+refresh,
+      recover 204/400/401 + reuso 401, throttle 10×401→429, cuenta en ficha
+      con disable/re-enable, foto propia 404→PUT→GET.
+- [x] D2 `authNotice` distingue `sessionExpired` vs `passwordChanged` en `/login`.
 
 ## Backlog — faltante frontend (con nota de backend)
 - [ ] HU033–037 años/festivos/salones/matrícula/promoción: backend parcial
