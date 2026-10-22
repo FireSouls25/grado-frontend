@@ -75,7 +75,11 @@
     loadError = null;
     try {
       const data = await guarded(() => listYears());
-      if (data === null) return;
+      if (data === null) {
+        // guarded() already routed (401 → login, 403 → back): never spin forever.
+        state = 'error';
+        return;
+      }
       years = data;
       state = 'ready';
     } catch (err) {

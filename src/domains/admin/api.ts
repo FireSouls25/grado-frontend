@@ -623,7 +623,8 @@ export interface NewSchoolYear {
 
 /** Every year with its dated periods, newest first. */
 export async function listYears(): Promise<SchoolYear[]> {
-  return (await api.get<SchoolYear[]>('/v1/schoolyears')) ?? [];
+  const list = (await api.get<SchoolYear[]>('/v1/schoolyears')) ?? [];
+  return list.map((y) => ({ ...y, Holidays: y.Holidays ?? [], NoClassDays: y.NoClassDays ?? [], PeriodRanges: y.PeriodRanges ?? [] }));
 }
 
 export async function getYear(id: string): Promise<SchoolYear> {
