@@ -1,0 +1,19 @@
+# CI frontend: tipos + build. El E2E vive en el backend bajo go test
+# (src/tests/e2e); aquí se verifica que el SPA compile y tipa en verde.
+name: ci
+on:
+  push:
+    branches: [main, "dev/**"]
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build

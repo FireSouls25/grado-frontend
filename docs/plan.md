@@ -45,10 +45,15 @@ y `PUT /v1/users/{id}/active`. El frontend (`main` = ex-`dev/perfil`) solo consu
 - [ ] HU033–037 años/festivos/salones/matrícula/promoción: backend parcial
       (`groupsByYear/createClassGroup`; sin years/enrollments/promociones por HTTP)
       → **primero backend**, luego UI año→salón→nómina→promover/repetir/graduar.
-- [ ] HU039 estudiante ve su historial: backend listo (`view-own-history`) →
-      falta vista dedicada (hoy `EmptyState`).
+- [ ] HU039 vista estudiante: POSIBLE A FUTURO, NO ES GOAL. Backend listo
+      (`view-own-history`); si se pide, armar línea de tiempo propia con
+      `GET /v1/students/{id}`, `/warnings`, `/incidents` (el reporte admin es
+      solo-admin). Hoy `EmptyState` a propósito.
 - [ ] HU038 WhatsApp acudiente: pendiente en ambos; solo campana local hoy.
 - [ ] HU003 recuperación por correo/enlace: B1–B3 cubren flujo por token; envío real
       (mail/WhatsApp) pendiente de integración.
-- [ ] RNF016 E2E automatizada: hoy solo scripts manuales; cubrir login→refresh→
-      recover→throttle 429.
+- [x] RNF016 E2E = CI/CD unificado bajo `go test`: `src/tests/e2e` backend
+      (composición real + seed: login, refresh/reuso, password, recover,
+      throttle) y `.github/workflows/ci.yml` en ambos repos (backend: vet +
+      `go test ./...` con Postgres; frontend: check + build). CD de
+      despliegue/APK pendiente de infra (RNF017).
