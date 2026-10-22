@@ -57,7 +57,22 @@
   }
 
   function freshForm(year: number, periods: number): YearForm {
-    return { year, periods, start: '', end: '', holidays: [], holidayDraft: '', noClass: [], noClassDraft: '', ranges: [] };
+    const b = yearBounds(year);
+    return { year, periods, start: b.start, end: b.end, holidays: [], holidayDraft: '', noClass: [], noClassDraft: '', ranges: [] };
+  }
+
+  /** El año lectivo siempre va del 1 de enero al 31 de diciembre. */
+  function yearBounds(year: number): { start: string; end: string } {
+    if (!year || year < 2000 || year > 2100) return { start: '', end: '' };
+    return { start: `${year}-01-01`, end: `${year}-12-31` };
+  }
+
+  function syncBounds(f: YearForm): void {
+    const b = yearBounds(f.year);
+    f.start = b.start;
+    f.end = b.end;
+    splitEven(f);
+    f = f;
   }
 
   function isoDay(v: string): string {
@@ -136,6 +151,9 @@
   function validateStep1(f: YearForm): string {
     if (!f.year || f.year < 2000 || f.year > 2100) return $t.admin.yearsInvalidYear;
     if (f.periods < 1 || f.periods > 6) return $t.admin.yearsInvalidPeriods;
+    const b = yearBounds(f.year);
+    f.start = b.start;
+    f.end = b.end;
     if (!f.start || !f.end || !(f.end > f.start)) return $t.admin.yearsInvalidDates;
     return '';
   }
@@ -319,12 +337,10 @@
         </div>
         <div class="grid2">
           <label>{$t.admin.yearLabel}
-            <input type="number" min="2000" max="2100" bind:value={form.year} />
+            <input type="number" min="2000" max="2100" bind:value={form.year} on:change={() => syncBounds(form)} />
           </label>
-          <span></span>
-          <label>{$t.admin.yearsStart}<input type="date" bind:value={form.start} /></label>
-          <label>{$t.admin.yearsEnd}<input type="date" bind:value={form.end} /></label>
         </div>
+        <p class="muted">{$t.admin.yearsFixedRange(form.year)}</p>
         {#if error}<p class="error" role="alert">{error}</p>{/if}
         <div class="toolbar">
           <button type="button" class="primary" on:click={goStep2}>{$t.admin.yearsContinue}</button>
@@ -334,7 +350,7 @@
           >{$t.common.cancel}</button>
         </div>
       {:else}
-        <p class="muted">{$t.admin.yearsStepOf(2, 2)}</p>
+        <p class="muted">{$t.admin.yearsStepOf(2, 2)} · {$t.admin.yearsFixedRange(form.year)}</p>
         <div class="row-head">
           <h3>{$t.admin.yearsRanges}</h3>
           <button type="button" class="mini" on:click={() => splitEven(form)}>{$t.admin.yearsSplitEven}</button>
@@ -441,24 +457,27 @@
             </p>
           {/if}
           {#if y.PeriodRanges.length > 0}
-            <ol class="ranges">
-              {#each y.PeriodRanges as r, i}
-                <li><strong>{i + 1}</strong> {isoDay(r.Start)} → {isoDay(r.End)}</li>
-              {/each}
-            </ol>
+            <PeriodBlocks
+              ranges={y.PeriodRanges.map((r) => ({ start: isoDay(r.Start), end: isoDay(r.End) }))}
+              readonly
+              titlePrefix={$t.admin.yearsPeriodBlock}
+            />
           {:else}
             <p class="muted">{$t.admin.yearsNoRanges}</p>
           {/if}
           {#if editing === y.ID}
             <div class="grid2">
               <label>{$t.admin.yearLabel}
-                <input type="number" min="2000" max="2100" bind:value={editForm.year} disabled={editStarted || y.Closed} />
+                <input
+                  type="number" min="2000" max="2100" bind:value={editForm.year} disabled={editStarted || y.Closed}
+                  on:change={() => { if (!editStarted) syncBounds(editForm); }}
+                />
               </label>
               <label>{$t.admin.yearsPeriods}
                 <input type="number" min="1" max="6" bind:value={editForm.periods} disabled={editStarted || y.Closed} />
               </label>
-              <label>{$t.admin.yearsStart}<input type="date" bind:value={editForm.start} disabled={editStarted || y.Closed} /></label>
-              <label>{$t.admin.yearsEnd}<input type="date" bind:value={editForm.end} disabled={editStarted || y.Closed} /></label>
+              <label>{$t.admin.yearsStart}<input type="date" bind:value={editForm.start} disabled /></label>
+              <label>{$t.admin.yearsEnd}<input type="date" bind:value={editForm.end} disabled /></label>
             </div>
             {#if editStarted && !y.Closed}
               <p class="muted">{$t.admin.yearsStartedNote}</p>
@@ -734,20 +753,6 @@
   }
   .primary:disabled {
     opacity: 0.7;
-  }
-  .ranges {
-    margin: 0;
-    padding-left: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.9rem;
-  }
-  .ranges strong {
-    display: inline-block;
-    min-width: 20px;
-    color: var(--muted);
   }
   .x {
     min-width: 24px;

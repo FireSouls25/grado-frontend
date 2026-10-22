@@ -1,34 +1,47 @@
 <script lang="ts">
   // Bloques de periodos: un bloque por periodo con sus dos fechas
-  // (inicio y fin). Se usa al crear y al editar un año sin salones.
+  // (inicio y fin). Se usa al crear y al editar un año sin salones;
+  // en readonly pinta el detalle del año con fechas claras.
   export let ranges: { start: string; end: string }[] = [];
   export let disabled = false;
+  export let readonly = false;
   export let min = '';
   export let max = '';
   export let titlePrefix = 'Periodo';
   export let startLabel = 'Inicio';
   export let endLabel = 'Fin';
+
+  function clearDate(iso: string): string {
+    const d = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
 </script>
 
 {#each ranges as r, i (i)}
   <section class="pblock" aria-label={`${titlePrefix} ${i + 1}`}>
     <h4>{titlePrefix} {i + 1}</h4>
-    <div class="pgrid">
-      <label>{startLabel}
-        <input
-          type="date" min={min || undefined} max={max || undefined}
-          aria-label={`${startLabel} ${titlePrefix} ${i + 1}`}
-          bind:value={r.start} {disabled}
-        />
-      </label>
-      <label>{endLabel}
-        <input
-          type="date" min={min || undefined} max={max || undefined}
-          aria-label={`${endLabel} ${titlePrefix} ${i + 1}`}
-          bind:value={r.end} {disabled}
-        />
-      </label>
-    </div>
+    {#if readonly}
+      <p class="dates">{clearDate(r.start)} → {clearDate(r.end)}</p>
+    {/if}
+    {#if !readonly}
+      <div class="pgrid">
+        <label>{startLabel}
+          <input
+            type="date" min={min || undefined} max={max || undefined}
+            aria-label={`${startLabel} ${titlePrefix} ${i + 1}`}
+            bind:value={r.start} {disabled}
+          />
+        </label>
+        <label>{endLabel}
+          <input
+            type="date" min={min || undefined} max={max || undefined}
+            aria-label={`${endLabel} ${titlePrefix} ${i + 1}`}
+            bind:value={r.end} {disabled}
+          />
+        </label>
+      </div>
+    {/if}
   </section>
 {/each}
 
@@ -75,5 +88,10 @@
     outline: 2px solid var(--accent);
     outline-offset: 0;
     border-color: var(--accent);
+  }
+  .dates {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
   }
 </style>
