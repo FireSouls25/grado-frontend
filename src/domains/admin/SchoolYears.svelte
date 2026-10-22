@@ -7,6 +7,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import AdminShell from './AdminShell.svelte';
+  import PeriodBlocks from './PeriodBlocks.svelte';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { t } from '$lib/i18n';
@@ -28,6 +29,7 @@
   // Creation form. Period count defaults to the newest year's (the
   // suggestion that carries forward), dates and ranges split evenly.
   let creating = false;
+  let step: 1 | 2 = 1;
   let saving = false;
   let feedback = '';
   let error = '';
@@ -94,6 +96,7 @@
     form = freshForm(year, last?.Periods ?? 4);
     error = '';
     feedback = '';
+    step = 1;
     creating = true;
   }
 
@@ -128,6 +131,21 @@
       prevEnd = r.end;
     }
     return '';
+  }
+
+  function validateStep1(f: YearForm): string {
+    if (!f.year || f.year < 2000 || f.year > 2100) return $t.admin.yearsInvalidYear;
+    if (f.periods < 1 || f.periods > 6) return $t.admin.yearsInvalidPeriods;
+    if (!f.start || !f.end || !(f.end > f.start)) return $t.admin.yearsInvalidDates;
+    return '';
+  }
+
+  function goStep2() {
+    error = validateStep1(form);
+    if (error) return;
+    if (form.ranges.length !== form.periods) splitEven(form);
+    error = '';
+    step = 2;
   }
 
   function validate(f: YearForm): string {
@@ -291,30 +309,47 @@
   {#if creating}
     <section class="card">
       <h2>{$t.admin.yearsNew}</h2>
-      <div class="grid2">
-        <label>{$t.admin.yearLabel}
-          <input type="number" min="2000" max="2100" bind:value={form.year} />
-        </label>
-        <label>{$t.admin.yearsPeriods}
-          <input
-            type="number" min="1" max="6" bind:value={form.periods}
-            on:change={() => splitEven(form)}
-          />
-        </label>
-        <label>{$t.admin.yearsStart}<input type="date" bind:value={form.start} on:change={() => splitEven(form)} /></label>
-        <label>{$t.admin.yearsEnd}<input type="date" bind:value={form.end} on:change={() => splitEven(form)} /></label>
-      </div>
-      <div class="row-head">
-        <h3>{$t.admin.yearsRanges}</h3>
-        <button type="button" class="mini" on:click={() => splitEven(form)}>{$t.admin.yearsSplitEven}</button>
-      </div>
-      {#each form.ranges as r, i}
-        <div class="rangerow">
-          <span class="rnum">{i + 1}</span>
-          <input type="date" aria-label={`${$t.admin.yearsStart} ${i + 1}`} bind:value={r.start} />
-          <input type="date" aria-label={`${$t.admin.yearsEnd} ${i + 1}`} bind:value={r.end} />
+      <p class="muted">{$t.admin.yearsStepOf(1, 2)}</p>
+      {#if step === 1}
+        <p class="question">{$t.admin.yearsHowMany(form.year)}</p>
+        <div class="stepper">
+          <button type="button" class="stepbtn" aria-label="−" disabled={form.periods <= 1} on:click={() => { form.periods = Math.max(1, form.periods - 1); form = form; }}>−</button>
+          <strong class="stepval" aria-live="polite">{$t.admin.yearsPeriodsCount(form.periods)}</strong>
+          <button type="button" class="stepbtn" aria-label="+" disabled={form.periods >= 6} on:click={() => { form.periods = Math.min(6, form.periods + 1); form = form; }}>+</button>
         </div>
-      {/each}
+        <div class="grid2">
+          <label>{$t.admin.yearLabel}
+            <input type="number" min="2000" max="2100" bind:value={form.year} />
+          </label>
+          <span></span>
+          <label>{$t.admin.yearsStart}<input type="date" bind:value={form.start} /></label>
+          <label>{$t.admin.yearsEnd}<input type="date" bind:value={form.end} /></label>
+        </div>
+        {#if error}<p class="error" role="alert">{error}</p>{/if}
+        <div class="toolbar">
+          <button type="button" class="primary" on:click={goStep2}>{$t.admin.yearsContinue}</button>
+          <button
+            type="button" class="mini"
+            on:click={() => { creating = false; error = ''; }}
+          >{$t.common.cancel}</button>
+        </div>
+      {:else}
+        <p class="muted">{$t.admin.yearsStepOf(2, 2)}</p>
+        <div class="row-head">
+          <h3>{$t.admin.yearsRanges}</h3>
+          <button type="button" class="mini" on:click={() => splitEven(form)}>{$t.admin.yearsSplitEven}</button>
+        </div>
+        {#if form.ranges.length !== form.periods}
+          <p class="error" role="alert">{$t.admin.yearsNeedRanges}</p>
+        {/if}
+        <PeriodBlocks
+          bind:ranges={form.ranges}
+          min={form.start}
+          max={form.end}
+          titlePrefix={$t.admin.yearsPeriodBlock}
+          startLabel={$t.admin.yearsStart}
+          endLabel={$t.admin.yearsEnd}
+        />
       <div class="row-head">
         <h3>{$t.admin.yearsHolidays}</h3>
         <button type="button" class="mini" disabled={preloading} on:click={() => preloadHolidays(form)}>
@@ -358,7 +393,8 @@
       {/if}
       {#if error}<p class="error" role="alert">{error}</p>{/if}
       <div class="toolbar">
-        <button type="button" class="primary" disabled={saving} on:click={save}>
+        <button type="button" class="mini" on:click={() => { step = 1; error = ''; }}>{$t.admin.yearsBack}</button>
+        <button type="button" class="primary" disabled={saving || form.ranges.length !== form.periods} on:click={save}>
           {saving ? $t.common.retrying : $t.admin.formCreate}
         </button>
         <button
@@ -366,6 +402,7 @@
           on:click={() => { creating = false; error = ''; }}
         >{$t.common.cancel}</button>
       </div>
+      {/if}
     </section>
   {/if}
 
@@ -425,6 +462,20 @@
             </div>
             {#if editStarted && !y.Closed}
               <p class="muted">{$t.admin.yearsStartedNote}</p>
+            {/if}
+            {#if !editStarted && !y.Closed}
+              <div class="row-head">
+                <h3>{$t.admin.yearsRanges}</h3>
+                <button type="button" class="mini" on:click={() => splitEven(editForm)}>{$t.admin.yearsSplitEven}</button>
+              </div>
+              <PeriodBlocks
+                bind:ranges={editForm.ranges}
+                min={editForm.start}
+                max={editForm.end}
+                titlePrefix={$t.admin.yearsPeriodBlock}
+                startLabel={$t.admin.yearsStart}
+                endLabel={$t.admin.yearsEnd}
+              />
             {/if}
             {#if y.Closed}
               <p class="muted">{$t.admin.yearsClosedNote}</p>
@@ -520,6 +571,35 @@
     align-items: center;
     flex-wrap: wrap;
   }
+  .question {
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 4px 0 8px;
+  }
+  .stepbtn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .stepbtn:disabled {
+    opacity: 0.4;
+  }
+  .stepval {
+    font-size: 1.4rem;
+    min-width: 110px;
+    text-align: center;
+  }
   .flash {
     color: var(--chip-green-ink);
     font-weight: 600;
@@ -602,25 +682,6 @@
     border-radius: var(--radius-chip);
     padding: 10px 12px;
     min-height: 48px;
-  }
-  .rangerow {
-    display: grid;
-    grid-template-columns: 32px 1fr 1fr;
-    gap: 8px;
-    align-items: center;
-  }
-  .rnum {
-    font-weight: 700;
-    color: var(--muted);
-    text-align: center;
-  }
-  .rangerow input {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
-    min-height: 48px;
-    width: 100%;
   }
   .hollyrow {
     display: flex;
