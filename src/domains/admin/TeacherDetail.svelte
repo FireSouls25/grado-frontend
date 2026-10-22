@@ -21,6 +21,8 @@
     uploadTeacherPhoto,
     teacherSessionsTaken,
     teacherWarningsMade,
+    teacherAccount,
+    setUserActive,
     teachers,
     scheduleEntries,
     groupsByYear,
@@ -34,6 +36,7 @@
     type TeacherHistory,
     type TeacherSessionRow,
     type RecentWarning,
+    type TeacherAccount,
   } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
@@ -257,6 +260,48 @@
     void loadHistory();
     void loadPhoto();
     void loadActivity();
+    void loadAccount();
+  }
+
+  // Login behind the profile: null means no account yet (honest 404).
+  let account: TeacherAccount | null = null;
+  let accountBusy = false;
+  let confirmBlock = false;
+
+  async function loadAccount() {
+    account = null;
+    confirmBlock = false;
+    try {
+      account = await guarded(() => teacherAccount(id));
+    } catch {
+      account = null;
+    }
+  }
+
+  async function toggleAccount() {
+    if (!account || accountBusy) return;
+    if (account.Active && !confirmBlock) {
+      confirmBlock = true;
+      return;
+    }
+    confirmBlock = false;
+    accountBusy = true;
+    editFeedback = '';
+    try {
+      const updated = await guarded(() => setUserActive(account!.ID, !account!.Active));
+      if (!updated) return;
+      account = { ...account!, Active: updated.Active };
+      editFeedback = updated.Active
+        ? $t.admin.accountUnblockedOk
+        : $t.admin.accountBlockedOk;
+      notify(editFeedback);
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 401)) {
+        editFeedback = err instanceof ApiError ? err.message : $t.common.loadError;
+      }
+    } finally {
+      accountBusy = false;
+    }
   }
 
   let teacherEntries: ScheduleEntry[] = [];
@@ -477,6 +522,51 @@
             {/if}
             {#if !detail.Active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
           </div>
+        </section>
+        <section class="card" aria-label={$t.admin.accountTitle}>
+          <div class="row-head">
+            <h2>{$t.admin.accountTitle}</h2>
+          </div>
+          {#if account}
+            <dl class="idblock">
+              <div>
+                <dt>{$t.admin.formUsername}</dt>
+                <dd>{account.Username}</dd>
+              </div>
+              {#if account.Email}
+                <div>
+                  <dt>{$t.admin.formEmail}</dt>
+                  <dd>{account.Email}</dd>
+                </div>
+              {/if}
+            </dl>
+            <div class="statusrow">
+              {#if account.Active}
+                <span class="chip chip-green">{$t.admin.accountActive}</span>
+              {:else}
+                <span class="chip chip-pink">{$t.admin.accountBlocked}</span>
+              {/if}
+            </div>
+            {#if confirmBlock}
+              <p class="muted">{$t.admin.confirmBlockAccess(account.Username)}</p>
+            {/if}
+            <div class="toolbar">
+              <button type="button" class="mini" on:click={toggleAccount} disabled={accountBusy}>
+                {#if account.Active}
+                  {confirmBlock ? $t.admin.confirmBlock : $t.admin.blockAccess}
+                {:else}
+                  {$t.admin.unblockAccess}
+                {/if}
+              </button>
+              {#if confirmBlock}
+                <button type="button" class="mini" on:click={() => (confirmBlock = false)}>
+                  {$t.common.cancel}
+                </button>
+              {/if}
+            </div>
+          {:else}
+            <p class="muted">{$t.admin.accountNone}</p>
+          {/if}
         </section>
       </aside>
       <div class="main">

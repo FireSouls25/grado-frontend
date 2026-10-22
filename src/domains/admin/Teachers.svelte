@@ -175,7 +175,7 @@
     if (error) return;
     saving = true;
     try {
-      await createTeacher({
+      const created = await createTeacher({
         Names: form.Names.trim(),
         Surnames: form.Surnames.trim(),
         DocumentID: form.DocumentID.trim(),
@@ -191,7 +191,8 @@
             username,
             email: form.Email.trim(),
             password: form.Password,
-            role: 'teacher'
+            role: 'teacher',
+            teacherID: created.ID
           });
           extra = ' ' + $t.admin.accountCreated;
         } catch (err) {

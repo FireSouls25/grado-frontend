@@ -25,7 +25,7 @@ y `PUT /v1/users/{id}/active`. El frontend (`main` = ex-`dev/perfil`) solo consu
       `POST /v1/recover/reset`; débil → 400 inline, inválido/vencido → pedir nuevo;
       éxito → `/login`.
 - [x] B3 `es.ts`: actualizar `recovery.*` (quitar "demostración visual").
-- [ ] B4 admin (bloqueado: falta endpoint backend `GET /v1/teachers/{id}/account` → login `id`; el alta ya crea cuenta, el toggle perfil ya retira sin borrar): toggle cuenta `PUT /v1/users/{id}/active` en docentes (o sección Cuentas):
+- [x] B4 admin (cuenta en ficha: `GET /v1/teachers/{id}/account`, toggle `PUT /v1/users/{id}/active`; alta enlaza `teacherID`): toggle cuenta `PUT /v1/users/{id}/active` en docentes (o sección Cuentas):
       estado del login, confirmación, feedback. (Hoy solo retirar perfil, no login.)
 
 ## Fase C — Respuesta a throttle (backend #4) [chico]

@@ -539,8 +539,32 @@ export interface UserAccount {
 // Creates a login account (admin only). Teachers never self-register:
 // the admin sets their initial password here. Optionally grants a role
 // in the same call (e.g. "teacher").
-export async function createUser(input: NewUser): Promise<UserAccount> {
+export async function createUser(input: NewUser & { teacherID?: string }): Promise<UserAccount> {
   return api.post<UserAccount>('/v1/users', input);
+}
+
+/** Login linked to a teacher profile, or null when the teacher has none
+ *  (honest 404: the admin creates it from the list). */
+export interface TeacherAccount {
+  ID: string;
+  Username: string;
+  Email: string;
+  Active: boolean;
+}
+
+export async function teacherAccount(id: string): Promise<TeacherAccount | null> {
+  try {
+    return await api.get<TeacherAccount>(`/v1/teachers/${encodeURIComponent(id)}/account`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+/** Enables or disables a login without deleting it (lockout response).
+ *  Disabling kills bearers at the next request; refresh is rejected. */
+export async function setUserActive(id: string, active: boolean): Promise<UserAccount> {
+  return api.put<UserAccount>(`/v1/users/${encodeURIComponent(id)}/active`, { active });
 }
 
 interface RawGroup {
