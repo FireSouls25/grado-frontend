@@ -767,6 +767,7 @@ export const es = {
     yearsBack: 'Atrás',
     yearsPeriodBlock: 'Periodo',
     yearsCompleteRanges: 'Este año no tiene periodos fechados: complétalos una vez. Después quedan fijos.',
+    yearsCompleteRangesAction: 'Completar periodos',
     yearsFixedRange: (year: number) => `El año lectivo va del 1 de enero al 31 de diciembre de ${year}.`,
     yearsNoClass: 'Días sin clases',
     yearsNoClassShort: 'Sin clases',

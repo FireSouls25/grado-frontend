@@ -477,6 +477,11 @@
             />
           {:else}
             <p class="muted">{$t.admin.yearsNoRanges}</p>
+            {#if !y.Closed}
+              <div class="toolbar">
+                <button type="button" class="mini" on:click={() => startEdit(y)}>{$t.admin.yearsCompleteRangesAction}</button>
+              </div>
+            {/if}
           {/if}
           {#if editing === y.ID}
             <div class="grid2">
