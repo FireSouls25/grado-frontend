@@ -605,6 +605,8 @@ export interface SchoolYear {
   StartDate: string;
   EndDate: string;
   Holidays: string[];
+  /** Manually marked days without classes (not official holidays). */
+  NoClassDays: string[];
   PeriodRanges: PeriodRange[];
   Closed: boolean;
 }
@@ -615,6 +617,7 @@ export interface NewSchoolYear {
   startDate: string;
   endDate: string;
   holidays: string[];
+  noClassDays: string[];
   periodRanges: { start: string; end: string }[];
 }
 
@@ -626,7 +629,14 @@ export async function listYears(): Promise<SchoolYear[]> {
 export async function getYear(id: string): Promise<SchoolYear> {
   const y = await api.get<SchoolYear>(`/v1/schoolyears/${encodeURIComponent(id)}`);
   if (!y) throw new ApiError(404, { error: { code: 'http.err_not_found', message: 'Año no encontrado.' } });
-  return { ...y, Holidays: y.Holidays ?? [], PeriodRanges: y.PeriodRanges ?? [] };
+  return { ...y, Holidays: y.Holidays ?? [], NoClassDays: y.NoClassDays ?? [], PeriodRanges: y.PeriodRanges ?? [] };
+}
+
+/** Official Colombian holidays (Ley 51 de 1983) as YYYY-MM-DD: the
+ *  editable seed for the year form. */
+export async function officialHolidays(year: number): Promise<string[]> {
+  const r = await api.get<{ year: number; holidays: string[] }>(`/v1/holidays?year=${year}`);
+  return r?.holidays ?? [];
 }
 
 /** Creates a year: new years always date their periods. */
@@ -637,6 +647,7 @@ export async function createYear(input: NewSchoolYear): Promise<SchoolYear> {
     startDate: input.startDate,
     endDate: input.endDate,
     holidays: input.holidays,
+    noClassDays: input.noClassDays,
     periodRanges: input.periodRanges
   });
 }
@@ -649,6 +660,7 @@ export async function updateYear(id: string, input: NewSchoolYear): Promise<Scho
     startDate: input.startDate,
     endDate: input.endDate,
     holidays: input.holidays,
+    noClassDays: input.noClassDays,
     periodRanges: input.periodRanges
   });
 }

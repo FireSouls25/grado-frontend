@@ -10,7 +10,7 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import { guarded } from '$lib/nav';
   import { notify } from '$lib/ui/notice';
-  import { teacherRoll, recordTeacherDay, type TeacherRollRow, type TeacherMarkStatus } from './api';
+  import { teacherRoll, recordTeacherDay, listYears, teachers, type TeacherRollRow, type TeacherMarkStatus } from './api';
   import { rollDate, resetRollDate } from './rollDate';
 
   const currentYear = new Date().getFullYear();
@@ -37,6 +37,32 @@
   let state: State = 'loading';
   let loadError: unknown = null;
   let rows: TeacherRollRow[] = [];
+  let dayKind: '' | 'holiday' | 'noclass' = '';
+  let yearsCache: { StartDate: string; EndDate: string; Holidays: string[]; NoClassDays?: string[] }[] = [];
+  let yearsLoaded = false;
+
+  function kindOf(dayISO: string): '' | 'holiday' | 'noclass' {
+    const d = new Date(`${dayISO}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return '';
+    for (const y of yearsCache) {
+      if (d < new Date(y.StartDate) || d > new Date(y.EndDate)) continue;
+      if ((y.Holidays ?? []).some((h) => h.slice(0, 10) === dayISO)) return 'holiday';
+      if ((y.NoClassDays ?? []).some((h) => h.slice(0, 10) === dayISO)) return 'noclass';
+      return '';
+    }
+    return '';
+  }
+
+  async function ensureYears() {
+    if (yearsLoaded) return;
+    yearsLoaded = true;
+    try {
+      const list = await guarded(() => listYears());
+      if (list) yearsCache = list;
+    } catch {
+      /* best effort: without years the banner just stays hidden */
+    }
+  }
   // Explicit picks only: untouched rows stay unselected AND unsaved.
   // One shared motive next to save, attached to non-present marks.
   let sel: Record<string, TeacherMarkStatus> = {};
@@ -49,8 +75,28 @@
     state = 'loading';
     loadError = null;
     sel = {};
+    dayKind = '';
     try {
+      await ensureYears();
+      dayKind = kindOf(day);
       rows = (await guarded(() => teacherRoll(day))) ?? [];
+      // Non-school day without expectations: offer the roster anyway so
+      // an explicit roll stays possible (the backend records it).
+      if (rows.length === 0 && dayKind !== '') {
+        const all = await guarded(() => teachers());
+        if (all) {
+          rows = all
+            .filter((x) => x.Active)
+            .map((x) => ({
+              TeacherID: x.ID,
+              TeacherName: `${x.Surnames} ${x.Names}`,
+              Day: day,
+              Status: '' as TeacherRollRow['Status'],
+              Note: '',
+              Recorded: false
+            }));
+        }
+      }
       state = 'ready';
     } catch (err) {
       loadError = err;
@@ -143,6 +189,11 @@
       </div>
     </div>
 
+    {#if dayKind !== '' && state === 'ready'}
+      <p class="notice" role="status">
+        {dayKind === 'holiday' ? $t.troll.nonSchoolHoliday : $t.troll.nonSchoolDay}
+      </p>
+    {/if}
     {#if state === 'loading'}
       <Skeleton rows={4} />
     {:else if state === 'error'}

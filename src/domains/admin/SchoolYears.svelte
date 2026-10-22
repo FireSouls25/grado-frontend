@@ -15,6 +15,7 @@
     createYear,
     updateYear,
     closeYear,
+    officialHolidays,
     groupsByYear,
     type SchoolYear
   } from './api';
@@ -48,11 +49,13 @@
     end: string;
     holidays: string[];
     holidayDraft: string;
+    noClass: string[];
+    noClassDraft: string;
     ranges: { start: string; end: string }[];
   }
 
   function freshForm(year: number, periods: number): YearForm {
-    return { year, periods, start: '', end: '', holidays: [], holidayDraft: '', ranges: [] };
+    return { year, periods, start: '', end: '', holidays: [], holidayDraft: '', noClass: [], noClassDraft: '', ranges: [] };
   }
 
   function isoDay(v: string): string {
@@ -143,6 +146,7 @@
         startDate: toRFC3339(form.start),
         endDate: toRFC3339(form.end),
         holidays: form.holidays.map(toRFC3339),
+        noClassDays: form.noClass.map(toRFC3339),
         periodRanges: form.ranges.map((r) => ({ start: toRFC3339(r.start), end: toRFC3339(r.end) }))
       });
       feedback = $t.admin.yearCreated;
@@ -164,6 +168,8 @@
       end: isoDay(y.EndDate),
       holidays: (y.Holidays ?? []).map(isoDay),
       holidayDraft: '',
+      noClass: (y.NoClassDays ?? []).map(isoDay),
+      noClassDraft: '',
       ranges: (y.PeriodRanges ?? []).map((r) => ({ start: isoDay(r.Start), end: isoDay(r.End) }))
     };
     editStarted = false;
@@ -192,6 +198,7 @@
         startDate: toRFC3339(editForm.start),
         endDate: toRFC3339(editForm.end),
         holidays: editForm.holidays.map(toRFC3339),
+        noClassDays: editForm.noClass.map(toRFC3339),
         periodRanges: editForm.ranges.map((r) => ({ start: toRFC3339(r.start), end: toRFC3339(r.end) }))
       });
       feedback = $t.admin.yearUpdated;
@@ -228,6 +235,37 @@
     const day = isoDay(f.holidayDraft);
     if (day && !f.holidays.includes(day)) f.holidays = [...f.holidays, day].sort();
     f.holidayDraft = '';
+  }
+
+  function addNoClass(f: YearForm) {
+    if (!f.noClassDraft) return;
+    const day = isoDay(f.noClassDraft);
+    if (day && !f.noClass.includes(day)) f.noClass = [...f.noClass, day].sort();
+    f.noClassDraft = '';
+  }
+
+  let preloading = false;
+  let preloadError = '';
+
+  async function preloadHolidays(f: YearForm) {
+    if (preloading) return;
+    preloadError = '';
+    if (!f.year || f.year < 2000 || f.year > 2100) {
+      preloadError = $t.admin.yearsInvalidYear;
+      return;
+    }
+    preloading = true;
+    try {
+      const days = await guarded(() => officialHolidays(f.year));
+      if (days) {
+        const merged = new Set([...f.holidays, ...days]);
+        f.holidays = [...merged].sort();
+      }
+    } catch (err) {
+      preloadError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      preloading = false;
+    }
   }
 
   onMount(load);
@@ -275,7 +313,11 @@
       {/each}
       <div class="row-head">
         <h3>{$t.admin.yearsHolidays}</h3>
+        <button type="button" class="mini" disabled={preloading} on:click={() => preloadHolidays(form)}>
+          {preloading ? $t.common.retrying : $t.admin.yearsPreloadHolidays}
+        </button>
       </div>
+      {#if preloadError}<p class="error" role="alert">{preloadError}</p>{/if}
       <div class="hollyrow">
         <input type="date" bind:value={form.holidayDraft} />
         <button type="button" class="mini" on:click={() => addHoliday(form)}>{$t.admin.yearsAddHoliday}</button>
@@ -287,6 +329,25 @@
               <button
                 type="button" class="x" aria-label={$t.common.close}
                 on:click={() => (form.holidays = form.holidays.filter((x) => x !== h))}>×</button>
+            </span>
+          {/each}
+        </p>
+      {/if}
+      <div class="row-head">
+        <h3>{$t.admin.yearsNoClass}</h3>
+      </div>
+      <p class="muted">{$t.admin.yearsNoClassHint}</p>
+      <div class="hollyrow">
+        <input type="date" bind:value={form.noClassDraft} />
+        <button type="button" class="mini" on:click={() => addNoClass(form)}>{$t.admin.yearsAddHoliday}</button>
+      </div>
+      {#if form.noClass.length > 0}
+        <p class="chips">
+          {#each form.noClass as h}
+            <span class="chip chip-pink">{h}
+              <button
+                type="button" class="x" aria-label={$t.common.close}
+                on:click={() => (form.noClass = form.noClass.filter((x) => x !== h))}>×</button>
             </span>
           {/each}
         </p>
@@ -323,7 +384,21 @@
               {/if}
             </div>
           </div>
-          <p class="muted">{isoDay(y.StartDate)} → {isoDay(y.EndDate)} · {$t.admin.yearsHolidaysCount(y.Holidays.length)}</p>
+          <p class="muted">{isoDay(y.StartDate)} → {isoDay(y.EndDate)} · {$t.admin.yearsHolidaysCount(y.Holidays.length)}{y.NoClassDays.length > 0 ? ` · ${$t.admin.yearsNoClassCount(y.NoClassDays.length)}` : ''}</p>
+          {#if y.Holidays.length > 0}
+            <p class="chips">
+              {#each y.Holidays.map(isoDay) as h}
+                <span class="chip">{h}</span>
+              {/each}
+            </p>
+          {/if}
+          {#if y.NoClassDays.length > 0}
+            <p class="chips">
+              {#each y.NoClassDays.map(isoDay) as h}
+                <span class="chip chip-pink">{$t.admin.yearsNoClassShort}: {h}</span>
+              {/each}
+            </p>
+          {/if}
           {#if y.PeriodRanges.length > 0}
             <ol class="ranges">
               {#each y.PeriodRanges as r, i}
@@ -351,6 +426,13 @@
               <p class="muted">{$t.admin.yearsClosedNote}</p>
             {/if}
             {#if !y.Closed}
+              <div class="row-head">
+                <h3>{$t.admin.yearsHolidays}</h3>
+                <button type="button" class="mini" disabled={preloading} on:click={() => preloadHolidays(editForm)}>
+                  {preloading ? $t.common.retrying : $t.admin.yearsPreloadHolidays}
+                </button>
+              </div>
+              {#if preloadError}<p class="error" role="alert">{preloadError}</p>{/if}
               <div class="hollyrow">
                 <input type="date" bind:value={editForm.holidayDraft} />
                 <button type="button" class="mini" on:click={() => addHoliday(editForm)}>{$t.admin.yearsAddHoliday}</button>
@@ -362,6 +444,25 @@
                       <button
                         type="button" class="x" aria-label={$t.common.close}
                         on:click={() => (editForm.holidays = editForm.holidays.filter((x) => x !== h))}>×</button>
+                    </span>
+                  {/each}
+                </p>
+              {/if}
+              <div class="row-head">
+                <h3>{$t.admin.yearsNoClass}</h3>
+              </div>
+              <p class="muted">{$t.admin.yearsNoClassHint}</p>
+              <div class="hollyrow">
+                <input type="date" bind:value={editForm.noClassDraft} />
+                <button type="button" class="mini" on:click={() => addNoClass(editForm)}>{$t.admin.yearsAddHoliday}</button>
+              </div>
+              {#if editForm.noClass.length > 0}
+                <p class="chips">
+                  {#each editForm.noClass as h}
+                    <span class="chip chip-pink">{h}
+                      <button
+                        type="button" class="x" aria-label={$t.common.close}
+                        on:click={() => (editForm.noClass = editForm.noClass.filter((x) => x !== h))}>×</button>
                     </span>
                   {/each}
                 </p>
