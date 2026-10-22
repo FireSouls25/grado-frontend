@@ -2,6 +2,8 @@
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
   import { push } from 'svelte-spa-router';
+  import { ApiError } from '$lib/api/types';
+  import { requestRecovery } from '../teacher/api';
 
   let identifier = '';
   let error = '';
@@ -15,10 +17,21 @@
       return;
     }
     busy = true;
-    // Mockup: no backend call yet. Simulates the round trip.
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    busy = false;
-    sent = true;
+    try {
+      // Always 204 (no enumeration): unknown accounts answer like valid ones.
+      await requestRecovery(identifier.trim());
+      sent = true;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        error = err.message || $t.login.rateLimited;
+      } else if (err instanceof ApiError) {
+        error = err.message || $t.common.loadError;
+      } else {
+        error = $t.common.loadError;
+      }
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
@@ -57,7 +70,6 @@
       <p>{$t.recovery.successBody}</p>
     </div>
     <div class="card">
-      <p class="demo">{$t.recovery.demoNote}</p>
       <button class="primary" type="button" on:click={() => push('/login')}>
         {$t.recovery.backToLogin}
       </button>
@@ -140,14 +152,6 @@
     color: var(--danger);
     font-size: 0.9rem;
     font-weight: 600;
-  }
-  .demo {
-    color: var(--muted);
-    font-size: 0.85rem;
-    background: var(--surface-2);
-    border: 1px dashed var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 14px;
   }
   .primary {
     margin-top: 8px;

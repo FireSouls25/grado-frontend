@@ -25,6 +25,18 @@ export async function login(identifier: string, password: string): Promise<Login
   return api.post<LoginResult>('/v1/login', { identifier, password });
 }
 
+/** Password recovery request: always 204, even for unknown identifiers
+ *  (no enumeration). Throttled per IP (429). */
+export async function requestRecovery(identifier: string): Promise<void> {
+  await api.post('/v1/recover/request', { identifier });
+}
+
+/** Consumes a single-use reset token and sets the new password.
+ *  Invalid/expired/reused tokens share 401; weak passwords answer 400. */
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  await api.post('/v1/recover/reset', { token, newPassword });
+}
+
 /** True when the backend has no such route yet (draft phase). Callers
  *  render honest empty states instead of error screens. */
 export function isMissing(err: unknown): boolean {

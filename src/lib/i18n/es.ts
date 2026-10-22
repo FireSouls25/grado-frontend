@@ -60,7 +60,18 @@ export const es = {
     successBody:
       'Si la cuenta existe, en unos minutos llegará un enlace para crear una nueva contraseña.',
     backToLogin: 'Volver a iniciar sesión',
-    demoNote: 'Demostración visual: aún no se envía ningún correo.'
+    resetTitle: 'Crea tu nueva contraseña',
+    resetBody: 'Usa el enlace que pediste: vale una hora y un solo uso.',
+    newPasswordLabel: 'Nueva contraseña',
+    confirmPasswordLabel: 'Confirma la contraseña',
+    passwordsMismatch: 'Las contraseñas no coinciden.',
+    passwordWeak: 'Mínimo 8 caracteres con letra y número.',
+    resetSubmit: 'Guardar contraseña',
+    resetting: 'Guardando…',
+    invalidToken: 'Enlace inválido o vencido. Pide uno nuevo.',
+    requestNew: 'Pedir un enlace nuevo',
+    resetSuccessTitle: 'Contraseña actualizada',
+    resetSuccessBody: 'Entra con tu nueva contraseña. Las demás sesiones se cerraron.'
   },
   nav: {
     today: 'Hoy',

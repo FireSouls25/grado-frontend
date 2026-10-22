@@ -19,13 +19,13 @@ y `PUT /v1/users/{id}/active`. El frontend (`main` = ex-`dev/perfil`) solo consu
   (`Allow-Credentials` backend + `credentials:include`) como endurecimiento posterior.
 
 ## Fase B — Recuperación real + cuentas (backend #5)
-- [ ] B1 `Recover.svelte`: `POST /v1/recover/request` real, quitar mock `setTimeout` y
+- [x] B1 `Recover.svelte`: `POST /v1/recover/request` real, quitar mock `setTimeout` y
       `demoNote`; éxito genérico (sin enumerar) + estado 429.
-- [ ] B2 nueva ruta `/recuperar/:token` (formulario token + clave) →
+- [x] B2 nueva ruta `/recuperar/:token` (formulario token + clave) →
       `POST /v1/recover/reset`; débil → 400 inline, inválido/vencido → pedir nuevo;
       éxito → `/login`.
-- [ ] B3 `es.ts`: actualizar `recovery.*` (quitar "demostración visual").
-- [ ] B4 admin: toggle cuenta `PUT /v1/users/{id}/active` en docentes (o sección Cuentas):
+- [x] B3 `es.ts`: actualizar `recovery.*` (quitar "demostración visual").
+- [ ] B4 admin (bloqueado: falta endpoint backend `GET /v1/teachers/{id}/account` → login `id`; el alta ya crea cuenta, el toggle perfil ya retira sin borrar): toggle cuenta `PUT /v1/users/{id}/active` en docentes (o sección Cuentas):
       estado del login, confirmación, feedback. (Hoy solo retirar perfil, no login.)
 
 ## Fase C — Respuesta a throttle (backend #4) [chico]
