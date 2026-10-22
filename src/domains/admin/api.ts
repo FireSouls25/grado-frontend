@@ -591,6 +591,73 @@ export interface NewClassGroup {
   groupNo: number;
 }
 
+/** Dated range of one academic period (RFC3339 datetimes). */
+export interface PeriodRange {
+  Start: string;
+  End: string;
+}
+
+/** School year with dated periods. Empty PeriodRanges = legacy year. */
+export interface SchoolYear {
+  ID: string;
+  Year: number;
+  Periods: number;
+  StartDate: string;
+  EndDate: string;
+  Holidays: string[];
+  PeriodRanges: PeriodRange[];
+  Closed: boolean;
+}
+
+export interface NewSchoolYear {
+  year: number;
+  periods: number;
+  startDate: string;
+  endDate: string;
+  holidays: string[];
+  periodRanges: { start: string; end: string }[];
+}
+
+/** Every year with its dated periods, newest first. */
+export async function listYears(): Promise<SchoolYear[]> {
+  return (await api.get<SchoolYear[]>('/v1/schoolyears')) ?? [];
+}
+
+export async function getYear(id: string): Promise<SchoolYear> {
+  const y = await api.get<SchoolYear>(`/v1/schoolyears/${encodeURIComponent(id)}`);
+  if (!y) throw new ApiError(404, { error: { code: 'http.err_not_found', message: 'Año no encontrado.' } });
+  return { ...y, Holidays: y.Holidays ?? [], PeriodRanges: y.PeriodRanges ?? [] };
+}
+
+/** Creates a year: new years always date their periods. */
+export async function createYear(input: NewSchoolYear): Promise<SchoolYear> {
+  return api.post<SchoolYear>('/v1/schoolyears', {
+    year: input.year,
+    periods: input.periods,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    holidays: input.holidays,
+    periodRanges: input.periodRanges
+  });
+}
+
+/** Replaces a year (holidays-only once it grew salons; never when closed). */
+export async function updateYear(id: string, input: NewSchoolYear): Promise<SchoolYear> {
+  return api.put<SchoolYear>(`/v1/schoolyears/${encodeURIComponent(id)}`, {
+    year: input.year,
+    periods: input.periods,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    holidays: input.holidays,
+    periodRanges: input.periodRanges
+  });
+}
+
+/** Finishes a year (idempotent): no enrollments and no edits afterwards. */
+export async function closeYear(id: string): Promise<SchoolYear> {
+  return api.post<SchoolYear>(`/v1/schoolyears/${encodeURIComponent(id)}/close`, {});
+}
+
 /** Creates a class-group (salón). Duplicates within the year fail 400
  *  with a stable code; unknown years 404. */
 export async function createClassGroup(input: NewClassGroup): Promise<YearGroup> {
