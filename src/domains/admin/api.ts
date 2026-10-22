@@ -658,6 +658,47 @@ export async function closeYear(id: string): Promise<SchoolYear> {
   return api.post<SchoolYear>(`/v1/schoolyears/${encodeURIComponent(id)}/close`, {});
 }
 
+/** Year-end decision per student. */
+export type PromotionDecision = 'promote' | 'repeat' | 'graduate';
+
+export interface Promotion {
+  ID: string;
+  StudentID: string;
+  FromGroupID: string;
+  ToGroupID: string;
+  Decision: PromotionDecision;
+  DecidedBy: string;
+  DecidedAt: string;
+}
+
+export interface PromotionInput {
+  studentID: string;
+  fromGroupID: string;
+  toGroupID?: string;
+  decision: PromotionDecision;
+}
+
+/** Records one audited decision and applies it (enroll destination,
+ *  RepeatCount+1 or graduation). Grade 11 only graduates or repeats. */
+export async function recordPromotion(input: PromotionInput): Promise<Promotion> {
+  return api.post<Promotion>('/v1/promotions', {
+    studentID: input.studentID,
+    fromGroupID: input.fromGroupID,
+    ...(input.toGroupID ? { toGroupID: input.toGroupID } : {}),
+    decision: input.decision
+  });
+}
+
+/** Decisions already taken from one salon (the decided vs pending review). */
+export async function promotionsForGroup(groupID: string): Promise<Promotion[]> {
+  return (await api.get<Promotion[]>(`/v1/promotions?groupID=${encodeURIComponent(groupID)}`)) ?? [];
+}
+
+/** Decision history of one student, oldest first. */
+export async function promotionsForStudent(studentID: string): Promise<Promotion[]> {
+  return (await api.get<Promotion[]>(`/v1/promotions?studentID=${encodeURIComponent(studentID)}`)) ?? [];
+}
+
 /** Creates a class-group (salón). Duplicates within the year fail 400
  *  with a stable code; unknown years 404. */
 export async function createClassGroup(input: NewClassGroup): Promise<YearGroup> {

@@ -14,7 +14,8 @@
     | 'horario'
     | 'llamados'
     | 'auditoria'
-    | 'anos';
+    | 'anos'
+    | 'cierre';
   export let year: number;
   export let onYear: ((delta: number) => void) | null = null;
 
@@ -26,7 +27,8 @@
     | 'calendar'
     | 'eye'
     | 'warn'
-    | 'cap';
+    | 'cap'
+    | 'check';
 
   // Una sola fuente para las dos navegaciones (lateral en escritorio,
   // barra horizontal en móvil): el mismo destino y el mismo estado.
@@ -37,7 +39,8 @@
     { key: 'horario' as Key, href: '/admin/horario', icon: 'calendar' as IconName, label: $t.nav.schedule },
     { key: 'llamados' as Key, href: '/admin/llamados', icon: 'warn' as IconName, label: $t.admin.navWarnings },
     { key: 'auditoria' as Key, href: '/admin/auditoria', icon: 'eye' as IconName, label: $t.audit.navLabel },
-    { key: 'anos' as Key, href: '/admin/anos', icon: 'cap' as IconName, label: $t.admin.navYears }
+    { key: 'anos' as Key, href: '/admin/anos', icon: 'cap' as IconName, label: $t.admin.navYears },
+    { key: 'cierre' as Key, href: '/admin/cierre', icon: 'check' as IconName, label: $t.admin.navCierre }
   ];
 </script>
 
