@@ -361,12 +361,10 @@
           </button>
           <button
             type="button"
-            class="assign"
-            title={$t.admin.assignDirection}
-            aria-label={`${$t.admin.assignDirection}: ${teacher.Surnames} ${teacher.Names}`}
+            class="assignbar"
             on:click={() => openAssign(teacher)}
           >
-            <Icon name="users" />
+            {teacher.HomeroomClassID ? $t.admin.modifyDirection : $t.admin.assignDirectionLine}
           </button>
         </li>
       {/each}
@@ -774,27 +772,26 @@
     gap: 8px;
   }
   .trow {
-    display: flex;
-    gap: 8px;
-    align-items: stretch;
-  }
-  .trow .row {
-    flex: 1;
-    min-width: 0;
-  }
-  .assign {
-    flex: none;
-    width: 52px;
-    border-radius: var(--radius-card);
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
-    color: var(--muted);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    animation: rise 0.25s ease both;
+  }
+  .assignbar {
+    width: 100%;
     display: flex;
     align-items: center;
-    justify-content: center;
+    min-height: 48px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.85rem;
   }
-  .assign:active {
-    transform: scale(0.95);
+  .assignbar:active {
+    transform: scale(0.99);
   }
   .row {
     width: 100%;
@@ -802,13 +799,11 @@
     align-items: center;
     gap: 12px;
     text-align: left;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-card);
+    background: none;
+    border: 0;
     padding: 14px 16px;
     min-height: 68px;
     transition: transform 0.1s ease;
-    animation: rise 0.25s ease both;
   }
   .row:active {
     transform: scale(0.98);

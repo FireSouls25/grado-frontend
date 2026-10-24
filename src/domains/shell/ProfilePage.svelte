@@ -79,7 +79,7 @@
   // Salones asignados: se derivan del horario propio (un día por vez),
   // agrupados por salón. Si el horario falla, la tarjeta pinta vacío
   // honesto en vez de bloquear la página.
-  let groups: { label: string; subjects: string[] }[] = [];
+  let groups: { gid: string; label: string; subjects: string[] }[] = [];
   let groupsState: 'loading' | 'ready' = 'loading';
 
   async function loadGroups() {
@@ -91,20 +91,20 @@
       const days: TeacherClass[][] = await Promise.all(
         [1, 2, 3, 4, 5, 6, 7].map((w) => daySchedule(w).catch(() => [] as TeacherClass[]))
       );
-      const byGroup = new Map<string, Set<string>>();
+      const byGroup = new Map<string, { gid: string; subjects: Set<string> }>();
       for (const entries of days) {
         for (const e of entries) {
           if (!e.ClassLabel) continue;
-          let set = byGroup.get(e.ClassLabel);
-          if (!set) {
-            set = new Set();
-            byGroup.set(e.ClassLabel, set);
+          let g = byGroup.get(e.ClassLabel);
+          if (!g) {
+            g = { gid: e.GroupID ?? '', subjects: new Set() };
+            byGroup.set(e.ClassLabel, g);
           }
-          if (e.SubjectName) set.add(e.SubjectName);
+          if (e.SubjectName) g.subjects.add(e.SubjectName);
         }
       }
       groups = [...byGroup.entries()]
-        .map(([label, subjects]) => ({ label, subjects: [...subjects].sort((a, b) => a.localeCompare(b, 'es')) }))
+        .map(([label, g]) => ({ gid: g.gid, label, subjects: [...g.subjects].sort((a, b) => a.localeCompare(b, 'es')) }))
         .sort((a, b) => a.label.localeCompare(b.label, 'es'));
     } catch {
       groups = [];
@@ -364,10 +364,22 @@
           <ul class="sgroups">
             {#each groups as g (g.label)}
               <li>
-                <strong>{g.label}</strong>
-                <span class="chips">
-                  {#each g.subjects as s}<span class="chip">{s}</span>{/each}
-                </span>
+                {#if g.gid}
+                  <button
+                    type="button" class="grow"
+                    on:click={() => push(`/admin/estudiantes?salon=${encodeURIComponent(g.gid)}`)}
+                  >
+                    <strong>{g.label}</strong>
+                    <span class="chips">
+                      {#each g.subjects as s}<span class="chip">{s}</span>{/each}
+                    </span>
+                  </button>
+                {:else}
+                  <strong>{g.label}</strong>
+                  <span class="chips">
+                    {#each g.subjects as s}<span class="chip">{s}</span>{/each}
+                  </span>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -625,14 +637,24 @@
     gap: 8px;
   }
   .sgroups li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
     padding: 10px 14px;
+  }
+  .grow {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     flex-wrap: wrap;
+    text-align: left;
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
   }
   .sgroups li > strong {
     min-width: 52px;

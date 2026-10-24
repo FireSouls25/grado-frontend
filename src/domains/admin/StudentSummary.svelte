@@ -258,6 +258,10 @@
       <section class="card" aria-label={$t.studentSummary.warningsTitle}>
         <div class="row-head">
           <h2>{$t.studentSummary.warningsTitle} ({sortedWarnings.length})</h2>
+          <button
+            type="button" class="mini"
+            on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(id)}&nombre=${encodeURIComponent(reviseName())}`)}
+          >{$t.studentSummary.openWarnings}</button>
         </div>
         {#if sortedWarnings.length === 0}
           <p class="muted">{$t.studentSummary.warningsEmpty}</p>

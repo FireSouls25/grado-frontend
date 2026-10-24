@@ -32,6 +32,8 @@
   let year = currentYear;
 
   type State = 'loading' | 'error' | 'ready';
+  export let querystring: string = '';
+
   let state: State = 'loading';
   let loadError: unknown = null;
   let items: RecentWarning[] = [];
@@ -287,7 +289,15 @@
     }
   }
 
-  load();
+  load().then(() => {
+    const qs = querystring || '';
+    const mID = /(?:^|&)estudiante=([^&]*)/.exec(qs);
+    if (!mID) return;
+    const id = decodeURIComponent(mID[1]);
+    const mName = /(?:^|&)nombre=([^&]*)/.exec(qs);
+    const name = mName ? decodeURIComponent(mName[1]) : '';
+    if (id) void openStudent(id, name);
+  });
 </script>
 
 <AdminShell active="llamados" {year}>

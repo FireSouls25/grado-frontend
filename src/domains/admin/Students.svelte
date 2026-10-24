@@ -19,6 +19,8 @@
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;
+  export let querystring: string = '';
+
   let groups: YearGroup[] = [];
   let loaded = false;
   let failed = false;
@@ -72,6 +74,11 @@
       }
       groups = [...data].sort((a, b) => a.Grade - b.Grade || a.GroupNo - b.GroupNo);
       picked = null;
+      const salon = /(?:^|&)salon=([^&]*)/.exec(querystring || '')?.[1];
+      if (salon) {
+        const gid = decodeURIComponent(salon);
+        picked = groups.find((g) => g.GroupID === gid) ?? null;
+      }
       loaded = true;
       void loadTeachers();
       void loadReports();

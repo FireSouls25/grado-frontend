@@ -6,6 +6,7 @@
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import Icon from '$lib/ui/Icon.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
@@ -172,11 +173,11 @@
   $: teacherAge = detail ? ageOf(detail.Birthdate) : null;
 
   $: groupsWithSubjects = (() => {
-    const byGroup = new Map<string, { label: string; subjects: { id: string; name: string }[] }>();
+    const byGroup = new Map<string, { gid: string; label: string; subjects: { id: string; name: string }[] }>();
     for (const e of teacherEntries) {
       let g = byGroup.get(e.ClassGroupID);
       if (!g) {
-        g = { label: classGroupLabel(e.ClassGroupID), subjects: [] };
+        g = { gid: e.ClassGroupID, label: classGroupLabel(e.ClassGroupID), subjects: [] };
         byGroup.set(e.ClassGroupID, g);
       }
       if (!g.subjects.some((s) => s.id === e.SubjectID)) {
@@ -266,6 +267,7 @@
   // Login behind the profile: null means no account yet (honest 404).
   let account: TeacherAccount | null = null;
   let accountBusy = false;
+  let accountError = '';
   let confirmBlock = false;
 
   async function loadAccount() {
@@ -286,19 +288,16 @@
     }
     confirmBlock = false;
     accountBusy = true;
-    editFeedback = '';
+    accountError = '';
     try {
       const updated = await guarded(() => setUserActive(account!.ID, !account!.Active));
       if (!updated) return;
-      account = { ...account!, Active: updated.Active };
-      editFeedback = updated.Active
-        ? $t.admin.accountUnblockedOk
-        : $t.admin.accountBlockedOk;
-      notify(editFeedback);
+      await loadAccount();
+      const blocked = account !== null && !account.Active;
+      notify(blocked ? $t.admin.accountBlockedOk : $t.admin.accountUnblockedOk);
     } catch (err) {
-      if (!(err instanceof ApiError && err.status === 401)) {
-        editFeedback = err instanceof ApiError ? err.message : $t.common.loadError;
-      }
+      if (err instanceof ApiError && err.status === 401) return;
+      accountError = err instanceof ApiError ? err.message : $t.common.loadError;
     } finally {
       accountBusy = false;
     }
@@ -334,7 +333,11 @@
   };
 
   let catalog: Subject[] = [];
-  let homeroomOptions: { value: string; label: string }[] = [];
+
+  $: homeroomOptions = [
+    { value: '', label: $t.admin.directionNone },
+    ...groupsAll.map((g) => ({ value: g.ClassLabel, label: g.ClassLabel }))
+  ];
 
   // Edición del perfil: el backend aplica solo los campos enviados, así que
   // aquí se manda exactamente lo que el docente cambió.
@@ -355,10 +358,6 @@
       Sex: detail.Sex ?? '',
       Homeroom: detail.HomeroomClassID ?? ''
     };
-    homeroomOptions = [
-      { value: '', label: $t.admin.directionNone },
-      ...groupsAll.map((g) => ({ value: g.ClassLabel, label: g.ClassLabel }))
-    ];
     editError = '';
     editFeedback = '';
     editing = true;
@@ -528,6 +527,9 @@
               <span class="chip chip-sky">{$t.admin.directs(detail.HomeroomClassID)}</span>
             {/if}
             {#if !detail.Active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
+            <button type="button" class="linklike" on:click={startEdit}>
+              {detail.HomeroomClassID ? $t.admin.modifyDirection : $t.admin.assignDirectionLine}
+            </button>
           </div>
         </section>
         <section class="card" aria-label={$t.admin.accountTitle}>
@@ -535,7 +537,7 @@
             <h2>{$t.admin.accountTitle}</h2>
           </div>
           {#if account}
-            <dl class="idblock">
+            <dl class="arows">
               <div>
                 <dt>{$t.admin.formUsername}</dt>
                 <dd>{account.Username}</dd>
@@ -547,6 +549,7 @@
                 </div>
               {/if}
             </dl>
+            {#if accountError}<p class="flash error" role="alert">{accountError}</p>{/if}
             <div class="statusrow">
               {#if account.Active}
                 <span class="chip chip-green">{$t.admin.accountActive}</span>
@@ -559,7 +562,9 @@
             {/if}
             <div class="toolbar">
               <button type="button" class="mini" on:click={toggleAccount} disabled={accountBusy}>
-                {#if account.Active}
+                {#if accountBusy}
+                  …
+                {:else if account.Active}
                   {confirmBlock ? $t.admin.confirmBlock : $t.admin.blockAccess}
                 {:else}
                   {$t.admin.unblockAccess}
@@ -646,12 +651,19 @@
         <ul class="sgroups">
           {#each groupsWithSubjects as g (g.label)}
             <li>
-              <strong>{g.label}</strong>
-              <span class="chips">
-                {#each g.subjects as s (s.id)}
-                  <span class={`chip chip-${paletteFor(s.id)}`}>{s.name}</span>
-                {/each}
-              </span>
+              <button
+                type="button"
+                class="grow"
+                on:click={() => push(`/admin/estudiantes?salon=${encodeURIComponent(g.gid)}`)}
+              >
+                <strong>{g.label}</strong>
+                <span class="chips">
+                  {#each g.subjects as s (s.id)}
+                    <span class={`chip chip-${paletteFor(s.id)}`}>{s.name}</span>
+                  {/each}
+                </span>
+                <span class="go" aria-hidden="true"><Icon name="next" /></span>
+              </button>
             </li>
           {/each}
         </ul>
@@ -669,13 +681,20 @@
         <ul class="takes">
           {#each sessionsMade as s (s.ID)}
             <li>
-              <span class="rday">{shortDay(s.Date)}</span>
-              <span class="rtext">
-                <strong>{s.ClassLabel}{s.Subject ? ` · ${s.Subject}` : ''}</strong>
-                <small>
-                  {$t.troll.takeSummary(s.Students, s.Absences)}
-                </small>
-              </span>
+              <button
+                type="button"
+                class="grow"
+                on:click={() => push(`/admin/estudiantes/historial?sesion=${encodeURIComponent(s.ID)}`)}
+              >
+                <span class="rday">{shortDay(s.Date)}</span>
+                <span class="rtext">
+                  <strong>{s.ClassLabel}{s.Subject ? ` · ${s.Subject}` : ''}</strong>
+                  <small>
+                    {$t.troll.takeSummary(s.Students, s.Absences)}
+                  </small>
+                </span>
+                <span class="go" aria-hidden="true"><Icon name="next" /></span>
+              </button>
             </li>
           {/each}
         </ul>
@@ -693,13 +712,20 @@
         <ul class="takes">
           {#each warningsMade as w (w.ID)}
             <li>
-              <span class={`sev ${w.Gravity === 'mild' ? 'leve' : w.Gravity === 'moderate' ? 'medio' : 'grave'}`}>
-                {w.Gravity === 'mild' ? $t.roster.warnGravityMild : w.Gravity === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere}
-              </span>
-              <span class="rtext">
-                <strong>{w.StudentName} — {w.Title}</strong>
-                <small>{w.ClassLabel} · {momentTs(w.HappenedAt)}</small>
-              </span>
+              <button
+                type="button"
+                class="grow"
+                on:click={() => push(`/admin/estudiantes/${encodeURIComponent(w.StudentID)}/resumen`)}
+              >
+                <span class={`sev ${w.Gravity === 'mild' ? 'leve' : w.Gravity === 'moderate' ? 'medio' : 'grave'}`}>
+                  {w.Gravity === 'mild' ? $t.roster.warnGravityMild : w.Gravity === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere}
+                </span>
+                <span class="rtext">
+                  <strong>{w.StudentName} — {w.Title}</strong>
+                  <small>{w.ClassLabel} · {momentTs(w.HappenedAt)}</small>
+                </span>
+                <span class="go" aria-hidden="true"><Icon name="next" /></span>
+              </button>
             </li>
           {/each}
         </ul>
@@ -1102,18 +1128,46 @@
     gap: 8px;
   }
   .sgroups li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
+  }
+  .grow {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    background: none;
+    border: 0;
     padding: 10px 14px;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
     flex-wrap: wrap;
   }
-  .sgroups li > strong {
+  .takes .grow {
+    padding: 0 0 8px;
+    flex-wrap: nowrap;
+  }
+  .takes li:last-child .grow {
+    padding-bottom: 0;
+  }
+  .sgroups .grow > strong {
     min-width: 52px;
     font-variant-numeric: tabular-nums;
+  }
+  .go {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
   }
   .sgroups .chips {
     flex: 1;
@@ -1219,6 +1273,45 @@
     flex-wrap: wrap;
     gap: 6px;
     margin-top: 10px;
+    align-items: center;
+  }
+  .linklike {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.82rem;
+    min-height: 36px;
+    padding: 4px 8px;
+    border-radius: var(--radius-pill);
+  }
+  .arows {
+    display: flex;
+    flex-direction: column;
+    margin: 0 0 8px;
+  }
+  .arows > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .arows > div:last-child {
+    border-bottom: none;
+  }
+  .arows dt {
+    color: var(--muted);
+    font-size: 0.84rem;
+    flex: none;
+  }
+  .arows dd {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--ink);
+    text-align: right;
+    overflow-wrap: anywhere;
+    min-width: 0;
   }
   .flash {
     background: var(--chip-pink-bg);

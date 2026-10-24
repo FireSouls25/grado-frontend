@@ -50,8 +50,33 @@
     return $t.admin.markPresent;
   }
 
+  export let querystring: string = '';
+
   let groupID = '';
   let groups: YearGroup[] = [];
+  let deepSession: string | null = null;
+
+  // Apertura directa de una llamada (?sesion=<id>): resuelve su salón
+  // por etiqueta, selecciona el filtro y expande el detalle, de modo que
+  // la pantalla es la misma que navegando el historial a mano.
+  async function openDeepSession(id: string) {
+    try {
+      const found = await guarded(() => sessionDetail(id));
+      if (!found) return;
+      const match = groups.find((g) => g.ClassLabel === found.Session.ClassLabel);
+      if (!match) {
+        detail = found;
+        expanded = id;
+        state = 'ready';
+        return;
+      }
+      groupID = match.GroupID;
+      await load();
+      await toggle(id);
+    } catch {
+      state = 'ready';
+    }
+  }
 
   // La corrección vive en SessionCorrectSheet (misma pantalla y mismo
   // guardado que usa el resumen del estudiante).
@@ -183,8 +208,18 @@
     }
   }
 
-  loadGroups();
-  load();
+  (async () => {
+    await loadGroups();
+    const m = /(?:^|&)sesion=([^&]*)/.exec(querystring || '');
+    const sid = m ? decodeURIComponent(m[1]) : '';
+    if (sid) {
+      deepSession = sid;
+      state = 'loading';
+      await openDeepSession(sid);
+      return;
+    }
+    await load();
+  })();
 </script>
 
 <AdminShell active="estudiantes" {year}>

@@ -126,6 +126,7 @@ export const es = {
     modifyAction: 'Modificar',
     showChanges: 'Ver cambios',
     hideChanges: 'Ocultar cambios',
+    openWarnings: 'Ver en Llamados',
     justifiedOk: 'Marca actualizada.',
     warningsTitle: 'Llamados de atención',
     warningsEmpty: 'Sin llamados de atención.'
@@ -683,6 +684,8 @@ export const es = {
     noCatalog: 'No hay materias creadas todavía.',
     directs: (group: string) => `Dirige ${group}`,
     assignDirection: 'Asignar dirección',
+    assignDirectionLine: 'Asignar dirección de grupo',
+    modifyDirection: 'Modificar dirección',
     assignDirectionTitle: (name: string) => `Dirección de grupo · ${name}`,
     directionGroupLabel: 'Salón dirigido',
     directionNone: 'Sin dirección',
