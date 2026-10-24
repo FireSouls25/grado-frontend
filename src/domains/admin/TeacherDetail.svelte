@@ -334,6 +334,7 @@
   };
 
   let catalog: Subject[] = [];
+  let homeroomOptions: { value: string; label: string }[] = [];
 
   // Edición del perfil: el backend aplica solo los campos enviados, así que
   // aquí se manda exactamente lo que el docente cambió.
@@ -341,7 +342,7 @@
   let saving = false;
   let editError = '';
   let editFeedback = '';
-  let form = { Names: '', Surnames: '', DocumentID: '', Phone: '', Email: '', Sex: '' };
+  let form = { Names: '', Surnames: '', DocumentID: '', Phone: '', Email: '', Sex: '', Homeroom: '' };
 
   function startEdit() {
     if (!detail) return;
@@ -351,8 +352,13 @@
       DocumentID: detail.DocumentID,
       Phone: detail.Phone ?? '',
       Email: detail.Email ?? '',
-      Sex: detail.Sex ?? ''
+      Sex: detail.Sex ?? '',
+      Homeroom: detail.HomeroomClassID ?? ''
     };
+    homeroomOptions = [
+      { value: '', label: $t.admin.directionNone },
+      ...groupsAll.map((g) => ({ value: g.ClassLabel, label: g.ClassLabel }))
+    ];
     editError = '';
     editFeedback = '';
     editing = true;
@@ -374,7 +380,8 @@
     try {
       // Sin optimismo: la ficha solo cambia con lo que el servidor confirma.
       // Si falla, detail queda intacto y el error se muestra en el formulario.
-      const updated = await updateTeacher(id, form);
+      const { Homeroom, ...rest } = form;
+      const updated = await updateTeacher(id, { ...rest, HomeroomClassID: Homeroom });
       detail = {
         ...detail,
         ...updated,
@@ -727,6 +734,15 @@
           <option value="male">{$t.admin.formSexMale}</option>
         </select></label
       >
+      <label>
+        <span>{$t.admin.directionGroupLabel}</span>
+        <Dropdown
+          label={$t.admin.directionGroupLabel}
+          value={form.Homeroom}
+          options={homeroomOptions}
+          on:select={(e) => (form.Homeroom = String(e.detail))}
+        />
+      </label>
     </div>
     {#if editError}<p class="flash error" role="alert">{editError}</p>{/if}
     <div class="actions">

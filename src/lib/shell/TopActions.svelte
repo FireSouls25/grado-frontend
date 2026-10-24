@@ -5,8 +5,6 @@
   import { t } from '$lib/i18n';
   import { theme } from '$lib/theme/theme';
   import { notifications, timeAgo, weekdayName, type NoticeStrings } from '$lib/notifications';
-  import ProfilePanel from './ProfilePanel.svelte';
-  import { profile as profileStore } from './profile';
 
   export let settings = true;
   export let help = true;
@@ -21,8 +19,6 @@
 
   let panelOpen = false;
   let panel: HTMLDivElement | null = null;
-  let profileOpen = false;
-  let profileWrap: HTMLDivElement | null = null;
 
   function strings(): NoticeStrings {
     return {
@@ -39,7 +35,6 @@
   }
 
   function togglePanel() {
-    profileOpen = false;
     panelOpen = !panelOpen;
     if (panelOpen) {
       notifications.markSeen();
@@ -47,16 +42,9 @@
     }
   }
 
-  function toggleProfile() {
-    panelOpen = false;
-    profileOpen = !profileOpen;
-    if (profileOpen) void profileStore.refresh();
-  }
-
   function onWindowClick(e: MouseEvent) {
     const target = e.target as Node;
     if (panelOpen && panel && !panel.contains(target)) panelOpen = false;
-    if (profileOpen && profileWrap && !profileWrap.contains(target)) profileOpen = false;
   }
 
   function go(href: string | null) {
@@ -121,23 +109,15 @@
   <button class="icon-btn" type="button" on:click={cycleTheme} aria-label={$t.a11y.theme} title={$t.a11y.theme}>
     <Icon name={themeIcon()} />
   </button>
-  <div class="bellwrap" bind:this={profileWrap}>
-    <button
-      class="icon-btn"
-      type="button"
-      on:click={toggleProfile}
-      aria-label={$t.a11y.profile}
-      title={$t.a11y.profile}
-      aria-expanded={profileOpen}
-    >
-      <Icon name="user" />
-    </button>
-    {#if profileOpen}
-      <div class="panel" role="dialog" aria-label={$t.profile.title}>
-        <ProfilePanel />
-      </div>
-    {/if}
-  </div>
+  <button
+    class="icon-btn"
+    type="button"
+    on:click={() => push('/perfil')}
+    aria-label={$t.a11y.profile}
+    title={$t.a11y.profile}
+  >
+    <Icon name="user" />
+  </button>
   {#if settings}
     <button
       class="icon-btn"

@@ -9,9 +9,10 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Icon from '$lib/ui/Icon.svelte';
-  import { teachers, teacherDetail, createTeacher, createUser, listSubjects, scheduleEntries, type TeacherSummary, type TeacherDetail } from './api';
+  import { teachers, teacherDetail, createTeacher, createUser, listSubjects, scheduleEntries, groupsByYear, updateTeacher, type TeacherSummary, type TeacherDetail, type YearGroup } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
+  import { notify } from '$lib/ui/notice';
   import { guarded } from '$lib/nav';
   import { foldSearch } from '$lib/search';
   import Sheet from '$lib/ui/Sheet.svelte';
@@ -39,6 +40,52 @@
   let fGroup = '';
   let fRole: '' | 'director' | 'plain' = '';
   let form = freshForm();
+
+  // Asignar dirección de grupo: el salón dirigido vive en la ficha
+  // (HomeroomClassID) y se edita con el mismo PUT de docentes.
+  let assigning: TeacherSummary | null = null;
+  let dirGroups: YearGroup[] = [];
+  let dirGroupsState: 'idle' | 'loading' | 'ready' = 'idle';
+  let dirValue = '';
+  let dirSaving = false;
+  let dirError = '';
+
+  $: dirOptions = [
+    { value: '', label: $t.admin.directionNone },
+    ...dirGroups.map((g) => ({ value: g.ClassLabel, label: g.ClassLabel }))
+  ];
+
+  async function openAssign(teacher: TeacherSummary) {
+    assigning = teacher;
+    dirValue = teacher.HomeroomClassID ?? '';
+    dirError = '';
+    if (dirGroupsState === 'idle') {
+      dirGroupsState = 'loading';
+      try {
+        dirGroups = (await guarded(() => groupsByYear(currentYear))) ?? [];
+      } catch {
+        dirGroups = [];
+      } finally {
+        dirGroupsState = 'ready';
+      }
+    }
+  }
+
+  async function saveAssign() {
+    if (!assigning || dirSaving) return;
+    dirError = '';
+    dirSaving = true;
+    try {
+      const updated = await updateTeacher(assigning.ID, { HomeroomClassID: dirValue });
+      list = list.map((x) => (x.ID === assigning!.ID ? { ...x, HomeroomClassID: updated.HomeroomClassID } : x));
+      assigning = null;
+      notify($t.admin.directionSaved);
+    } catch (err) {
+      dirError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      dirSaving = false;
+    }
+  }
 
   function freshForm() {
     return {
@@ -287,7 +334,7 @@
         {@const detail = details[teacher.ID]}
         {@const subjects = taught[teacher.ID] ?? []}
         {@const contact = [teacher.DocumentID, detail?.Phone, detail?.Email].filter(Boolean).join(' · ')}
-        <li>
+        <li class="trow">
           <button
             type="button"
             class="row"
@@ -311,6 +358,15 @@
               </span>
             </span>
             <span class="go" aria-hidden="true"><Icon name="next" /></span>
+          </button>
+          <button
+            type="button"
+            class="assign"
+            title={$t.admin.assignDirection}
+            aria-label={`${$t.admin.assignDirection}: ${teacher.Surnames} ${teacher.Names}`}
+            on:click={() => openAssign(teacher)}
+          >
+            <Icon name="users" />
           </button>
         </li>
       {/each}
@@ -405,6 +461,37 @@
       </button>
     </div>
   </form>
+</Sheet>
+
+<Sheet open={assigning !== null} title={assigning ? $t.admin.assignDirectionTitle(`${assigning.Surnames} ${assigning.Names}`) : ''} onClose={() => (assigning = null)}>
+  {#if assigning}
+    {#if dirGroupsState === 'loading'}
+      <Skeleton rows={2} />
+    {:else}
+      <form class="form" on:submit|preventDefault={saveAssign}>
+        {#if assigning.HomeroomClassID}
+          <p class="hint">{$t.admin.directs(assigning.HomeroomClassID)}</p>
+        {/if}
+        <Dropdown
+          label={$t.admin.directionGroupLabel}
+          value={dirValue}
+          options={dirOptions}
+          on:select={(e) => (dirValue = String(e.detail))}
+        />
+        {#if dirValue === ''}<p class="hint">{$t.admin.directionNoneHint}</p>{/if}
+        {#if dirGroups.length === 0}<p class="hint">{$t.admin.directionNoGroups}</p>{/if}
+        {#if dirError}<p class="flash error" role="alert">{dirError}</p>{/if}
+        <div class="actions">
+          <button class="ghost" type="button" on:click={() => (assigning = null)}>
+            {$t.common.cancel}
+          </button>
+          <button class="primary" type="submit" disabled={dirSaving}>
+            {dirSaving ? '…' : $t.common.save}
+          </button>
+        </div>
+      </form>
+    {/if}
+  {/if}
 </Sheet>
 
 <style>
@@ -685,6 +772,29 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+  .trow {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .trow .row {
+    flex: 1;
+    min-width: 0;
+  }
+  .assign {
+    flex: none;
+    width: 52px;
+    border-radius: var(--radius-card);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .assign:active {
+    transform: scale(0.95);
   }
   .row {
     width: 100%;

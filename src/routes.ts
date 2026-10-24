@@ -2,6 +2,7 @@ import Login from './domains/auth/Login.svelte';
 import Recover from './domains/auth/Recover.svelte';
 import ResetPassword from './domains/auth/ResetPassword.svelte';
 import SettingsPage from './domains/shell/SettingsPage.svelte';
+import ProfilePage from './domains/shell/ProfilePage.svelte';
 import HelpPage from './domains/shell/HelpPage.svelte';
 import Agenda from './domains/teacher/Agenda.svelte';
 import ClassDetail from './domains/teacher/ClassDetail.svelte';
@@ -26,6 +27,7 @@ export const routes = {
   '/recuperar/:token': ResetPassword,
   '/ajustes': SettingsPage,
   '/ayuda': HelpPage,
+  '/perfil': ProfilePage,
   '/hoy': Agenda,
   '/docente': Agenda,
   '/agenda': Agenda,

@@ -36,10 +36,14 @@ export interface MeTeacher {
   documentID: string;
   phone: string;
   email: string;
+  address?: string;
+  birthplace?: string;
   /** ISO date (YYYY-MM-DD); empty when unknown. */
   birthdate: string;
   /** 'female' | 'male' | '' (not declared). */
   sex: string;
+  medicalConditions?: string;
+  homeroomClassID?: string;
   active: boolean;
 }
 

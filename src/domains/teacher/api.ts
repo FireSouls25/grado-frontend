@@ -61,6 +61,24 @@ export interface TeacherClass {
   Room?: string;
 }
 
+/** Self-service update of the caller's own teacher ficha: contact and
+ * health fields only. Identity, homeroom and active state travel through
+ * the admin endpoint and answer 400 here. */
+export interface MyTeacherUpdate {
+  Phone?: string;
+  Address?: string;
+  Birthplace?: string;
+  /** ISO date (YYYY-MM-DD). */
+  Birthdate?: string;
+  Email?: string;
+  Sex?: string;
+  MedicalConditions?: string;
+}
+
+export async function updateMyTeacher(changes: MyTeacherUpdate): Promise<void> {
+  await api.put('/v1/teachers/me', changes);
+}
+
 /** Weekly schedule entries for a weekday. Pending: GET /v1/teachers/me/schedule. */
 export async function daySchedule(weekday: number): Promise<TeacherClass[]> {
   return (await api.get<TeacherClass[]>(`/v1/teachers/me/schedule?weekday=${weekday}`)) ?? [];
