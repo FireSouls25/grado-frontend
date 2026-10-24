@@ -317,24 +317,26 @@
                       {/each}
                     </ul>
                   {/if}
-                  {#if presentRows.length > 0}
-                    <button type="button" class="mini" on:click={() => (showPresent = !showPresent)}>
-                      {showPresent ? $t.troll.hidePresent : `${$t.troll.showPresent} (${presentRows.length})`}
-                    </button>
-                    {#if showPresent}
-                      <ul class="names plain">
-                        {#each presentRows as s (s.StudentID)}
-                          <li>{s.Names} {s.Surnames}</li>
-                        {/each}
-                      </ul>
+                  <div class="btnrow">
+                    {#if presentRows.length > 0}
+                      <button type="button" class="mini" on:click={() => (showPresent = !showPresent)}>
+                        {showPresent ? $t.troll.hidePresent : `${$t.troll.showPresent} (${presentRows.length})`}
+                      </button>
                     {/if}
+                    <button type="button" class="mini" on:click={() => openCorrect(card.ID)}>
+                      {$t.troll.shistory.correctAction}
+                    </button>
+                    <button type="button" class="mini" on:click={() => (showRevisions = !showRevisions)}>
+                      {showRevisions ? $t.troll.hideRevisions : $t.troll.showRevisions}
+                    </button>
+                  </div>
+                  {#if showPresent && presentRows.length > 0}
+                    <ul class="names plain">
+                      {#each presentRows as s (s.StudentID)}
+                        <li>{s.Names} {s.Surnames}</li>
+                      {/each}
+                    </ul>
                   {/if}
-                  <button type="button" class="mini" on:click={() => openCorrect(card.ID)}>
-                    {$t.troll.shistory.correctAction}
-                  </button>
-                  <button type="button" class="mini" on:click={() => (showRevisions = !showRevisions)}>
-                    {showRevisions ? $t.troll.hideRevisions : $t.troll.showRevisions}
-                  </button>
                   {#if showRevisions}
                     {#if detail.Revisions.length === 0}
                       <p class="muted">{$t.troll.shistory.revisionsEmpty}</p>
@@ -484,8 +486,8 @@
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
+    gap: 14px;
+    padding: 18px 20px;
     text-align: left;
   }
   .cdate {
@@ -495,12 +497,12 @@
     flex-direction: column;
   }
   .cdate strong {
-    font-size: 1rem;
+    font-size: 1.25rem;
     text-transform: capitalize;
   }
   .cdate small {
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 0.85rem;
     font-weight: 600;
   }
   .csum {
@@ -508,11 +510,11 @@
     gap: 6px;
   }
   .chip {
-    min-width: 34px;
+    min-width: 40px;
     text-align: center;
     border-radius: 999px;
-    padding: 4px 10px;
-    font-size: 0.8rem;
+    padding: 6px 12px;
+    font-size: 0.9rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
@@ -598,10 +600,16 @@
   }
   .cbody {
     border-top: 1px solid var(--line);
-    padding: 12px 16px 16px;
+    padding: 16px 20px 20px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+  }
+  .btnrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
   }
   .sub {
     font-size: 0.75rem;
@@ -650,7 +658,7 @@
     flex-direction: column;
   }
   .ntext strong {
-    font-size: 0.92rem;
+    font-size: 1rem;
   }
   .link {
     align-self: flex-start;
