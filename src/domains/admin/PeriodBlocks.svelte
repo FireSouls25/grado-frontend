@@ -22,7 +22,16 @@
   <section class="pblock" aria-label={`${titlePrefix} ${i + 1}`}>
     <h4>{titlePrefix} {i + 1}</h4>
     {#if readonly}
-      <p class="dates">{clearDate(r.start)} → {clearDate(r.end)}</p>
+      <dl class="pdates">
+        <div>
+          <dt>{startLabel}</dt>
+          <dd>{clearDate(r.start)}</dd>
+        </div>
+        <div>
+          <dt>{endLabel}</dt>
+          <dd>{clearDate(r.end)}</dd>
+        </div>
+      </dl>
     {/if}
     {#if !readonly}
       <div class="pgrid">
@@ -57,7 +66,35 @@
   }
   .pblock h4 {
     margin: 0;
-    font-size: 1rem;
+    font-size: 0.95rem;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .pdates {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  @media (max-width: 560px) {
+    .pdates {
+      grid-template-columns: 1fr;
+    }
+  }
+  .pdates div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pdates dt {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .pdates dd {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
   }
   .pgrid {
     display: grid;
@@ -88,10 +125,5 @@
     outline: 2px solid var(--accent);
     outline-offset: 0;
     border-color: var(--accent);
-  }
-  .dates {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
   }
 </style>

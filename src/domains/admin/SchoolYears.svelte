@@ -128,22 +128,34 @@
   }
 
   /** Even split of [start, end] into n ranges: the editable suggestion. */
-  function splitEven(f: YearForm): void {
-    if (!f.start || !f.end || f.periods < 1) return;
-    const start = new Date(f.start + 'T00:00:00Z').getTime();
-    const end = new Date(f.end + 'T00:00:00Z').getTime();
-    if (!(end > start)) return;
+  function computeEvenRanges(startISO: string, endISO: string, periods: number): { start: string; end: string }[] {
+    if (!startISO || !endISO || periods < 1) return [];
+    const start = new Date(startISO + 'T00:00:00Z').getTime();
+    const end = new Date(endISO + 'T00:00:00Z').getTime();
+    if (!(end > start)) return [];
     const day = 86400000;
     const total = Math.round((end - start) / day) + 1;
-    const per = Math.floor(total / f.periods);
+    const per = Math.floor(total / periods);
     let cursor = start;
-    f.ranges = [];
-    for (let i = 0; i < f.periods; i++) {
-      const span = i === f.periods - 1 ? end : cursor + (per - 1) * day;
-      f.ranges.push({ start: isoDay(new Date(cursor).toISOString()), end: isoDay(new Date(span).toISOString()) });
+    const out: { start: string; end: string }[] = [];
+    for (let i = 0; i < periods; i++) {
+      const span = i === periods - 1 ? end : cursor + (per - 1) * day;
+      out.push({ start: isoDay(new Date(cursor).toISOString()), end: isoDay(new Date(span).toISOString()) });
       cursor = span + day;
     }
-    f.ranges = f.ranges;
+    return out;
+  }
+
+  function splitEven(f: YearForm): void {
+    f.ranges = computeEvenRanges(f.start, f.end, f.periods);
+  }
+
+  /** Saved ranges, or an even split across the year when legacy data has none. */
+  function displayRanges(y: SchoolYear): { start: string; end: string }[] {
+    if (y.PeriodRanges && y.PeriodRanges.length > 0) {
+      return y.PeriodRanges.map((r) => ({ start: isoDay(r.Start), end: isoDay(r.End) }));
+    }
+    return computeEvenRanges(isoDay(y.StartDate), isoDay(y.EndDate), y.Periods);
   }
 
   function validRanges(f: YearForm): string {
@@ -456,6 +468,19 @@
           </div>
           <p class="muted">{shortDay(y.StartDate)} → {shortDayYear(y.EndDate)}</p>
           <div class="row-head">
+            <h3>{$t.admin.yearsPeriodsTitle} ({y.Periods})</h3>
+            {#if y.PeriodRanges.length === 0 && !y.Closed}
+              <button type="button" class="mini" on:click={() => startEdit(y)}>{$t.admin.yearsCompleteRangesAction}</button>
+            {/if}
+          </div>
+          <PeriodBlocks
+            ranges={displayRanges(y)}
+            readonly
+            titlePrefix={$t.admin.yearsPeriodBlock}
+            startLabel={$t.admin.yearsStart}
+            endLabel={$t.admin.yearsEnd}
+          />
+          <div class="row-head">
             <h3>{$t.admin.yearsHolidays} ({y.Holidays.length})</h3>
           </div>
           {#if y.Holidays.length > 0}
@@ -476,23 +501,6 @@
                 <span class="chip chip-pink" title={h}>{shortDay(h)}</span>
               {/each}
             </p>
-          {/if}
-          <div class="row-head">
-            <h3>{$t.admin.yearsPeriodsTitle} ({y.Periods})</h3>
-          </div>
-          {#if y.PeriodRanges.length > 0}
-            <PeriodBlocks
-              ranges={y.PeriodRanges.map((r) => ({ start: isoDay(r.Start), end: isoDay(r.End) }))}
-              readonly
-              titlePrefix={$t.admin.yearsPeriodBlock}
-            />
-          {:else}
-            <p class="muted">{$t.admin.yearsNoRanges}</p>
-            {#if !y.Closed}
-              <div class="toolbar">
-                <button type="button" class="mini" on:click={() => startEdit(y)}>{$t.admin.yearsCompleteRangesAction}</button>
-              </div>
-            {/if}
           {/if}
           {#if editing === y.ID}
             <div class="grid2">
