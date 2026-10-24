@@ -8,14 +8,14 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
-  import Sheet from '$lib/ui/Sheet.svelte';
+  import SessionCorrectSheet from './SessionCorrectSheet.svelte';
+  import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
   import { guarded } from '$lib/nav';
   import {
     groupsByYear,
     classSessionsHistory,
     sessionDetail,
-    recordSessionMark,
     type YearGroup,
     type ClassSessionCard,
     type SessionDetailData
@@ -50,63 +50,27 @@
     return $t.admin.markPresent;
   }
 
-  function markClass(m: string): string {
-    if (m === 'absence' || m === 'absent') return 'is-absent';
-    if (m === 'absence-permission') return 'is-permission';
-    if (m === 'late') return 'is-late';
-    if (m === 'evasion') return 'is-evasion';
-    return 'is-present';
-  }
-
   let groupID = '';
   let groups: YearGroup[] = [];
 
-  // Corregir marcas con el mismo lenguaje de la lista docente: una
-  // fila por estudiante con segmentado; un solo motivo junto a Guardar
-  // que acompaña a las marcas no presentes del lote.
+  // La corrección vive en SessionCorrectSheet (misma pantalla y mismo
+  // guardado que usa el resumen del estudiante).
   let correcting = false;
   let correctingId = '';
-  let corrSel: Record<string, '' | 'absence' | 'absence-permission' | 'evasion' | 'late'> = {};
-  let correctNote = '';
-  let savingCorrection = false;
-  let correctionError = '';
 
   function openCorrect(sessionID: string) {
     correctingId = sessionID;
-    corrSel = {};
-    correctNote = '';
-    correctionError = '';
     correcting = true;
   }
 
-  function corrSet(studentID: string, mark: '' | 'absence' | 'absence-permission' | 'evasion' | 'late') {
-    corrSel = { ...corrSel, [studentID]: mark };
-  }
-
-  async function saveCorrection() {
-    correctionError = '';
-    const changed = Object.entries(corrSel);
-    if (changed.length === 0) {
-      correctionError = $t.troll.shistory.pickStudent;
-      return;
-    }
-    savingCorrection = true;
-    try {
-      for (const [studentID, mark] of changed) {
-        await recordSessionMark(correctingId, studentID, mark, mark === '' ? '' : correctNote.trim());
-      }
-      correcting = false;
-      notify($t.troll.shistory.corrected);
-      const id = expanded;
-      expanded = null;
-      detail = null;
-      await load();
-      if (id) await toggle(id);
-    } catch (err) {
-      correctionError = err instanceof Error ? err.message : String(err);
-    } finally {
-      savingCorrection = false;
-    }
+  async function afterCorrection() {
+    correcting = false;
+    notify($t.troll.shistory.corrected);
+    const id = expanded;
+    expanded = null;
+    detail = null;
+    await load();
+    if (id) await toggle(id);
   }
 
   const MONTH_NAMES = [
@@ -338,33 +302,7 @@
                     </ul>
                   {/if}
                   {#if showRevisions}
-                    {#if detail.Revisions.length === 0}
-                      <p class="muted">{$t.troll.shistory.revisionsEmpty}</p>
-                    {:else}
-                      <ul class="revs">
-                        {#each detail.Revisions as r (r.Student + r.ChangedAt + r.To)}
-                          <li class="rev">
-                            <span class="changerow">
-                              <span class="person">{r.Student}</span>
-                              <span class="change">
-                                {#if r.From}
-                                  <span class={`mk ${markClass(r.From)}`}>{markName(r.From)}</span>
-                                  <span class="swap" aria-hidden="true">›</span>
-                                {:else}
-                                  <span class="first">{$t.admin.markPresent}</span>
-                                {/if}
-                                <span class={`mk solid ${markClass(r.To)}`}>{markName(r.To)}</span>
-                              </span>
-                            </span>
-                            {#if r.Note}<small class="revnote">{r.Note}</small>{/if}
-                            <span class="meta">
-                              <span class="box">{r.Author}</span>
-                              <span class="box">{momentTs(r.ChangedAt)}</span>
-                            </span>
-                          </li>
-                        {/each}
-                      </ul>
-                    {/if}
+                    <SessionRevisionTrail revisions={detail.Revisions} />
                   {/if}
                 {/if}
               </div>
@@ -375,55 +313,15 @@
     {/if}
   </div>
 
-  <Sheet open={correcting} title={$t.troll.shistory.correctTitle} onClose={() => (correcting = false)}>
-    {#if detail}
-      <p class="muted">{prettyDay(detail.Session.Date)} · {detail.Session.ClassLabel}</p>
-      <ul class="roll">
-        {#each detail.Session.Roster as s (s.StudentID)}
-          <li>
-            <span class="who">
-              <span class="avatar" aria-hidden="true">
-                {`${s.Names} ${s.Surnames}`.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
-              </span>
-              <span class="name">{s.Names} {s.Surnames}</span>
-            </span>
-            <span class="seg" role="group" aria-label={`${s.Names} ${s.Surnames}`}>
-              <button type="button" class:present={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === ''} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === ''} on:click={() => corrSet(s.StudentID, '')}>
-                {$t.admin.markPresent}
-              </button>
-              <button type="button" class:absent={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence'} on:click={() => corrSet(s.StudentID, 'absence')}>
-                {$t.admin.markAbsence}
-              </button>
-              <button type="button" class:perm={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence-permission'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'absence-permission'} on:click={() => corrSet(s.StudentID, 'absence-permission')}>
-                {$t.admin.markPermission}
-              </button>
-              <button type="button" class:evasion={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'evasion'} on:click={() => corrSet(s.StudentID, 'evasion')}>
-                {$t.admin.markEvasion}
-              </button>
-              <button type="button" class:late={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'late'} aria-pressed={(corrSel[s.StudentID] ?? detail.Marks[s.StudentID] ?? '') === 'late'} on:click={() => corrSet(s.StudentID, 'late')}>
-                {$t.admin.markLate}
-              </button>
-            </span>
-          </li>
-        {/each}
-      </ul>
-      {#if correctionError}<p class="flash error" role="alert">{correctionError}</p>{/if}
-      <div class="actions">
-        <input
-          class="motivo"
-          type="text"
-          placeholder={$t.troll.shistory.correctNotePlaceholder}
-          aria-label={$t.troll.shistory.correctNoteLabel}
-          bind:value={correctNote}
-          maxlength="140"
-        />
-        <button type="button" class="mini" on:click={() => (correcting = false)}>{$t.common.cancel}</button>
-        <button type="button" class="mini primary" disabled={savingCorrection} on:click={saveCorrection}>
-          {savingCorrection ? $t.troll.saving : $t.common.save}
-        </button>
-      </div>
-    {/if}
-  </Sheet>
+  <SessionCorrectSheet
+    open={correcting}
+    title={$t.troll.shistory.correctTitle}
+    subtitle={detail ? `${prettyDay(detail.Session.Date)} · ${detail.Session.ClassLabel}` : ''}
+    sessionId={correctingId}
+    students={detail ? detail.Session.Roster.map((s) => ({ id: s.StudentID, name: `${s.Names} ${s.Surnames}`, current: detail?.Marks[s.StudentID] ?? '' })) : []}
+    onClose={() => (correcting = false)}
+    onSaved={afterCorrection}
+  />
 </AdminShell>
 
 <style>
@@ -567,33 +465,6 @@
     color: var(--accent);
     font-weight: 800;
   }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .motivo {
-    flex: 1;
-    min-width: 180px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
-    min-height: 48px;
-    font-size: 0.88rem;
-    color: var(--ink);
-  }
-  .flash.error {
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    font-size: 0.85rem;
-    margin: 0;
-    background: var(--chip-pink-bg);
-    color: var(--g-grave-ink);
-    font-weight: 600;
-  }
   .chev {
     color: var(--muted);
     font-size: 0.9rem;
@@ -686,225 +557,5 @@
     background: var(--accent);
     border-color: transparent;
     color: #fff;
-  }
-  .roll {
-    list-style: none;
-    margin: 0 0 12px;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 50vh;
-    overflow-y: auto;
-  }
-  .roll li {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 12px 14px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px 12px;
-  }
-  .roll .who {
-    flex: 1;
-    min-width: 150px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .roll .avatar {
-    flex: none;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-pill);
-    background: var(--accent-soft);
-    color: var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 0.85rem;
-  }
-  .roll .name {
-    font-weight: 700;
-    font-size: 1rem;
-  }
-  .seg {
-    flex: 1 1 100%;
-    display: flex;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 4px;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-  .seg button {
-    min-height: 44px;
-    padding: 6px 14px;
-    border-radius: var(--radius-pill);
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--muted);
-  }
-  .seg button.present {
-    background: var(--chip-green-bg);
-    color: var(--chip-green-ink);
-  }
-  .seg button.absent {
-    background: var(--chip-pink-bg);
-    color: var(--g-grave-ink);
-  }
-  .seg button.perm {
-    background: var(--m-permission-bg);
-    color: var(--m-permission);
-  }
-  .seg button.evasion {
-    background: var(--chip-purple-bg);
-    color: var(--chip-purple-ink);
-  }
-  .seg button.late {
-    background: var(--chip-yellow-bg);
-    color: var(--chip-yellow-ink);
-  }
-  .revs {
-    list-style: none;
-    margin: 0;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-  }
-  .revs li.rev {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px 12px;
-  }
-  .changerow {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .person {
-    align-self: flex-start;
-    background: var(--tint);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 3px 10px;
-    font-size: 0.82rem;
-    font-weight: 800;
-  }
-  .change {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 4px 12px 4px 4px;
-  }
-  .mk {
-    border-radius: 999px;
-    padding: 3px 12px;
-    font-size: 0.75rem;
-    font-weight: 800;
-    border: 2px solid transparent;
-  }
-  .mk.is-present {
-    color: var(--chip-green-ink);
-    border-color: var(--chip-green-ink);
-  }
-  .mk.is-absent {
-    color: var(--g-grave-ink);
-    border-color: var(--g-grave-ink);
-  }
-  .mk.is-permission {
-    color: var(--m-permission);
-    border-color: var(--m-permission);
-  }
-  .mk.is-late {
-    color: var(--chip-yellow-ink);
-    border-color: var(--chip-yellow-ink);
-  }
-  .mk.is-evasion {
-    color: var(--chip-purple-ink);
-    border-color: var(--chip-purple-ink);
-  }
-  .mk.solid.is-present {
-    background: var(--chip-green-bg);
-    border-color: transparent;
-  }
-  .mk.solid.is-absent {
-    background: var(--chip-pink-bg);
-    border-color: transparent;
-  }
-  .mk.solid.is-permission {
-    background: var(--m-permission-bg);
-    border-color: transparent;
-  }
-  .mk.solid.is-late {
-    background: var(--chip-yellow-bg);
-    border-color: transparent;
-  }
-  .mk.solid.is-evasion {
-    background: var(--chip-purple-bg);
-    border-color: transparent;
-  }
-  .swap {
-    flex: none;
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.95rem;
-    font-weight: 800;
-  }
-  .first {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--muted);
-  }
-  .revnote {
-    color: var(--muted);
-    font-size: 0.8rem;
-  }
-  .meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .meta .box {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 3px 12px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--ink-soft);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .meta .box:first-child {
-    background: var(--accent-soft);
-    border-color: transparent;
-    color: var(--accent);
-  }
-  .revs li.rev {
-    gap: 10px;
-    padding: 12px 14px;
   }
 </style>

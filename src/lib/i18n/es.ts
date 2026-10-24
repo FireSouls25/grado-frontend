@@ -123,6 +123,9 @@ export const es = {
     marksEmpty: 'Sin marcas: siempre presente.',
     justifyAction: 'Marcar con permiso',
     unjustifiedAction: 'Quitar permiso',
+    modifyAction: 'Modificar',
+    showChanges: 'Ver cambios',
+    hideChanges: 'Ocultar cambios',
     justifiedOk: 'Marca actualizada.',
     warningsTitle: 'Llamados de atención',
     warningsEmpty: 'Sin llamados de atención.'

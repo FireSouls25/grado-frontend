@@ -15,8 +15,12 @@
     studentReport,
     studentWarnings,
     recordSessionMark,
-    type StudentReport
+    sessionDetail,
+    type StudentReport,
+    type SessionRevisionRow
   } from './api';
+  import SessionCorrectSheet from './SessionCorrectSheet.svelte';
+  import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
   import { ApiError } from '$lib/api/types';
 
@@ -28,6 +32,11 @@
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let loadError: unknown = null;
   let acting: string | null = null;
+  let correcting: { sessionID: string; mark: string } | null = null;
+  let trailFor: string | null = null;
+  let trailRows: SessionRevisionRow[] = [];
+  let trailLoading = false;
+  let trailError: unknown = null;
   let profile: StudentProfile | null = null;
   let report: StudentReport | null = null;
   let warnings: Warning[] = [];
@@ -76,6 +85,36 @@
     } finally {
       acting = null;
     }
+  }
+
+  async function openTrail(sessionID: string) {
+    if (trailFor === sessionID) {
+      trailFor = null;
+      return;
+    }
+    trailFor = sessionID;
+    trailRows = [];
+    trailError = null;
+    trailLoading = true;
+    try {
+      const detail = await guarded(() => sessionDetail(sessionID));
+      if (detail) trailRows = detail.Revisions;
+    } catch (err) {
+      trailError = err;
+    } finally {
+      trailLoading = false;
+    }
+  }
+
+  function reviseName(): string {
+    return profile ? `${profile.Names} ${profile.Surnames}` : '';
+  }
+
+  async function afterCorrection() {
+    correcting = null;
+    trailFor = null;
+    notify($t.studentSummary.justifiedOk);
+    await load();
   }
 
   async function load() {
@@ -156,11 +195,30 @@
                   <span>{s.ClassLabel} · {$t.admin.yearLabel} {s.SchoolYear}{#if s.Period} · {$t.troll.shistory.periodLabel(s.Period)}{/if}</span>
                 </span>
                 {#if s.Mark === 'absence' || s.Mark === 'absence-permission'}
-                  <button
-                    type="button" class="mini"
-                    disabled={acting === s.SessionID + s.Mark}
-                    on:click={() => togglePermission(s.SessionID, s.Mark)}
-                  >{s.Mark === 'absence' ? $t.studentSummary.justifyAction : $t.studentSummary.unjustifiedAction}</button>
+                  <span class="rowbtns">
+                    <button
+                      type="button"
+                      class={`permbtn ${s.Mark === 'absence-permission' ? 'on' : ''}`}
+                      disabled={acting === s.SessionID + s.Mark}
+                      on:click={() => togglePermission(s.SessionID, s.Mark)}
+                    >{s.Mark === 'absence' ? $t.studentSummary.justifyAction : $t.studentSummary.unjustifiedAction}</button>
+                    <button
+                      type="button" class="mini"
+                      on:click={() => (correcting = { sessionID: s.SessionID, mark: s.Mark })}
+                    >{$t.studentSummary.modifyAction}</button>
+                    <button type="button" class="mini" on:click={() => openTrail(s.SessionID)}>
+                      {trailFor === s.SessionID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
+                    </button>
+                  </span>
+                {/if}
+                {#if trailFor === s.SessionID}
+                  {#if trailLoading}
+                    <p class="muted">{$t.common.retrying}</p>
+                  {:else if trailError}
+                    <p class="error" role="alert">{$t.common.loadError}</p>
+                  {:else}
+                    <SessionRevisionTrail revisions={trailRows} studentName={reviseName()} />
+                  {/if}
                 {/if}
               </li>
             {/each}
@@ -193,6 +251,17 @@
       <button type="button" class="primary big" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(id)}`)}>
         {$t.studentSummary.openFull}
       </button>
+      {#if correcting}
+        <SessionCorrectSheet
+          open
+          title={$t.troll.shistory.correctTitle}
+          subtitle={momentDay(marks.find((m) => correcting && m.SessionID === correcting.sessionID)?.Date ?? '')}
+          sessionId={correcting ? correcting.sessionID : ''}
+          students={correcting ? [{ id, name: reviseName(), current: correcting.mark }] : []}
+          onClose={() => (correcting = null)}
+          onSaved={afterCorrection}
+        />
+      {/if}
     {/if}
   </div>
 </AdminShell>
@@ -290,6 +359,7 @@
     display: flex;
     gap: 12px;
     align-items: flex-start;
+    flex-wrap: wrap;
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
@@ -335,8 +405,50 @@
   .meta {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 6px;
     font-size: 0.9rem;
+    flex: 1;
+    min-width: 200px;
+  }
+  .rowbtns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .permbtn {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: var(--radius-pill);
+    padding: 6px 14px;
+    min-height: 44px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+  .permbtn.on {
+    background: var(--m-permission-bg, #e8f0fe);
+    color: var(--m-permission, #1a56db);
+    border-color: transparent;
+  }
+  .permbtn:disabled {
+    opacity: 0.6;
+  }
+  .mini {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    padding: 8px 14px;
+    min-height: 44px;
+    font-weight: 600;
+    background: var(--surface);
+  }
+  .mini:disabled {
+    opacity: 0.6;
+  }
+  .error {
+    color: var(--danger);
+    font-size: 0.9rem;
+    font-weight: 600;
   }
   .meta strong {
     font-size: 0.95rem;
