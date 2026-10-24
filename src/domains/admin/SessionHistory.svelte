@@ -693,11 +693,11 @@
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
-    padding: 10px 12px;
+    padding: 12px 14px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 12px;
+    gap: 10px 12px;
   }
   .roll .who {
     flex: 1;
@@ -708,8 +708,8 @@
   }
   .roll .avatar {
     flex: none;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-pill);
     background: var(--accent-soft);
     color: var(--accent);
@@ -717,26 +717,27 @@
     align-items: center;
     justify-content: center;
     font-weight: 800;
-    font-size: 0.78rem;
+    font-size: 0.85rem;
   }
   .roll .name {
     font-weight: 700;
-    font-size: 0.88rem;
+    font-size: 1rem;
   }
   .seg {
+    flex: 1 1 100%;
     display: flex;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
-    padding: 3px;
-    gap: 2px;
+    border-radius: var(--radius-chip);
+    padding: 4px;
+    gap: 4px;
     flex-wrap: wrap;
   }
   .seg button {
-    min-height: 34px;
-    padding: 0 10px;
+    min-height: 44px;
+    padding: 6px 14px;
     border-radius: var(--radius-pill);
-    font-size: 0.72rem;
+    font-size: 0.85rem;
     font-weight: 700;
     color: var(--muted);
   }
