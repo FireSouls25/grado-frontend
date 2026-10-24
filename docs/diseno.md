@@ -46,14 +46,14 @@ anterior en línea punteada gris.
 
 ## Severidad (llamados y faltas)
 
-Azul leve, amarillo medio, rojo grave — en tonos que conviven con el
+Tipo 1 azul, Tipo 2 amarillo, Tipo 3 rojo — en tonos que conviven con el
 papel. La misma terna en pills, puntos, barras y leyendas, sin excepción.
 
 | Gravedad | Fondo | Tinta |
 |---|---|---|
-| Leve (azul) | `hsl(203, 70%, 91%)` | `hsl(198, 72%, 45%)` |
-| Medio (amarillo) | `hsl(46, 75%, 87%)` | `hsl(45, 85%, 31%)` |
-| Grave (rojo) | `hsl(6, 70%, 91%)` | `hsl(0, 60%, 51%)` |
+| Tipo 1 (azul) | `hsl(203, 70%, 91%)` | `hsl(198, 72%, 45%)` |
+| Tipo 2 (amarillo) | `hsl(46, 75%, 87%)` | `hsl(45, 85%, 31%)` |
+| Tipo 3 (rojo) | `hsl(6, 70%, 91%)` | `hsl(0, 60%, 51%)` |
 
 Barras de gravedad: relleno sólido en tinta de su nivel.
 Tasa por salón bajo el umbral (85%): tinta grave; el resto, tinta.
@@ -154,5 +154,5 @@ marca los puntos de datos, severidad en cian/amarillo/rojo Dracula.
 | `--grid` | `hsl(45, 6%, 34%)` | líneas de la grilla de horario |
 | `--accent` | naranja Dracula `hsl(31, 95%, 68%)` | acción y atención |
 | `--coral` | rosa Dracula `hsl(330, 100%, 73%)` | puntos de datos |
-| Leve / Medio / Grave | cian `80%` / amarillo `77%` / rojo `71%` sobre tintes `20–22%` | severidad |
+| Tipo 1 / Tipo 2 / Tipo 3 | cian `80%` / amarillo `77%` / rojo `71%` sobre tintes `20–22%` | severidad |
 | Presente / resto | tinta clara / grises neutros ascendentes | asistencia |

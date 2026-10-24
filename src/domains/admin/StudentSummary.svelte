@@ -1,0 +1,320 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { push } from 'svelte-spa-router';
+  import TopBar from '$lib/ui/TopBar.svelte';
+  import TopActions from '$lib/shell/TopActions.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
+  import Skeleton from '$lib/ui/Skeleton.svelte';
+  import AdminShell from './AdminShell.svelte';
+  import { guarded } from '$lib/nav';
+  import { t } from '$lib/i18n';
+  import type { StudentProfile, Warning } from '$lib/api/types';
+  import {
+    studentProfile,
+    studentReport,
+    studentWarnings,
+    type StudentReport
+  } from './api';
+
+  export let params: { id?: string } = {};
+  $: id = decodeURIComponent(params.id ?? '');
+
+  const currentYear = new Date().getFullYear();
+
+  let state: 'loading' | 'error' | 'ready' = 'loading';
+  let loadError: unknown = null;
+  let profile: StudentProfile | null = null;
+  let report: StudentReport | null = null;
+  let warnings: Warning[] = [];
+
+  $: fullName = profile ? `${profile.Surnames} ${profile.Names}` : '';
+  $: sessions = report?.Sessions ?? [];
+  $: marks = sessions.filter((s) => s.Mark && s.Mark !== '').slice().reverse();
+  $: totalSessions = report ? report.Sessions.length : 0;
+  $: rate = report && totalSessions > 0 ? Math.round((report.Presences / totalSessions) * 100) : null;
+  $: sortedWarnings = warnings.slice().sort((a, b) => (b.HappenedAt < a.HappenedAt ? -1 : 1));
+
+  function markName(mark: string): string {
+    if (mark === 'absence') return $t.studentSummary.markAbsence;
+    if (mark === 'absence-permission') return $t.studentSummary.markPermission;
+    if (mark === 'evasion') return $t.studentSummary.markEvasion;
+    if (mark === 'late') return $t.studentSummary.markLate;
+    return mark;
+  }
+
+  function gravityName(g: Warning['Gravity']): string {
+    if (g === 'severe') return $t.roster.warnGravitySevere;
+    if (g === 'moderate') return $t.roster.warnGravityModerate;
+    return $t.roster.warnGravityMild;
+  }
+
+  function momentDay(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  async function load() {
+    state = 'loading';
+    loadError = null;
+    try {
+      const [p, r, w] = await Promise.all([
+        guarded(() => studentProfile(id)),
+        guarded(() => studentReport(id)),
+        guarded(() => studentWarnings(id))
+      ]);
+      if (p === null || r === null || w === null) {
+        state = 'error';
+        return;
+      }
+      profile = p;
+      report = r;
+      warnings = w;
+      state = 'ready';
+    } catch (err) {
+      loadError = err;
+      state = 'error';
+    }
+  }
+
+  onMount(load);
+</script>
+
+<AdminShell active="estudiantes" year={currentYear} onYear={null}>
+  <TopBar title={fullName || $t.studentSummary.titleFallback} showBack onBack={() => push('/admin/estudiantes')}><TopActions /></TopBar>
+
+  <div class="pagehead">
+    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
+    <div class="toolbar">
+      {#if profile}
+        <button type="button" class="primary" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(id)}`)}>
+          {$t.studentSummary.openFull}
+        </button>
+      {/if}
+    </div>
+  </div>
+
+  <div class="sheet">
+    {#if state === 'loading'}
+      <Skeleton rows={5} />
+    {:else if state === 'error' || !profile || !report}
+      <ErrorState error={loadError} onRetry={load} />
+    {:else}
+      <section class="card" aria-label={$t.studentSummary.statsTitle}>
+        <div class="row-head"><h2>{$t.studentSummary.statsTitle}</h2></div>
+        <dl class="kpis">
+          <div><dt>{$t.studentSummary.rateLabel}</dt><dd>{rate === null ? '—' : `${rate}%`}</dd></div>
+          <div><dt>{$t.studentSummary.presences}</dt><dd>{report.Presences}</dd></div>
+          <div><dt>{$t.studentSummary.absences}</dt><dd>{report.Absences}</dd></div>
+          <div><dt>{$t.studentSummary.excused}</dt><dd>{report.Excused}</dd></div>
+          <div><dt>{$t.studentSummary.evasions}</dt><dd>{report.Evasions}</dd></div>
+          <div><dt>{$t.studentSummary.lates}</dt><dd>{report.Lates}</dd></div>
+          <div><dt>{$t.roster.warnGravityMild}</dt><dd>{report.WarningsMild}</dd></div>
+          <div><dt>{$t.roster.warnGravityModerate}</dt><dd>{report.WarningsModerate}</dd></div>
+          <div><dt>{$t.roster.warnGravitySevere}</dt><dd>{report.WarningsSevere}</dd></div>
+          <div><dt>{$t.studentSummary.faults}</dt><dd>{report.FaultsMinor + report.FaultsOrdinary + report.FaultsSevere}</dd></div>
+        </dl>
+      </section>
+
+      <section class="card" aria-label={$t.studentSummary.marksTitle}>
+        <div class="row-head">
+          <h2>{$t.studentSummary.marksTitle} ({marks.length})</h2>
+        </div>
+        {#if marks.length === 0}
+          <p class="muted">{$t.studentSummary.marksEmpty}</p>
+        {:else}
+          <ul class="rows">
+            {#each marks as s (s.SessionID + s.Mark)}
+              <li>
+                <span class={`mk ${s.Mark}`}>{markName(s.Mark)}</span>
+                <span class="meta">
+                  <strong>{momentDay(s.Date)}</strong>
+                  <span>{s.ClassLabel} · {$t.admin.yearLabel} {s.SchoolYear}{#if s.Period} · {$t.troll.shistory.periodLabel(s.Period)}{/if}</span>
+                </span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+
+      <section class="card" aria-label={$t.studentSummary.warningsTitle}>
+        <div class="row-head">
+          <h2>{$t.studentSummary.warningsTitle} ({sortedWarnings.length})</h2>
+        </div>
+        {#if sortedWarnings.length === 0}
+          <p class="muted">{$t.studentSummary.warningsEmpty}</p>
+        {:else}
+          <ul class="rows">
+            {#each sortedWarnings as w (w.ID)}
+              <li>
+                <span class={`mk sev-${w.Gravity}`}>{gravityName(w.Gravity)}</span>
+                <span class="meta">
+                  <strong>{w.Title}</strong>
+                  <span>{momentDay(w.HappenedAt)}{#if w.ClassLabel} · {w.ClassLabel}{/if}{#if w.AuthorName} · {w.AuthorName}{/if}</span>
+                  {#if w.Description}<small>{w.Description}</small>{/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+
+      <button type="button" class="primary big" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(id)}`)}>
+        {$t.studentSummary.openFull}
+      </button>
+    {/if}
+  </div>
+</AdminShell>
+
+<style>
+  .pagehead {
+    margin-bottom: 12px;
+  }
+  .eyebrow {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 2px;
+  }
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+    min-height: 48px;
+    border-radius: var(--radius-pill);
+    padding: 0 20px;
+  }
+  .primary.big {
+    width: 100%;
+    min-height: 54px;
+    font-size: 1rem;
+  }
+  .sheet {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 24px 24px 0 0;
+    padding: 20px 18px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .row-head h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    letter-spacing: -0.02em;
+  }
+  .muted {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .kpis {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+  }
+  .kpis div {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .kpis dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .kpis dd {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rows li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 10px 12px;
+  }
+  .mk {
+    flex: none;
+    font-size: 0.78rem;
+    font-weight: 800;
+    border-radius: var(--radius-pill);
+    padding: 4px 10px;
+    background: var(--tint);
+    color: var(--ink-soft);
+  }
+  .mk.absence {
+    background: var(--chip-pink-bg, #fbe4e6);
+    color: var(--g-grave-ink, #b4232f);
+  }
+  .mk.absence-permission {
+    background: var(--m-permission-bg, #e8f0fe);
+    color: var(--m-permission, #1a56db);
+  }
+  .mk.evasion {
+    background: var(--chip-purple-bg, #efe7fb);
+    color: var(--chip-purple-ink, #6d3fd4);
+  }
+  .mk.late {
+    background: var(--chip-yellow-bg, #fdf3d7);
+    color: var(--chip-yellow-ink, #8a6d00);
+  }
+  .mk.sev-mild {
+    background: var(--tint);
+    color: var(--ink-soft);
+  }
+  .mk.sev-moderate {
+    background: var(--chip-yellow-bg, #fdf3d7);
+    color: var(--chip-yellow-ink, #8a6d00);
+  }
+  .mk.sev-severe {
+    background: var(--chip-pink-bg, #fbe4e6);
+    color: var(--g-grave-ink, #b4232f);
+  }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.9rem;
+  }
+  .meta strong {
+    font-size: 0.95rem;
+  }
+  .meta span {
+    color: var(--muted);
+  }
+  .meta small {
+    color: var(--ink-soft);
+  }
+</style>

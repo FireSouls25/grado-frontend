@@ -64,8 +64,12 @@
     return `${r.StudentID}  ${r.Surnames}, ${r.Names} (${groupID})`;
   }
 
-  function sevOf(g: typeof gravity): 'leve' | 'medio' | 'grave' {
+  function sevClass(g: typeof gravity): 'leve' | 'medio' | 'grave' {
     return g === 'severe' ? 'grave' : g === 'moderate' ? 'medio' : 'leve';
+  }
+
+  function sevName(g: typeof gravity): string {
+    return g === 'severe' ? $t.warning.severitySevere : g === 'moderate' ? $t.warning.severityModerate : $t.warning.severityMild;
   }
 
   async function load() {
@@ -224,7 +228,7 @@
                 <i aria-hidden="true"></i>{$t.warning.severitySevere}
               </button>
             </div>
-            <p class="sevline">{$t.warning.severityLabel}: <span class={`sev ${sevOf(gravity)}`}><i aria-hidden="true"></i>{sevOf(gravity)}</span></p>
+            <p class="sevline">{$t.warning.severityLabel}: <span class={`sev ${sevClass(gravity)}`}><i aria-hidden="true"></i>{sevName(gravity)}</span></p>
           </div>
 
           <label class="field">

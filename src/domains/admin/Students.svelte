@@ -388,7 +388,7 @@
               <button
                 type="button"
                 class="stu cols"
-                on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.StudentID)}`)}
+                on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.StudentID)}/resumen`)}
                 aria-label={`${$t.studentDetail.title}: ${s.Surnames} ${s.Names}`}
               >
                 <span class="who">
