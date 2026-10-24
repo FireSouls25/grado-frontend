@@ -14,8 +14,11 @@
     studentProfile,
     studentReport,
     studentWarnings,
+    recordSessionMark,
     type StudentReport
   } from './api';
+  import { notify } from '$lib/ui/notice';
+  import { ApiError } from '$lib/api/types';
 
   export let params: { id?: string } = {};
   $: id = decodeURIComponent(params.id ?? '');
@@ -24,6 +27,7 @@
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let loadError: unknown = null;
+  let acting: string | null = null;
   let profile: StudentProfile | null = null;
   let report: StudentReport | null = null;
   let warnings: Warning[] = [];
@@ -53,6 +57,25 @@
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
     return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  async function togglePermission(sessionID: string, mark: string) {
+    if (acting) return;
+    acting = sessionID + mark;
+    try {
+      const next = mark === 'absence' ? 'absence-permission' : 'absence';
+      const updated = await guarded(() => recordSessionMark(sessionID, id, next as 'absence' | 'absence-permission', ''));
+      if (updated !== null) {
+        notify($t.studentSummary.justifiedOk);
+        await load();
+      }
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 401)) {
+        notify(err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      acting = null;
+    }
   }
 
   async function load() {
@@ -132,6 +155,13 @@
                   <strong>{momentDay(s.Date)}</strong>
                   <span>{s.ClassLabel} · {$t.admin.yearLabel} {s.SchoolYear}{#if s.Period} · {$t.troll.shistory.periodLabel(s.Period)}{/if}</span>
                 </span>
+                {#if s.Mark === 'absence' || s.Mark === 'absence-permission'}
+                  <button
+                    type="button" class="mini"
+                    disabled={acting === s.SessionID + s.Mark}
+                    on:click={() => togglePermission(s.SessionID, s.Mark)}
+                  >{s.Mark === 'absence' ? $t.studentSummary.justifyAction : $t.studentSummary.unjustifiedAction}</button>
+                {/if}
               </li>
             {/each}
           </ul>

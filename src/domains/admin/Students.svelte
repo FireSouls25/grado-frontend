@@ -168,6 +168,7 @@
       $t.admin.colStudent,
       $t.admin.colSalon,
       $t.admin.colAbsences,
+      $t.admin.colPermission,
       $t.admin.colEvasions,
       $t.admin.colRate
     ];
@@ -176,6 +177,7 @@
         `${s.Surnames}, ${s.Names}`,
         s.group,
         s.Absences,
+        s.Excused,
         s.Evasions,
         `${s.rate}%`
       ]
@@ -377,6 +379,7 @@
           <li>
             <span>{$t.admin.colStudent}</span>
             <span>{$t.admin.colAbsencesLong}</span>
+            <span>{$t.admin.colPermissionLong}</span>
             <span>{$t.admin.colEvasionsLong}</span>
             <span>{$t.admin.markLate}</span>
             <span>{$t.admin.colRate}</span>
@@ -402,6 +405,7 @@
                   {/if}
                 </span>
                 <span class="c-stat"><strong>{s.Absences}</strong></span>
+                <span class="c-stat"><strong>{s.Excused}</strong></span>
                 <span class="c-stat" class:alert={s.Evasions > 0}><strong>{s.Evasions}</strong></span>
                 <span class="c-stat" class:alert={s.Lates > 0}><strong>{s.Lates}</strong></span>
                 <span class="rateblock">
@@ -815,7 +819,7 @@
      cabecera y dígitos en las filas medirían distinto. */
   .stu.cols {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(3, 44px) 84px;
+    grid-template-columns: minmax(0, 1fr) repeat(4, 44px) 84px;
     gap: 6px 10px;
   }
   .colhead {
@@ -846,7 +850,7 @@
     }
     .stu.cols,
     .colhead li {
-      grid-template-columns: minmax(0, 1fr) repeat(3, 120px) 150px;
+      grid-template-columns: minmax(0, 1fr) repeat(4, 120px) 150px;
     }
   }
   .c-stat {
