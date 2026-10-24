@@ -9,6 +9,8 @@
   import Sheet from '$lib/ui/Sheet.svelte';
   import { notify } from '$lib/ui/notice';
   import Dropdown from '$lib/ui/Dropdown.svelte';
+  import WarningCorrectForm from './WarningCorrectForm.svelte';
+  import WarningRevisionTrail from './WarningRevisionTrail.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
   import { guarded } from '$lib/nav';
@@ -19,7 +21,6 @@
     classReport,
     issueWarningBatch,
     studentWarnings,
-    correctWarning,
     warningRevisions,
     type RecentWarning,
     type YearGroup,
@@ -194,20 +195,9 @@
   let detailWarnings: Warning[] = [];
   let detailLoading = false;
   let editingID: string | null = null;
-  let eGravity: 'mild' | 'moderate' | 'severe' = 'mild';
-  let eTitle = '';
-  let eDesc = '';
-  let savingEdit = false;
-  let editError = '';
   let revsOpen: Record<string, boolean> = {};
   let revs: Record<string, WarningRevision[]> = {};
   let revsLoading: Record<string, boolean> = {};
-
-  $: editGravityOptions = [
-    { value: 'mild', label: $t.roster.warnGravityMild },
-    { value: 'moderate', label: $t.roster.warnGravityModerate },
-    { value: 'severe', label: $t.roster.warnGravitySevere }
-  ];
 
   async function openStudent(id: string, name: string) {
     detailID = id;
@@ -232,10 +222,6 @@
     editingID = null;
   }
 
-  function gravityMarkClass(g: string): string {
-    return g === 'mild' ? 'is-mild' : g === 'moderate' ? 'is-moderate' : 'is-severe';
-  }
-
   function gravityName(g: string): string {
     return g === 'mild' ? $t.roster.warnGravityMild : g === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere;
   }
@@ -246,41 +232,14 @@
 
   function startEdit(w: Warning) {
     editingID = w.ID;
-    eGravity = w.Gravity;
-    eTitle = w.Title;
-    eDesc = w.Description ?? '';
-    editError = '';
   }
 
-  function selectEditGravity(e: CustomEvent<string>) {
-    const v = e.detail;
-    eGravity = v === 'moderate' || v === 'severe' ? v : 'mild';
-  }
-
-  async function saveEdit() {
-    if (!editingID) return;
-    editError = '';
-    if (!eTitle.trim()) {
-      editError = $t.warnings.needTitle;
-      return;
-    }
-    savingEdit = true;
-    try {
-      const updated = await correctWarning(editingID, {
-        gravity: eGravity,
-        title: eTitle.trim(),
-        description: eDesc.trim()
-      });
-      detailWarnings = detailWarnings.map((w) => (w.ID === editingID ? { ...w, ...updated } : w));
-      editingID = null;
-      notify($t.warnings.updated);
-      revs = { ...revs, [updated.ID]: (await guarded(() => warningRevisions(updated.ID))) ?? [] };
-      await load();
-    } catch (err) {
-      editError = err instanceof Error ? err.message : String(err);
-    } finally {
-      savingEdit = false;
-    }
+  async function afterCorrection(updated: Warning) {
+    detailWarnings = detailWarnings.map((w) => (w.ID === updated.ID ? { ...w, ...updated } : w));
+    editingID = null;
+    notify($t.warnings.updated);
+    revs = { ...revs, [updated.ID]: (await guarded(() => warningRevisions(updated.ID))) ?? [] };
+    await load();
   }
 
   async function toggleRevs(id: string) {
@@ -446,76 +405,20 @@
               </button>
             </div>
             {#if editingID === w.ID}
-              <div class="editform">
-                <Dropdown
-                  label={$t.warnings.fGravity}
-                  value={eGravity}
-                  options={editGravityOptions}
-                  on:select={selectEditGravity}
-                />
-                <label>
-                  <span>{$t.warnings.fTitle}</span>
-                  <input type="text" bind:value={eTitle} maxlength="120" />
-                </label>
-                <label>
-                  <span>{$t.warnings.fDesc}</span>
-                  <textarea rows="2" bind:value={eDesc}></textarea>
-                </label>
-                {#if editError}<p class="flash error" role="alert">{editError}</p>{/if}
-                <div class="actions">
-                  <button type="button" class="mini" on:click={() => (editingID = null)}>{$t.common.cancel}</button>
-                  <button type="button" class="mini primary" disabled={savingEdit} on:click={saveEdit}>
-                    {savingEdit ? $t.troll.saving : $t.common.save}
-                  </button>
-                </div>
-              </div>
+              <WarningCorrectForm
+                warningId={w.ID}
+                initialGravity={w.Gravity}
+                initialTitle={w.Title}
+                initialDescription={w.Description ?? ''}
+                onClose={() => (editingID = null)}
+                onSaved={afterCorrection}
+              />
             {/if}
             {#if revsOpen[w.ID]}
               {#if revsLoading[w.ID]}
                 <Skeleton rows={1} />
-              {:else if (revs[w.ID] ?? []).length === 0}
-                <p class="muted">{$t.warnings.revisionsEmpty}</p>
               {:else}
-                <ul class="revs">
-                  {#each revs[w.ID] ?? [] as r (r.WarningID + r.ChangedAt)}
-                    <li class="rev">
-                      <span class="changerow">
-                        <span class="person">{detailName}</span>
-                        {#if r.OldGravity !== r.NewGravity}
-                          <span class="change">
-                            <span class={`mk ${gravityMarkClass(r.OldGravity)}`}>
-                              {r.OldGravity ? gravityName(r.OldGravity) : '—'}
-                            </span>
-                            <span class="swap" aria-hidden="true">›</span>
-                            <span class={`mk solid ${gravityMarkClass(r.NewGravity)}`}>
-                              {gravityName(r.NewGravity)}
-                            </span>
-                          </span>
-                        {/if}
-                      </span>
-                      {#if r.OldTitle !== r.NewTitle}
-                        <span class="tchange">
-                          <span class="tlabel">{$t.warnings.renamedLabel}</span>
-                          <span class="told">«{r.OldTitle || '—'}»</span>
-                          <span class="swap" aria-hidden="true">›</span>
-                          <span class="tnew">«{r.NewTitle}»</span>
-                        </span>
-                      {/if}
-                      {#if r.OldDetail !== r.NewDetail}
-                        <span class="tchange">
-                          <span class="tlabel">{$t.warnings.detailLabel}</span>
-                          <span class="told">{r.OldDetail || '—'}</span>
-                          <span class="swap" aria-hidden="true">›</span>
-                          <span class="tnew">{r.NewDetail || '—'}</span>
-                        </span>
-                      {/if}
-                      <span class="meta">
-                        <span class="box">{r.Author}</span>
-                        <span class="box">{moment(r.ChangedAt)}</span>
-                      </span>
-                    </li>
-                  {/each}
-                </ul>
+                <WarningRevisionTrail revisions={revs[w.ID] ?? []} personName={detailName} />
               {/if}
             {/if}
           </li>
@@ -785,198 +688,6 @@
     display: flex;
     align-items: center;
     gap: 12px;
-  }
-  .editform {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 12px;
-  }
-  .editform label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-  .editform input,
-  .editform textarea {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
-    min-height: 44px;
-    font-size: 0.88rem;
-    color: var(--ink);
-    font-family: inherit;
-  }
-  .revline {
-    color: var(--ink-soft);
-    font-size: 0.8rem;
-  }
-  .tchange {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 4px 12px;
-    font-size: 0.78rem;
-    max-width: 100%;
-  }
-  .tlabel {
-    flex: none;
-    font-size: 0.68rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-  }
-  .told {
-    color: var(--muted);
-    text-decoration: line-through;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-  .tnew {
-    font-weight: 800;
-    color: var(--ink);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-  .revnote {
-    color: var(--muted);
-    font-size: 0.8rem;
-  }
-  .revs li.rev {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px 12px;
-  }
-  .changerow {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .person {
-    background: var(--tint);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 3px 10px;
-    font-size: 0.82rem;
-    font-weight: 800;
-  }
-  .change {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 4px 12px 4px 4px;
-  }
-  .mk {
-    border-radius: 999px;
-    padding: 3px 12px;
-    font-size: 0.75rem;
-    font-weight: 800;
-    border: 2px solid transparent;
-  }
-  .mk.is-mild {
-    color: var(--chip-sky-ink);
-    border-color: var(--chip-sky-ink);
-  }
-  .mk.is-moderate {
-    color: var(--chip-yellow-ink);
-    border-color: var(--chip-yellow-ink);
-  }
-  .mk.is-severe {
-    color: var(--g-grave-ink);
-    border-color: var(--g-grave-ink);
-  }
-  .mk.solid.is-mild {
-    background: var(--chip-sky-bg);
-    border-color: transparent;
-  }
-  .mk.solid.is-moderate {
-    background: var(--chip-yellow-bg);
-    border-color: transparent;
-  }
-  .mk.solid.is-severe {
-    background: var(--chip-pink-bg);
-    border-color: transparent;
-  }
-  .swap {
-    flex: none;
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.95rem;
-    font-weight: 800;
-  }
-  .first {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--muted);
-  }
-  .meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .meta .box {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 3px 12px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--ink-soft);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .meta .box:first-child {
-    background: var(--accent-soft);
-    border-color: transparent;
-    color: var(--accent);
-  }
-  .revs li.rev {
-    gap: 10px;
-    padding: 12px 14px;
-  }
-  .revs {
-    list-style: none;
-    margin: 0;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-  }
-  .revs li.rev {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
   }
   .sev {
     flex: none;

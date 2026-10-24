@@ -16,9 +16,13 @@
     studentWarnings,
     recordSessionMark,
     sessionDetail,
+    warningRevisions,
     type StudentReport,
-    type SessionRevisionRow
+    type SessionRevisionRow,
+    type WarningRevision
   } from './api';
+  import WarningCorrectForm from './WarningCorrectForm.svelte';
+  import WarningRevisionTrail from './WarningRevisionTrail.svelte';
   import SessionCorrectSheet from './SessionCorrectSheet.svelte';
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
@@ -33,6 +37,10 @@
   let loadError: unknown = null;
   let acting: string | null = null;
   let correcting: { sessionID: string; mark: string } | null = null;
+  let editingWarning: { id: string; gravity: 'mild' | 'moderate' | 'severe'; title: string; description: string } | null = null;
+  let warnRevsFor: string | null = null;
+  let warnRevs: Record<string, WarningRevision[]> = {};
+  let warnRevsLoading = false;
   let trailFor: string | null = null;
   let trailRows: SessionRevisionRow[] = [];
   let trailLoading = false;
@@ -114,6 +122,27 @@
     correcting = null;
     trailFor = null;
     notify($t.studentSummary.justifiedOk);
+    await load();
+  }
+
+  async function toggleWarnRevs(wid: string) {
+    if (warnRevsFor === wid) {
+      warnRevsFor = null;
+      return;
+    }
+    warnRevsFor = wid;
+    if (warnRevs[wid]) return;
+    warnRevsLoading = true;
+    try {
+      warnRevs = { ...warnRevs, [wid]: (await guarded(() => warningRevisions(wid))) ?? [] };
+    } finally {
+      warnRevsLoading = false;
+    }
+  }
+
+  async function afterWarningCorrection() {
+    editingWarning = null;
+    notify($t.warnings.updated);
     await load();
   }
 
@@ -237,11 +266,27 @@
             {#each sortedWarnings as w (w.ID)}
               <li>
                 <span class={`mk sev-${w.Gravity}`}>{gravityName(w.Gravity)}</span>
-                <span class="meta">
+                <div class="meta">
                   <strong>{w.Title}</strong>
                   <span>{momentDay(w.HappenedAt)}{#if w.ClassLabel} · {w.ClassLabel}{/if}{#if w.AuthorName} · {w.AuthorName}{/if}</span>
                   {#if w.Description}<small>{w.Description}</small>{/if}
-                </span>
+                  <span class="rowbtns">
+                    <button
+                      type="button" class="mini"
+                      on:click={() => (editingWarning = { id: w.ID, gravity: w.Gravity, title: w.Title, description: w.Description ?? '' })}
+                    >{$t.studentSummary.modifyAction}</button>
+                    <button type="button" class="mini" on:click={() => toggleWarnRevs(w.ID)}>
+                      {warnRevsFor === w.ID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
+                    </button>
+                  </span>
+                  {#if warnRevsFor === w.ID}
+                    {#if warnRevsLoading}
+                      <p class="muted">{$t.common.retrying}</p>
+                    {:else}
+                      <WarningRevisionTrail revisions={warnRevs[w.ID] ?? []} />
+                    {/if}
+                  {/if}
+                </div>
               </li>
             {/each}
           </ul>
@@ -251,6 +296,16 @@
       <button type="button" class="primary big" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(id)}`)}>
         {$t.studentSummary.openFull}
       </button>
+      {#if editingWarning}
+        <WarningCorrectForm
+          warningId={editingWarning.id}
+          initialGravity={editingWarning.gravity}
+          initialTitle={editingWarning.title}
+          initialDescription={editingWarning.description}
+          onClose={() => (editingWarning = null)}
+          onSaved={afterWarningCorrection}
+        />
+      {/if}
       {#if correcting}
         <SessionCorrectSheet
           open
