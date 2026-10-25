@@ -908,6 +908,7 @@ export const es = {
     reviewAction: 'Revisar',
     todayTitle: 'Horario de hoy',
     todayEmpty: 'Sin bloques hoy: el backend aún no expone el horario.',
+    todayNone: 'No hay clases programadas para hoy.',
     seeWeek: 'Ver semana',
     historyWarnings: 'Llamados',
     historyIncidents: 'Incidentes',

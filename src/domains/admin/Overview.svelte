@@ -21,7 +21,6 @@
     classReport,
     dashboardSummary,
     warningsRecent,
-    incidentsRecent,
     studentProfile,
     teacherHistory,
     scheduleEntries,
@@ -30,7 +29,6 @@
     type TeacherSummary,
     type YearGroup,
     type RecentWarning,
-    type RecentIncident,
     type DashboardSummary
   } from './api';
   import Dropdown from '$lib/ui/Dropdown.svelte';
@@ -40,7 +38,6 @@
   // rail de Pendientes y tabs segmentados. Solo datos de endpoints reales;
   // lo que aún da 404 pinta vacío honesto, nunca datos falsos.
 
-  type View = 'resumen' | 'historial';
   type Sev = 'leve' | 'medio' | 'grave';
 
   interface RiskRow {
@@ -70,7 +67,6 @@
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;
-  let view: View = 'resumen';
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let loadError: unknown = null;
@@ -100,9 +96,18 @@
   let bareSubjectNames: string[] = [];
   let salonsNoDirector: { gid: string; label: string }[] = [];
   let guardianPhones: Record<string, string> = {};
+  let todayClasses: {
+    gid: string;
+    label: string;
+    subject: string;
+    teacher: string;
+    start: number;
+    end: number;
+  }[] = [];
+  let todayKnown = false;
+  let todayCatalog: { ID: string; Name: string }[] = [];
   let risk: RiskRow[] = [];
   let warnings: RecentWarning[] = [];
-  let incidents: RecentIncident[] = [];
   let summary: DashboardSummary | null = null;
 
   let search = '';
@@ -254,6 +259,12 @@
     });
     reportsKnown = true;
     salonRates.sort((a, b) => a.rate - b.rate);
+    // Los pushes mutan sin reasignar: en modo legacy eso no invalida los
+    // derivados ($:), así que se reasigna para que el donut, el ranking
+    // por salón y el filtro por alcance se enteren.
+    salonTotals = [...salonTotals];
+    salonRates = [...salonRates];
+    totals = { ...totals };
     risk = [...byStudent.entries()]
       .map(([id, s]) => ({
         id,
@@ -268,7 +279,43 @@
       .sort((a, b) => a.rate - b.rate);
     await loadSecondary();
     await loadTeacherExtras();
+    await loadToday();
     buildTasks();
+  }
+
+  const clock = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+
+  // Clases de hoy en lectura: qué salones, qué materias y quién las da.
+  // Sin bloques pinta "no hay ninguno", nunca el texto del backend.
+  async function loadToday() {
+    todayClasses = [];
+    todayKnown = false;
+    try {
+      const wd = ((new Date().getDay() + 6) % 7) + 1;
+      const [entries, subs] = await Promise.all([
+        guarded(() => scheduleEntries({ weekday: wd })),
+        guarded(() => listSubjects())
+      ]);
+      todayCatalog = subs ?? [];
+      const labelOf = new Map(groups.map((g) => [g.GroupID, g.ClassLabel]));
+      const nameOf = new Map(teacherList.map((x) => [x.ID, `${x.Surnames} ${x.Names}`.trim()]));
+      const subName = new Map(todayCatalog.map((s) => [s.ID, s.Name]));
+      todayClasses = (entries ?? [])
+        .slice()
+        .sort((a, b) => a.Start - b.Start)
+        .map((e) => ({
+          gid: e.ClassGroupID,
+          label: labelOf.get(e.ClassGroupID) ?? e.ClassGroupID.slice(0, 8),
+          subject: subName.get(e.SubjectID) ?? '',
+          teacher: nameOf.get(e.TeacherID) ?? '',
+          start: e.Start,
+          end: e.End
+        }));
+    } catch {
+      todayClasses = [];
+    } finally {
+      todayKnown = true;
+    }
   }
 
   // Estadística docente y pendientes configurables: todo de endpoints
@@ -309,6 +356,7 @@
         if (x && x.Active) unassignedTeachers.push({ id: x.ID, name: `${x.Surnames} ${x.Names}`.trim() });
       }
     });
+    unassignedTeachers = [...unassignedTeachers];
     try {
       const subs = (await guarded(() => listSubjects())) ?? [];
       const settled = await mapSettled(subs, 4, (s) => subjectAssignments(s.ID));
@@ -357,11 +405,6 @@
       warnings = (await warningsRecent(20)) ?? [];
     } catch {
       warnings = [];
-    }
-    try {
-      incidents = (await incidentsRecent(20)) ?? [];
-    } catch {
-      incidents = [];
     }
   }
 
@@ -603,14 +646,6 @@
           <div class="topactions"><TopActions /></div>
         </div>
         <div class="controlbar">
-          <div class="tabs" role="tablist" aria-label={$t.admin.consoleEyebrow}>
-            <button type="button" role="tab" aria-selected={view === 'resumen'} class:on={view === 'resumen'} on:click={() => (view = 'resumen')}>
-              {$t.admin.viewOverview}
-            </button>
-            <button type="button" role="tab" aria-selected={view === 'historial'} class:on={view === 'historial'} on:click={() => (view = 'historial')}>
-              {$t.admin.viewHistory}
-            </button>
-          </div>
           <div class="controls">
             <label class="search">
               <Icon name="search" />
@@ -634,7 +669,7 @@
               <Skeleton rows={6} />
             {:else if state === 'error'}
               <ErrorState error={loadError} onRetry={load} />
-            {:else if view === 'resumen'}
+            {:else}
               <p class="cat-kicker">{$t.admin.consoleEyebrow}</p>
               <div class="alerts">
                 <div class="stat">
@@ -860,35 +895,25 @@
                     <span class:today={di === todayIndex}><small>{day}</small></span>
                   {/each}
                 </div>
-                <EmptyState icon="calendar" title={$t.admin.todayTitle} body={$t.admin.todayEmpty} />
-              </div>
-            {:else}
-              <p class="cat-kicker">{$t.admin.viewHistory}</p>
-              <div class="panel">
-                <div class="panel-head"><h2>{$t.admin.historyWarnings}</h2></div>
-                {#if warnings.length === 0}
-                  <EmptyState icon="warn" title={$t.admin.historyWarnings} body={$t.admin.historyEmpty} />
+                {#if !todayKnown}
+                  <Skeleton rows={2} />
+                {:else if todayClasses.length === 0}
+                  <p class="muted-note">{$t.admin.todayNone}</p>
                 {:else}
-                  <ul class="history">
-                    {#each warnings as warning (warning.ID)}
+                  <ul class="todaylist">
+                    {#each todayClasses as c (c.gid + c.start)}
                       <li>
-                        <span class={`sev ${gravityToSev(warning.Gravity)}`}><i></i>{gravityToSev(warning.Gravity)}</span>
-                        <div class="todo-t"><strong>{warning.Title}</strong><small>{warning.HappenedAt}</small></div>
-                      </li>
-                    {/each}
-                  </ul>
-                {/if}
-              </div>
-              <div class="panel">
-                <div class="panel-head"><h2>{$t.admin.historyIncidents}</h2></div>
-                {#if incidents.length === 0}
-                  <EmptyState icon="list" title={$t.admin.historyIncidents} body={$t.admin.historyEmpty} />
-                {:else}
-                  <ul class="history">
-                    {#each incidents as incident (incident.ID)}
-                      <li>
-                        <div class="todo-t"><strong>{incident.Title}</strong><small>{incident.HappenedAt}</small></div>
-                        <span class="soon">{$t.admin.soon}</span>
+                        <button
+                          type="button"
+                          on:click={() => push(`/admin/estudiantes?salon=${encodeURIComponent(c.gid)}`)}
+                        >
+                          <span class="hh">{clock(c.start)}–{clock(c.end)}</span>
+                          <span class="wt">
+                            <strong>{c.label}{c.subject ? ` · ${c.subject}` : ''}</strong>
+                            {#if c.teacher}<small>{c.teacher}</small>{/if}
+                          </span>
+                          <span class="go" aria-hidden="true"><Icon name="next" /></span>
+                        </button>
                       </li>
                     {/each}
                   </ul>
@@ -919,8 +944,11 @@
                   >
                     {#if task.done}<Icon name="check" />{/if}
                   </button>
-                  <span class={`sev ${task.sev}`}><i></i>{task.sev}</span>
-                  <div class="todo-t"><strong>{task.title}</strong><small>{task.meta}</small></div>
+                  <div class="todo-main">
+                    <div class="todo-top">
+                      <span class={`sev ${task.sev}`}><i></i>{task.sev}</span>
+                      <div class="todo-t"><strong>{task.title}</strong><small>{task.meta}</small></div>
+                    </div>
                   {#if !task.done && (task.call || (task.href && task.actionLabel))}
                     <div class="tacts">
                       {#if task.call}
@@ -930,7 +958,8 @@
                         <button type="button" class="go" on:click={() => task.href && push(task.href)}>{task.actionLabel}</button>
                       {/if}
                     </div>
-                  {/if}
+                    {/if}
+                  </div>
                 </li>
               {/each}
             </ul>
@@ -977,28 +1006,6 @@
     gap: 8px;
     align-items: stretch;
     margin-bottom: 12px;
-  }
-  .tabs {
-    display: inline-flex;
-    gap: 2px;
-    background: var(--tint);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 3px;
-    align-self: flex-start;
-  }
-  .tabs button {
-    padding: 8px 20px;
-    min-height: 44px;
-    color: var(--muted);
-    font-size: 0.84rem;
-    font-weight: 600;
-    border-radius: 9px;
-  }
-  .tabs button.on {
-    background: var(--surface);
-    color: var(--ink);
-    box-shadow: var(--shadow);
   }
   .controls {
     display: flex;
@@ -1468,24 +1475,6 @@
   .weekstrip span.today small {
     color: var(--bg);
   }
-  .history {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .history li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 12px 14px;
-    min-height: 56px;
-  }
   .sev {
     display: inline-flex;
     align-items: center;
@@ -1598,6 +1587,19 @@
     background: var(--ink);
     border-color: var(--ink);
   }
+  .todo-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .todo-top {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .todo-top .sev {
+    flex: none;
+    margin-top: 2px;
+  }
   .todo-t {
     flex: 1;
     min-width: 0;
@@ -1608,10 +1610,12 @@
   .todo-t strong {
     font-size: 0.8rem;
     font-weight: 550;
+    overflow-wrap: anywhere;
   }
   .todo-t small {
     color: var(--muted);
     font-size: 0.72rem;
+    overflow-wrap: anywhere;
   }
   li.done .todo-t strong {
     text-decoration: line-through;
@@ -1639,6 +1643,52 @@
     color: var(--muted);
     font-size: 0.72rem;
     margin-top: 10px;
+  }
+  .todaylist {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .todaylist button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .todaylist .hh {
+    flex: none;
+    background: var(--tint);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .todaylist .wt {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .todaylist .wt strong {
+    font-size: 0.88rem;
+    overflow-wrap: anywhere;
+  }
+  .todaylist .wt small {
+    color: var(--muted);
+    font-size: 0.78rem;
   }
   @media (min-width: 700px) {
     .alerts {
@@ -1696,7 +1746,7 @@
   }
   @media (min-width: 1220px) {
     .content {
-      grid-template-columns: minmax(0, 1fr) 360px;
+      grid-template-columns: minmax(0, 1fr) 400px;
     }
     .railp {
       position: sticky;
