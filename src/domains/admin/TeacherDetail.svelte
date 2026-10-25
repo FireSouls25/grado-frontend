@@ -41,7 +41,7 @@
   } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
 
   export let params: { id?: string } = {};
   $: id = decodeURIComponent(params.id ?? '');
@@ -417,7 +417,7 @@
 </script>
 
 <AdminShell active="docentes" year={currentYear}>
-  <TopBar title={$t.admin.teacherDetailTitle} showBack onBack={() => push('/admin/docentes')}>
+  <TopBar title={$t.admin.teacherDetailTitle} showBack onBack={() => goBack('/admin/docentes')}>
     <TopActions />
   </TopBar>
 

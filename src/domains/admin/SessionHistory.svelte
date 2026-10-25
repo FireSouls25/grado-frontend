@@ -11,7 +11,7 @@
   import SessionCorrectSheet from './SessionCorrectSheet.svelte';
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
-  import { guarded, queryParam } from '$lib/nav';
+  import { guarded, queryParam, goBack } from '$lib/nav';
   import {
     groupsByYear,
     classSessionsHistory,
@@ -223,7 +223,7 @@
 </script>
 
 <AdminShell active="estudiantes" {year}>
-  <TopBar title={$t.troll.shistory.title} showBack onBack={() => push('/admin/estudiantes')}><TopActions /></TopBar>
+  <TopBar title={$t.troll.shistory.title} showBack onBack={() => goBack('/admin/estudiantes')}><TopActions /></TopBar>
 
   <div class="pagehead">
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>

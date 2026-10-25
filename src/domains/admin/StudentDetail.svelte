@@ -22,7 +22,7 @@
   } from './api';
   import type { StudentProfile, Warning } from '$lib/api/types';
   import { auditActionClass, shortId } from '$lib/audit';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
 
@@ -307,7 +307,7 @@
 </script>
 
 <AdminShell active="estudiantes" year={currentYear}>
-  <TopBar title={$t.admin.studentsTitle} showBack onBack={() => push('/admin/estudiantes')}>
+  <TopBar title={$t.admin.studentsTitle} showBack onBack={() => goBack('/admin/estudiantes')}>
     <TopActions />
   </TopBar>
 

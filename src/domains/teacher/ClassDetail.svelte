@@ -11,7 +11,7 @@
   import { classRoster, isMissing, openSession, recordMark } from './api';
   import { dateKey, saveRollcall } from './rollcall';
   import type { RosterEntry } from '$lib/api/types';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
 
   export let params: { groupID?: string } = {};
@@ -228,7 +228,7 @@
 </script>
 
 <div class="attendance">
-  <TopBar title={$t.app.name} showBack onBack={() => push('/agenda')}><TopActions /></TopBar>
+  <TopBar title={$t.app.name} showBack onBack={() => goBack('/agenda')}><TopActions /></TopBar>
 
   <div class="pagehead">
     <p class="crumbs">{$t.attendance.breadcrumbHome} <span>›</span> {$t.attendance.breadcrumbAgenda} <span>›</span> <strong>{$t.attendance.breadcrumbHere}</strong></p>

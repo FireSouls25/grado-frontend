@@ -13,7 +13,7 @@
   import { groupsByYear, createStudent, createClassGroup, classReport, warningsRecent, teachers, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
-  import { guarded, queryParam } from '$lib/nav';
+  import { guarded, queryParam, goBack } from '$lib/nav';
   import { mapSettled } from '$lib/async';
   import { foldSearch } from '$lib/search';
 

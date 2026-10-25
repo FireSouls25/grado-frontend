@@ -10,7 +10,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import { classRoster, isMissing, issueWarnings } from './api';
   import type { RosterEntry } from '$lib/api/types';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
 
   export let params: { groupID?: string } = {};
@@ -140,7 +140,7 @@
 </script>
 
 <div class="warning">
-  <TopBar title={$t.app.name} showBack onBack={() => push(detailHref())}><TopActions /></TopBar>
+  <TopBar title={$t.app.name} showBack onBack={() => goBack(detailHref())}><TopActions /></TopBar>
 
   <div class="pagehead">
     <p class="crumbs">

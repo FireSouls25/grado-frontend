@@ -15,6 +15,55 @@ export const path = readable<string>(
   }
 );
 
+/** Log de viaje: cada pantalla visitada se apila para que Atrás vuelva
+a donde estuvo la persona, no a un padre fijo. El hashchange lo alimenta
+solo (push, enlaces, adelante/atrás del sistema): goBack solo decide.
+Entrar o salir del acceso reinicia el log para no volver al login. */
+const AUTH_PATHS = ['/', '/login', '/recuperar'];
+function isAuthPath(p: string): boolean {
+  return AUTH_PATHS.includes(p) || p.startsWith('/recuperar/');
+}
+
+let trail: string[] = typeof window === 'undefined' ? ['/'] : [window.location.hash.slice(1) || '/'];
+let suppressTrail = false;
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', () => {
+    const p = window.location.hash.slice(1) || '/';
+    if (suppressTrail) {
+      suppressTrail = false;
+      return;
+    }
+    const prev = trail[trail.length - 1];
+    if (prev === p) return;
+    if (isAuthPath(p) || isAuthPath(prev)) {
+      trail = [p];
+      return;
+    }
+    // Atrás del sistema: recorta en vez de apilar el regreso.
+    if (trail.length >= 2 && trail[trail.length - 2] === p) trail.pop();
+    else trail.push(p);
+  });
+}
+
+/** Atrás del log de viaje: vuelve a la pantalla anterior real; si se
+aterrizó directo (sin anterior), usa el historial del sistema y en
+último caso va al repliegue dado. */
+export function goBack(fallback = '/') {
+  if (trail.length >= 2) {
+    trail.pop();
+    const prev = trail[trail.length - 1];
+    suppressTrail = true;
+    push(prev);
+    return;
+  }
+  if (typeof window !== 'undefined' && window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+  push(fallback);
+}
+
 /** Frontend side of the backend denial contract: on 403 go back, else home. */
 export async function backOrHome(): Promise<void> {
   if (window.history.length > 1) {

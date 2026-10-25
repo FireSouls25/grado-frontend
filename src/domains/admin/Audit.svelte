@@ -11,7 +11,7 @@
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import { auditRecent, type AuditEntry } from './api';
   import { auditActionClass, shortId } from '$lib/audit';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
 
@@ -66,7 +66,7 @@
 </script>
 
 <AdminShell active="auditoria" year={currentYear}>
-  <TopBar title={$t.audit.title} showBack onBack={() => push('/admin')}>
+  <TopBar title={$t.audit.title} showBack onBack={() => goBack('/admin')}>
     <TopActions />
   </TopBar>
 

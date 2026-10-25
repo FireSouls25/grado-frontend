@@ -14,7 +14,7 @@
   import { notify } from '$lib/ui/notice';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
   import { WEEK_ORDER, rangeLabel, toClock, SCHOOL_END_MIN, MIN_DURATION_MIN } from '$lib/schedule';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { isMissing } from '../teacher/api';
 
@@ -356,7 +356,7 @@
 </script>
 
 <AdminShell active="horario" {year}>
-  <TopBar title={$t.admin.scheduleTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
+  <TopBar title={$t.admin.scheduleTitle} showBack onBack={() => goBack('/admin')}><TopActions /></TopBar>
 
   <div class="pagehead">
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>

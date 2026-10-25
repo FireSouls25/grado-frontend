@@ -7,7 +7,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { teacherRollHistory, teacherRoll, teacherDayRevisions, type TeacherDayCard, type TeacherRollRow, type TeacherDayRevision } from './api';
   import { rollDate } from './rollDate';
 
@@ -128,7 +128,7 @@
 </script>
 
 <AdminShell active="docentes" year={currentYear}>
-  <TopBar title={$t.troll.rollHistoryTitle} showBack onBack={() => push('/admin/docentes')}><TopActions /></TopBar>
+  <TopBar title={$t.troll.rollHistoryTitle} showBack onBack={() => goBack('/admin/docentes')}><TopActions /></TopBar>
 
   <div class="pagehead">
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>

@@ -13,7 +13,7 @@
   import WarningRevisionTrail from './WarningRevisionTrail.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
-  import { guarded, queryParam } from '$lib/nav';
+  import { guarded, queryParam, goBack } from '$lib/nav';
   import { foldSearch } from '$lib/search';
   import {
     warningsRecent,
@@ -301,7 +301,7 @@
 </script>
 
 <AdminShell active="llamados" {year}>
-  <TopBar title={$t.warnings.title} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
+  <TopBar title={$t.warnings.title} showBack onBack={() => goBack('/admin')}><TopActions /></TopBar>
 
   <div class="pagehead">
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>

@@ -13,7 +13,7 @@
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { notify } from '$lib/ui/notice';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { foldSearch } from '$lib/search';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
@@ -263,7 +263,7 @@
 </script>
 
 <AdminShell active="docentes" year={currentYear}>
-  <TopBar title={$t.admin.teachersTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
+  <TopBar title={$t.admin.teachersTitle} showBack onBack={() => goBack('/admin')}><TopActions /></TopBar>
 
   <div class="pagehead">
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>

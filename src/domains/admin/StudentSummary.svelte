@@ -7,7 +7,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import AdminShell from './AdminShell.svelte';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { t } from '$lib/i18n';
   import type { StudentProfile, Warning } from '$lib/api/types';
   import {
@@ -173,7 +173,7 @@
 </script>
 
 <AdminShell active="estudiantes" year={currentYear} onYear={null}>
-  <TopBar title={fullName || $t.studentSummary.titleFallback} showBack onBack={() => push('/admin/estudiantes')}><TopActions /></TopBar>
+  <TopBar title={fullName || $t.studentSummary.titleFallback} showBack onBack={() => goBack('/admin/estudiantes')}><TopActions /></TopBar>
 
   <div class="pagehead">
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>

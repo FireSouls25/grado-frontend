@@ -8,7 +8,7 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import AdminShell from './AdminShell.svelte';
   import PeriodBlocks from './PeriodBlocks.svelte';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { t } from '$lib/i18n';
   import {
@@ -337,7 +337,7 @@
 </script>
 
 <AdminShell active="anos" year={currentYear} onYear={null}>
-  <TopBar title={$t.admin.yearsTitle} showBack onBack={() => push('/admin')}><TopActions /></TopBar>
+  <TopBar title={$t.admin.yearsTitle} showBack onBack={() => goBack('/admin')}><TopActions /></TopBar>
 
   <div class="pagehead">
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>

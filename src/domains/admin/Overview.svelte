@@ -729,7 +729,6 @@
                 <div class="kpi"><small>{$t.admin.statsWarnings}</small><strong>{statWarnings ?? '—'}</strong></div>
               </div>
 
-              <p class="cat-kicker">{$t.admin.attendanceTitle}</p>
               <div class="gfx">
                 <div class="panel">
                   <div class="panel-head">
@@ -781,7 +780,6 @@
                 {/if}
               </div>
 
-              <p class="cat-kicker">{$t.admin.teachersPanelTitle}</p>
               <div class="panel">
                 <div class="panel-head">
                   <h2>{$t.admin.teachersPanelTitle}</h2>
@@ -809,13 +807,15 @@
                     <p class="muted-note">{$t.admin.teachersMonth}</p>
                   {/if}
                   {#if unassignedTeachers.length > 0}
-                    <ul class="prows simple">
+                    <ul class="trows">
                       {#each unassignedTeachers.slice(0, 5) as x (x.id)}
                         <li>
-                          <button type="button" class="prow link" on:click={() => push(`/admin/docentes/${encodeURIComponent(x.id)}`)}>
+                          <button type="button" on:click={() => push(`/admin/docentes/${encodeURIComponent(x.id)}`)}>
                             <span class="avatar" aria-hidden="true">{initials(x.name)}</span>
-                            <span class="who"><strong>{x.name}</strong></span>
-                            <span class="countchip">{$t.admin.unassignedTeacherMeta}</span>
+                            <span class="who">
+                              <strong>{x.name}</strong>
+                              <small>{$t.admin.unassignedTeacherMeta}</small>
+                            </span>
                             <span class="go" aria-hidden="true"><Icon name="next" /></span>
                           </button>
                         </li>
@@ -1151,11 +1151,53 @@
       grid-template-columns: repeat(2, 1fr);
     }
   }
-  .prows.simple {
-    margin-top: 10px;
+  .trows {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
-  .prow.link {
+  .trows button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font: inherit;
+    color: inherit;
     cursor: pointer;
+  }
+  .trows .avatar {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    border: 1px solid var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.72rem;
+  }
+  .trows .who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .trows .who strong {
+    font-size: 0.88rem;
+    overflow-wrap: anywhere;
+  }
+  .trows .who small {
+    color: var(--muted);
+    font-size: 0.78rem;
   }
   .tacts {
     display: flex;

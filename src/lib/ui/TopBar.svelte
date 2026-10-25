@@ -1,12 +1,13 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { t } from '$lib/i18n';
+  import { goBack } from '$lib/nav';
 
   export let title: string;
   export let showBack = false;
   // Optativo: `centered` centra el título (acciones fijadas a la derecha).
   export let centered = false;
-  export let onBack: () => void = () => history.back();
+  export let onBack: () => void = () => goBack('/');
 </script>
 
 <header class="topbar" class:centered>

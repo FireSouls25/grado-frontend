@@ -8,7 +8,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
-  import { guarded } from '$lib/nav';
+  import { guarded, goBack } from '$lib/nav';
   import { notify } from '$lib/ui/notice';
   import { teacherRoll, recordTeacherDay, listYears, teachers, type TeacherRollRow, type TeacherMarkStatus } from './api';
   import { rollDate, resetRollDate } from './rollDate';
@@ -146,7 +146,7 @@
 
   function back() {
     resetRollDate();
-    push('/admin/docentes');
+    goBack('/admin/docentes');
   }
 
   load();
