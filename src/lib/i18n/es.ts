@@ -167,8 +167,8 @@ export const es = {
     roomLabel: (room: string) => `Salón ${room}`,
     rollLocalTag: 'Local',
     rollTooltip: 'Llamado de hoy guardado en este dispositivo (registro local).',
-    rollCounts: (p: number, a: number, x: number, l = 0) =>
-      `${p} presentes · ${a} ausentes · ${x} con permiso${l > 0 ? ` · ${l} con atraso` : ''}`,
+    rollCounts: (p: number, a: number, x: number, l = 0, v = 0) =>
+      `${p} presentes · ${a} ausentes · ${x} con permiso${l > 0 ? ` · ${l} con atraso` : ''}${v > 0 ? ` · ${v} evasiones` : ''}`,
     loading: 'Cargando tu agenda…',
     emptyTitle: 'Sin clases este día',
     emptyBody: 'No tienes clases asignadas para este día. Elige otro día de la semana.',

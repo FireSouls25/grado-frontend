@@ -69,6 +69,8 @@
   let permissionInit = new Set<string>();
   let late = new Set<string>();
   let lateInit = new Set<string>();
+  let evasion = new Set<string>();
+  let evasionInit = new Set<string>();
   let groupLabel = '';
   let subjectName = '';
   let sessionID = '';
@@ -103,6 +105,8 @@
       permissionInit = new Set();
       late = new Set();
       lateInit = new Set();
+      evasion = new Set();
+      evasionInit = new Set();
     } catch {
       // Backend sin nómina todavía (404 o error): vacío honesto, no lista falsa.
       roster = [];
@@ -112,6 +116,8 @@
       permissionInit = new Set();
       late = new Set();
       lateInit = new Set();
+      evasion = new Set();
+      evasionInit = new Set();
     } finally {
       loading = false;
     }
@@ -137,52 +143,59 @@
 
   onMount(load);
 
-  function toggle(id: string) {
-    if (present.has(id)) present.delete(id);
-    else {
+  type RollMark = '' | 'absence' | 'absence-permission' | 'late' | 'evasion';
+
+  function currentOf(id: string): RollMark {
+    if (present.has(id)) return '';
+    if (permission.has(id)) return 'absence-permission';
+    if (late.has(id)) return 'late';
+    if (evasion.has(id)) return 'evasion';
+    return 'absence';
+  }
+
+  // Mismo selector que las pantallas de admin: los estados como opciones
+  // y el permiso como boton separado. Una sola marca por estudiante.
+  function pick(id: string, mark: RollMark) {
+    if (mark === '') {
       present.add(id);
-      permission.delete(id); // presente excluye permiso y atraso
+      permission.delete(id);
       late.delete(id);
+      evasion.delete(id);
+    } else {
+      present.delete(id);
+      if (mark === 'absence-permission') {
+        permission.add(id);
+        late.delete(id);
+        evasion.delete(id);
+      } else if (mark === 'late') {
+        late.add(id);
+        permission.delete(id);
+        evasion.delete(id);
+      } else if (mark === 'evasion') {
+        evasion.add(id);
+        permission.delete(id);
+        late.delete(id);
+      } else {
+        permission.delete(id);
+        late.delete(id);
+        evasion.delete(id);
+      }
     }
     present = present;
     permission = permission;
     late = late;
+    evasion = evasion;
     feedback = '';
   }
 
-  // Alterna la ausencia marcada entre falta injustificada y falta con
-  // permiso; solo aplica a quien no está presente.
-  function cyclePermission(id: string) {
-    if (present.has(id)) return;
-    if (permission.has(id)) permission.delete(id);
-    else {
-      permission.add(id);
-      late.delete(id);
-    }
-    permission = permission;
-    late = late;
-    feedback = '';
-  }
 
-  // Alterna entre falta injustificada y atraso; solo aplica a quien no
-  // está presente.
-  function cycleLate(id: string) {
-    if (present.has(id)) return;
-    if (late.has(id)) late.delete(id);
-    else {
-      late.add(id);
-      permission.delete(id);
-    }
-    late = late;
-    permission = permission;
-    feedback = '';
-  }
 
   $: presentCount = roster.filter((r) => present.has(r.StudentID)).length;
   $: notPresent = roster.filter((r) => !present.has(r.StudentID));
   $: permissionCount = notPresent.filter((r) => permission.has(r.StudentID)).length;
   $: lateCount = notPresent.filter((r) => late.has(r.StudentID)).length;
-  $: absentCount = notPresent.length - permissionCount - lateCount;
+  $: evasionCount = notPresent.filter((r) => evasion.has(r.StudentID)).length;
+  $: absentCount = notPresent.length - permissionCount - lateCount - evasionCount;
   $: presentPct = roster.length ? Math.round((presentCount / roster.length) * 100) : 0;
 
   async function ensureSession(): Promise<boolean> {
@@ -206,6 +219,7 @@
     present = next;
     permission = new Set();
     late = new Set();
+    evasion = new Set();
     feedback = '';
   }
 
@@ -213,6 +227,7 @@
     present = new Set<string>();
     permission = new Set<string>();
     late = new Set<string>();
+    evasion = new Set<string>();
     feedback = '';
   }
 
@@ -226,7 +241,8 @@
       Present: presentCount,
       Absent: absentCount,
       Permission: permissionCount,
-      Late: lateCount
+      Late: lateCount,
+      Evasion: evasionCount
     });
   }
 
@@ -242,16 +258,17 @@
         presentInit = new Set(present);
         permissionInit = new Set(permission);
         lateInit = new Set(late);
+        evasionInit = new Set(evasion);
         snapshotRollcall();
         feedback = $t.attendance.savedLocal;
         return;
       }
-      const markOf = (p: Set<string>, q: Set<string>, l: Set<string>, id: string) =>
-        p.has(id) ? '' : q.has(id) ? 'absence-permission' : l.has(id) ? 'late' : 'absence';
+      const markOf = (p: Set<string>, q: Set<string>, l: Set<string>, v: Set<string>, id: string): RollMark =>
+        p.has(id) ? '' : q.has(id) ? 'absence-permission' : l.has(id) ? 'late' : v.has(id) ? 'evasion' : 'absence';
       for (const r of roster) {
         // Marca equivalente de cada estado (presente = "").
-        const wasMark = markOf(presentInit, permissionInit, lateInit, r.StudentID);
-        const isMark = markOf(present, permission, late, r.StudentID);
+        const wasMark = markOf(presentInit, permissionInit, lateInit, evasionInit, r.StudentID);
+        const isMark = markOf(present, permission, late, evasion, r.StudentID);
         if (wasMark === isMark) continue;
         try {
           await recordMark(sessionID, r.StudentID, isMark, '');
@@ -262,6 +279,7 @@
       presentInit = new Set(present);
       permissionInit = new Set(permission);
       lateInit = new Set(late);
+      evasionInit = new Set(evasion);
       snapshotRollcall();
       feedback = $t.attendance.saved;
     } catch (err) {
@@ -346,49 +364,56 @@
           </div>
           <ul class="ledger">
             {#each roster as r (r.StudentID)}
+              {@const cur = currentOf(r.StudentID)}
               <li>
+                <span class="who">
+                  <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
+                  <span class="name"><strong>{r.Surnames}, {r.Names}</strong><small>{r.DocumentID}</small></span>
+                </span>
+                <span class="seg" role="group" aria-label={`${r.Surnames} ${r.Names}`}>
+                  <button
+                    type="button"
+                    class:present={cur === ''}
+                    aria-pressed={cur === ''}
+                    on:click={() => pick(r.StudentID, '')}
+                  >
+                    {$t.studentSummary.presences}
+                  </button>
+                  <button
+                    type="button"
+                    class:absent={cur === 'absence'}
+                    aria-pressed={cur === 'absence'}
+                    on:click={() => pick(r.StudentID, 'absence')}
+                  >
+                    {$t.studentSummary.markAbsence}
+                  </button>
+                  <button
+                    type="button"
+                    class:evasion={cur === 'evasion'}
+                    aria-pressed={cur === 'evasion'}
+                    on:click={() => pick(r.StudentID, 'evasion')}
+                  >
+                    {$t.studentSummary.markEvasion}
+                  </button>
+                  <button
+                    type="button"
+                    class:late={cur === 'late'}
+                    aria-pressed={cur === 'late'}
+                    on:click={() => pick(r.StudentID, 'late')}
+                  >
+                    {$t.studentSummary.markLate}
+                  </button>
+                </span>
                 <button
                   type="button"
-                  class="check"
-                  class:on={present.has(r.StudentID)}
-                  role="checkbox"
-                  aria-checked={present.has(r.StudentID)}
-                  aria-label={`${r.Surnames} ${r.Names}`}
-                  on:click={() => toggle(r.StudentID)}
+                  class="permbtn"
+                  class:on={cur === 'absence-permission'}
+                  aria-pressed={cur === 'absence-permission'}
+                  title={$t.attendance.permissionHint}
+                  on:click={() => pick(r.StudentID, cur === 'absence-permission' ? 'absence' : 'absence-permission')}
                 >
-                  <span class="box">{#if present.has(r.StudentID)}<Icon name="check" />{/if}</span>
+                  {$t.studentSummary.markPermission}
                 </button>
-                <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
-                <span class="who"><strong>{r.Surnames}, {r.Names}</strong><small>{r.DocumentID}</small></span>
-                {#if present.has(r.StudentID)}
-                  <span class="markpill present">{$t.roster.present}</span>
-                {:else}
-                  <span class="miniseg" role="group" aria-label={`${r.Surnames} ${r.Names}`}>
-                    <button
-                      type="button"
-                      class="markpill togglable"
-                      class:permitted={permission.has(r.StudentID)}
-                      aria-pressed={permission.has(r.StudentID)}
-                      title={$t.attendance.permissionHint}
-                      on:click={() => cyclePermission(r.StudentID)}
-                    >
-                      {$t.roster.permission}
-                    </button>
-                    <button
-                      type="button"
-                      class="markpill togglable"
-                      class:lated={late.has(r.StudentID)}
-                      aria-pressed={late.has(r.StudentID)}
-                      title={$t.attendance.lateHint}
-                      on:click={() => cycleLate(r.StudentID)}
-                    >
-                      {$t.roster.late}
-                    </button>
-                  </span>
-                  {#if !permission.has(r.StudentID) && !late.has(r.StudentID)}
-                    <span class="markpill absent">{$t.roster.absent}</span>
-                  {/if}
-                {/if}
               </li>
             {/each}
           </ul>
@@ -665,39 +690,13 @@
   .ledger li {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 10px 12px;
+    flex-wrap: wrap;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
-    padding: 6px 14px 6px 6px;
+    padding: 10px 14px;
     min-height: 56px;
-  }
-  .check {
-    flex: none;
-    width: 44px;
-    height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .box {
-    width: 22px;
-    height: 22px;
-    border-radius: 7px;
-    border: 1.5px solid var(--muted);
-    background: var(--surface);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--bg);
-  }
-  .box :global(svg) {
-    width: 14px;
-    height: 14px;
-  }
-  .check.on .box {
-    background: var(--ink);
-    border-color: var(--ink);
   }
   .avatar {
     flex: none;
@@ -712,6 +711,13 @@
     font-size: 0.7rem;
   }
   .who {
+    flex: 1;
+    min-width: 180px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .who .name {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -728,43 +734,60 @@
     font-size: 0.74rem;
     font-variant-numeric: tabular-nums;
   }
-  .markpill {
-    flex: none;
-    font-size: 0.7rem;
-    font-weight: 600;
+  /* Mismo selector que las pantallas de admin: estados como opciones y
+     el permiso como botón separado. */
+  .seg {
+    flex: 1 1 240px;
+    display: flex;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 4px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .seg button {
+    flex: 1;
+    min-height: 44px;
+    padding: 6px 10px;
     border-radius: var(--radius-pill);
-    padding: 5px 12px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
     white-space: nowrap;
-    background: var(--tint);
-    color: var(--ink-soft);
   }
-  .markpill.absent {
-    background: var(--g-medio-bg);
-    color: var(--g-medio-ink);
+  .seg button.present {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
   }
-  .markpill.permitted {
-    background: var(--m-permission-bg);
-    color: var(--m-permission);
+  .seg button.absent {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
   }
-  button.markpill.togglable {
-    border: none;
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.7rem;
+  .seg button.evasion {
+    background: var(--chip-purple-bg);
+    color: var(--chip-purple-ink);
   }
-  button.markpill.togglable:hover {
-    filter: brightness(0.96);
-  }
-  .markpill.lated {
+  .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
   }
-  .miniseg {
-    display: flex;
-    gap: 6px;
+  .permbtn {
     flex: none;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    min-height: 44px;
+    padding: 6px 16px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .permbtn.on {
+    background: var(--m-permission-bg, #e8f0fe);
+    color: var(--m-permission, #1a56db);
+    border-color: transparent;
   }
   .dot.late {
     background: var(--chip-yellow-ink);
