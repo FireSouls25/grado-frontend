@@ -153,7 +153,7 @@ function createEngine() {
           strings.resourceLabel(e.Resource),
           e.Status
         ),
-        href: '/admin/auditoria',
+        href: null,
         at: new Date(e.HappenedAt).getTime() || now,
         sig: String(e.ID)
       });
@@ -249,7 +249,7 @@ function createEngine() {
     try {
       const profile = await guarded(() => me());
       if (!profile || !strings) return; // sin sesión: la campana no tiene nada que decir
-      if (profile.roles.includes('admin')) await refreshAdmin(strings);
+      if (profile.roles.includes('admin') || profile.roles.includes('secretary')) await refreshAdmin(strings);
       else if (profile.roles.includes('teacher')) await refreshTeacher(strings);
     } catch {
       /* un refresh fallido no rompe la campana: reintenta en el ciclo */

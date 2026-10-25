@@ -8,6 +8,8 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import AdminShell from './AdminShell.svelte';
   import { guarded, goBack } from '$lib/nav';
+  import { profile as profileStore } from '$lib/shell/profile';
+  import { canWriteWarnings } from '$lib/access';
   import { t } from '$lib/i18n';
   import type { StudentProfile, Warning } from '$lib/api/types';
   import {
@@ -27,6 +29,8 @@
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
   import { ApiError } from '$lib/api/types';
+  $: roles = $profileStore.me?.roles ?? [];
+  $: staffWrite = canWriteWarnings(roles);
 
   export let params: { id?: string } = {};
   $: id = decodeURIComponent(params.id ?? '');
@@ -275,10 +279,12 @@
                   <span>{momentDay(w.HappenedAt)}{#if w.ClassLabel} · {w.ClassLabel}{/if}{#if w.AuthorName} · {w.AuthorName}{/if}</span>
                   {#if w.Description}<small>{w.Description}</small>{/if}
                   <span class="rowbtns">
-                    <button
-                      type="button" class="mini"
-                      on:click={() => (editingWarning = { id: w.ID, gravity: w.Gravity, title: w.Title, description: w.Description ?? '' })}
-                    >{$t.studentSummary.modifyAction}</button>
+                    {#if staffWrite}
+                      <button
+                        type="button" class="mini"
+                        on:click={() => (editingWarning = { id: w.ID, gravity: w.Gravity, title: w.Title, description: w.Description ?? '' })}
+                      >{$t.studentSummary.modifyAction}</button>
+                    {/if}
                     <button type="button" class="mini" on:click={() => toggleWarnRevs(w.ID)}>
                       {warnRevsFor === w.ID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
                     </button>

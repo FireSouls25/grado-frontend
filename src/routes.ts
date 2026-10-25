@@ -47,7 +47,6 @@ export const routes = {
   '/admin/estudiantes/:id': admin(() => import('./domains/admin/StudentDetail.svelte')),
   '/admin/horario': admin(() => import('./domains/admin/ScheduleBoard.svelte')),
   '/admin/llamados': admin(() => import('./domains/admin/Warnings.svelte')),
-  '/admin/auditoria': admin(() => import('./domains/admin/Audit.svelte')),
   '/admin/anos': admin(() => import('./domains/admin/SchoolYears.svelte')),
   '/admin/cierre': admin(() => import('./domains/admin/YearEnd.svelte')),
   '*': Login

@@ -14,6 +14,8 @@
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded, queryParam, goBack } from '$lib/nav';
+  import { profile } from '$lib/shell/profile';
+  import { canManageUsers } from '$lib/access';
   import { mapSettled } from '$lib/async';
   import { foldSearch } from '$lib/search';
 
@@ -276,6 +278,7 @@
   }
 
   import { onMount } from 'svelte';
+  $: roles = $profile.me?.roles ?? [];
   onMount(load);
 </script>
 
@@ -294,9 +297,11 @@
       <button type="button" class="icon-btn" on:click={() => changeYear(1)} aria-label={$t.a11y.nextYear}>
         <Icon name="next" />
       </button>
-      <button type="button" class="new ghost-new" on:click={() => { creatingSalon = true; salonFeedback = ''; }}>
-        {$t.admin.newSalon}
-      </button>
+      {#if canManageUsers(roles)}
+        <button type="button" class="new ghost-new" on:click={() => { creatingSalon = true; salonFeedback = ''; }}>
+          {$t.admin.newSalon}
+        </button>
+      {/if}
       <button type="button" class="new" on:click={() => { creating = true; feedback = ''; }}>
         {$t.admin.newStudent}
       </button>

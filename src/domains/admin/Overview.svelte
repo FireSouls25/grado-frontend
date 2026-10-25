@@ -13,6 +13,8 @@
   import { theme, type Theme } from '$lib/theme/theme';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
+  import { profile } from '$lib/shell/profile';
+  import { canManageUsers } from '$lib/access';
   import { mapSettled } from '$lib/async';
   import { isMissing } from '../teacher/api';
   import {
@@ -32,6 +34,7 @@
     type DashboardSummary
   } from './api';
   import Dropdown from '$lib/ui/Dropdown.svelte';
+  $: roles = $profile.me?.roles ?? [];
 
   // Consola del administrador (identidad docs/diseno.md, referencia
   // proto/ConsolaAdmin.svelte): encabezado en crema sobre lámina blanca,
@@ -436,14 +439,15 @@
         done: false
       });
     }
+    const staffManage = canManageUsers(roles);
     for (const g of salonsNoDirector) {
       next.push({
         id: `nodir-${g.gid}`,
         sev: 'medio',
         title: $t.admin.noDirectorTask(g.label),
         meta: $t.admin.noDirectorMeta,
-        href: '/admin/docentes',
-        actionLabel: $t.admin.assignDirectionLine,
+        href: staffManage ? '/admin/docentes' : null,
+        actionLabel: staffManage ? $t.admin.assignDirectionLine : null,
         call: null,
         done: false
       });

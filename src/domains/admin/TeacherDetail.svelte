@@ -42,6 +42,9 @@
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded, goBack } from '$lib/nav';
+  import { profile } from '$lib/shell/profile';
+  import { canManageUsers } from '$lib/access';
+  $: roles = $profile.me?.roles ?? [];
 
   export let params: { id?: string } = {};
   $: id = decodeURIComponent(params.id ?? '');
@@ -424,13 +427,15 @@
   <div class="pagehead">
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
     {#if detail}
-      <div class="toolbar">
-        {#if editFeedback}<p class="flash" role="status">{editFeedback}</p>{/if}
-        <button type="button" class="mini" on:click={startEdit}>{$t.teacherDetail.editAction}</button>
+      {#if editFeedback}<p class="flash" role="status">{editFeedback}</p>{/if}
+      {#if canManageUsers(roles)}
+        <div class="toolbar">
+          <button type="button" class="mini" on:click={startEdit}>{$t.teacherDetail.editAction}</button>
         <button type="button" class="mini" on:click={toggleActive} disabled={toggling}>
           {detail.Active ? $t.teacherDetail.retireAction : $t.teacherDetail.reactivateAction}
         </button>
-      </div>
+        </div>
+      {/if}
     {/if}
   </div>
 
@@ -452,13 +457,15 @@
                   {`${detail.Surnames} ${detail.Names}`.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
                 </span>
               {/if}
-              <button type="button" class="link" on:click={() => photoInput?.click()}>
-                {$t.troll.photoChange}
-              </button>
-              {#if photoUrl}
-                <button type="button" class="link danger" on:click={removePhoto}>
-                  {$t.troll.photoRemove}
+              {#if canManageUsers(roles)}
+                <button type="button" class="link" on:click={() => photoInput?.click()}>
+                  {$t.troll.photoChange}
                 </button>
+                {#if photoUrl}
+                  <button type="button" class="link danger" on:click={removePhoto}>
+                    {$t.troll.photoRemove}
+                  </button>
+                {/if}
               {/if}
               <input
                 bind:this={photoInput}
@@ -527,9 +534,11 @@
               <span class="chip chip-sky">{$t.admin.directs(detail.HomeroomClassID)}</span>
             {/if}
             {#if !detail.Active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
-            <button type="button" class="linklike" on:click={startEdit}>
+            {#if canManageUsers(roles)}
+              <button type="button" class="linklike" on:click={startEdit}>
               {detail.HomeroomClassID ? $t.admin.modifyDirection : $t.admin.assignDirectionLine}
-            </button>
+              </button>
+            {/if}
           </div>
         </section>
         <section class="card" aria-label={$t.admin.accountTitle}>
@@ -577,7 +586,7 @@
               {/if}
             </div>
           {:else}
-            <p class="muted">{$t.admin.accountNone}</p>
+            {#if canManageUsers(roles)}<p class="muted">{$t.admin.accountNone}</p>{/if}
           {/if}
         </section>
       </aside>

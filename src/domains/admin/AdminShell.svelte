@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
   import Toast from '$lib/ui/Toast.svelte';
   import { notice, dismissNotice } from '$lib/ui/notice';
+  import { profile } from '$lib/shell/profile';
+  import { canManageUsers } from '$lib/access';
 
   // Barra lateral persistente de la consola admin (docs/diseno.md).
   // Sin búsqueda: cada página filtra con la suya junto a sus tabs.
@@ -13,11 +16,14 @@
     | 'estudiantes'
     | 'horario'
     | 'llamados'
-    | 'auditoria'
     | 'anos'
     | 'cierre';
   export let year: number;
   export let onYear: ((delta: number) => void) | null = null;
+
+  onMount(() => {
+    if ($profile.state === 'idle') void profile.refresh();
+  });
 
   type Key = typeof active;
   type IconName =
@@ -32,15 +38,19 @@
 
   // Una sola fuente para las dos navegaciones (lateral en escritorio,
   // barra horizontal en móvil): el mismo destino y el mismo estado.
+  // Años y cierre son solo admin: la secretaría ve el resto igual.
   $: items = [
     { key: 'resumen' as Key, href: '/admin', icon: 'book' as IconName, label: $t.admin.viewOverview },
     { key: 'docentes' as Key, href: '/admin/docentes', icon: 'users' as IconName, label: $t.nav.teachers },
     { key: 'estudiantes' as Key, href: '/admin/estudiantes', icon: 'list' as IconName, label: $t.nav.students },
     { key: 'horario' as Key, href: '/admin/horario', icon: 'calendar' as IconName, label: $t.nav.schedule },
     { key: 'llamados' as Key, href: '/admin/llamados', icon: 'warn' as IconName, label: $t.admin.navWarnings },
-    { key: 'auditoria' as Key, href: '/admin/auditoria', icon: 'eye' as IconName, label: $t.audit.navLabel },
-    { key: 'anos' as Key, href: '/admin/anos', icon: 'cap' as IconName, label: $t.admin.navYears },
-    { key: 'cierre' as Key, href: '/admin/cierre', icon: 'check' as IconName, label: $t.admin.navCierre }
+    ...(canManageUsers($profile.me?.roles)
+      ? [
+          { key: 'anos' as Key, href: '/admin/anos', icon: 'cap' as IconName, label: $t.admin.navYears },
+          { key: 'cierre' as Key, href: '/admin/cierre', icon: 'check' as IconName, label: $t.admin.navCierre }
+        ]
+      : [])
   ];
 </script>
 

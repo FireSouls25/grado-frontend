@@ -14,6 +14,8 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
   import { guarded, queryParam, goBack } from '$lib/nav';
+  import { profile } from '$lib/shell/profile';
+  import { canManageUsers, canWriteWarnings } from '$lib/access';
   import { foldSearch } from '$lib/search';
   import {
     warningsRecent,
@@ -27,6 +29,8 @@
     type WarningRevision
   } from './api';
   import type { Warning } from '$lib/api/types';
+  $: roles = $profile.me?.roles ?? [];
+  $: staffWrite = canWriteWarnings(roles);
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;
@@ -307,9 +311,11 @@
     <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
     <h1 class="title">{$t.warnings.title}</h1>
     <div class="toolbar">
-      <button type="button" class="mini primary" on:click={openCreate}>
-        {$t.warnings.newAction}
-      </button>
+      {#if staffWrite}
+        <button type="button" class="mini primary" on:click={openCreate}>
+          {$t.warnings.newAction}
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -405,7 +411,7 @@
               {#if w.AuthorName}{w.AuthorName} · {/if}{moment(w.HappenedAt)}
             </small>
             <div class="wrow">
-              {#if editingID !== w.ID}
+              {#if staffWrite && editingID !== w.ID}
                 <button type="button" class="mini" on:click={() => startEdit(w)}>
                   {$t.warnings.modifyAction}
                 </button>

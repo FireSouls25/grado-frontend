@@ -575,7 +575,7 @@ export const es = {
       `${missed} faltas en ${sessions} llamadas (${pct}% de asistencia)`,
     deniedTitle: 'Cambio denegado',
     deniedBody: (action: string, resource: string, status: number) =>
-      `${action} sobre ${resource} (${status}): sin permiso o periodo cerrado`,
+      `${action} sobre ${resource} (${status}): sin permiso o periodo cerrado. Pide a un admin que lo revise.`,
     bareSubjectsTitle: 'Materias sin docente',
     bareSubjectsBody: (count: number, names: string) =>
       count === 1
@@ -991,6 +991,7 @@ export const es = {
     roleAdmin: 'Administrador',
     roleTeacher: 'Docente',
     roleStudent: 'Estudiante',
+    roleSecretary: 'Secretaría',
     username: 'Usuario',
     email: 'Correo',
     phone: 'Celular',

@@ -14,9 +14,12 @@
   import { ApiError } from '$lib/api/types';
   import { notify } from '$lib/ui/notice';
   import { guarded, goBack } from '$lib/nav';
+  import { profile } from '$lib/shell/profile';
+  import { canManageUsers } from '$lib/access';
   import { foldSearch } from '$lib/search';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
+  $: roles = $profile.me?.roles ?? [];
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let loadError: unknown = null;
@@ -272,9 +275,11 @@
         <Icon name="search" />
         <input type="search" placeholder={$t.admin.teachersSearch} aria-label={$t.admin.teachersSearch} bind:value={search} />
       </label>
-      <button type="button" class="new" on:click={() => { creating = true; feedback = ''; error = ''; }}>
-        {$t.admin.newTeacher}
-      </button>
+      {#if canManageUsers(roles)}
+        <button type="button" class="new" on:click={() => { creating = true; feedback = ''; error = ''; }}>
+          {$t.admin.newTeacher}
+        </button>
+      {/if}
     </div>
     <div class="filters" role="group" aria-label={$t.admin.teachersTitle}>
       <Dropdown
@@ -359,13 +364,15 @@
             </span>
             <span class="go" aria-hidden="true"><Icon name="next" /></span>
           </button>
-          <button
-            type="button"
-            class="assignbar"
-            on:click={() => openAssign(teacher)}
-          >
-            {teacher.HomeroomClassID ? $t.admin.modifyDirection : $t.admin.assignDirectionLine}
-          </button>
+          {#if canManageUsers(roles)}
+            <button
+              type="button"
+              class="assignbar"
+              on:click={() => openAssign(teacher)}
+            >
+              {teacher.HomeroomClassID ? $t.admin.modifyDirection : $t.admin.assignDirectionLine}
+            </button>
+          {/if}
         </li>
       {/each}
     </ul>

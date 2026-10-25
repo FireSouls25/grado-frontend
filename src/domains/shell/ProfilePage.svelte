@@ -16,12 +16,16 @@
 
   $: me = $profile.me;
   $: teacher = me?.teacher ?? null;
-  $: isAdmin = (me?.roles ?? []).includes('admin');
+  import { isAdmin as hasAdminConsole, isSecretary } from '$lib/access';
+
+  $: isAdmin = hasAdminConsole(me?.roles);
+  $: staffView = isAdmin || isSecretary(me?.roles);
 
   function roleLabel(role: string): string {
     if (role === 'admin') return $t.profile.roleAdmin;
     if (role === 'teacher') return $t.profile.roleTeacher;
     if (role === 'student') return $t.profile.roleStudent;
+    if (role === 'secretary') return $t.profile.roleSecretary;
     return role;
   }
 
@@ -385,7 +389,7 @@
           </ul>
         {/if}
       </section>
-    {:else if isAdmin}
+    {:else if staffView}
       <section class="card" aria-label={$t.profile.fileTitle}>
         <div class="row-head">
           <h2>{$t.profile.fileTitle}</h2>
