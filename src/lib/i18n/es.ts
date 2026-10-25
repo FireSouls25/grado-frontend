@@ -150,6 +150,7 @@ export const es = {
     stateNow: 'Ahora',
     stateNext: 'Siguiente',
     openList: 'Abrir lista',
+    warnAction: 'Llamado',
     searchLabel: 'Buscar en tu agenda',
     todayLabel: 'Clases de hoy',
     todayValue: (count: number) => `${count} clases`,
@@ -304,6 +305,10 @@ export const es = {
       'Falta de respeto hacia un compañero o docente'
     ],
     studentLabel: 'Seleccionar Estudiante',
+    studentsLabel: 'Estudiantes involucrados',
+    searchStudents: 'Buscar por nombre…',
+    selectedStudents: (n: number) => (n === 1 ? '1 seleccionado' : `${n} seleccionados`),
+    noStudentsMatch: 'Ningún estudiante coincide con la búsqueda.',
     severityLabel: 'Nivel de Severidad',
     severityMild: 'Tipo 1',
     severityModerate: 'Tipo 2',

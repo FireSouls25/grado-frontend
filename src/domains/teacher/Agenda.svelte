@@ -9,6 +9,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import TeacherShell from './TeacherShell.svelte';
+  import WarningNewSheet from './WarningNewSheet.svelte';
   import { daySchedule, isMissing, type TeacherClass } from './api';
   import { loadRollcall } from './rollcall';
   import { guarded } from '$lib/nav';
@@ -49,6 +50,8 @@
   let selectedDay = todayIdx === -1 ? 0 : todayIdx;
   let search = '';
   let searchEl: HTMLInputElement | null = null;
+  let warnFor: { gid: string; label: string } | null = null;
+
   let loading = true;
   let loadError: unknown = null;
   let baseList: AgendaItem[] = [];
@@ -248,14 +251,32 @@
             <span class={`st ${st}`}>
               {st === 'done' ? $t.agenda.stateDone : st === 'now' ? $t.agenda.stateNow : $t.agenda.stateNext}
             </span>
-            <button type="button" class="open" on:click={() => openClass(item)}>
-              {$t.agenda.openList}
-            </button>
+            <div class="rowbtns">
+              <button type="button" class="open" on:click={() => openClass(item)}>
+                {$t.agenda.openList}
+              </button>
+              <button
+                type="button"
+                class="warn"
+                on:click={() => (warnFor = { gid: item.GroupID, label: `${item.Grade} · ${item.SubjectName}` })}
+              >
+                {$t.agenda.warnAction}
+              </button>
+            </div>
           </li>
         {/each}
       </ol>
     {/if}
   </div>
+  {#if warnFor}
+    <WarningNewSheet
+      open
+      groupID={warnFor.gid}
+      originLabel={warnFor.label}
+      onClose={() => (warnFor = null)}
+      onSaved={() => (warnFor = null)}
+    />
+  {/if}
 </div>
 
 </TeacherShell>
@@ -537,9 +558,15 @@
     background: var(--ink);
     color: var(--bg);
   }
-  .open {
+  .rowbtns {
     grid-column: 2;
     justify-self: start;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .open,
+  .warn {
     border-radius: var(--radius-chip);
     padding: 9px 18px;
     border: 1px solid var(--line);
@@ -547,6 +574,11 @@
     font-weight: 700;
     font-size: 0.85rem;
     min-height: 44px;
+  }
+  .warn {
+    background: var(--g-grave-bg);
+    border-color: transparent;
+    color: var(--g-grave-ink);
   }
   li.now .open {
     background: var(--accent);
@@ -568,7 +600,7 @@
       grid-row: auto;
     }
     .st,
-    .open {
+    .rowbtns {
       grid-column: auto;
     }
   }

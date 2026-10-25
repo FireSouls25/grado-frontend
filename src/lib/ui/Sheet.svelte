@@ -6,6 +6,7 @@
   export let open = false;
   export let title: string;
   export let closeLabel = '';
+  export let wide = false;
   export let onClose: () => void = () => {};
 
   function onKey(e: KeyboardEvent) {
@@ -19,7 +20,7 @@
   <div use:portal>
     <div class="scrim" on:click={onClose} aria-hidden="true"></div>
     <!-- The scrim is a sibling: clicks inside the sheet never reach it. -->
-    <div class="sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label={title}>
+    <div class="sheet" class:wide role="dialog" aria-modal="true" tabindex="-1" aria-label={title}>
       <div class="grab" aria-hidden="true"></div>
       <div class="head">
         <h2>{title}</h2>
@@ -78,6 +79,9 @@
       transform: translate(-50%, -50%);
       border-radius: 20px;
       padding-bottom: 8px;
+    }
+    .sheet.wide {
+      width: min(880px, calc(100vw - 32px));
     }
   }
   .grab {
