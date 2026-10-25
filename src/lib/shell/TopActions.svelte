@@ -28,6 +28,8 @@
         ($t.studentDetail.resourceLabel as Record<string, string>)[r] ?? r,
       riskTitle: (name) => $t.notifications.riskTitle(name),
       riskBody: (missed, sessions, pct) => $t.notifications.riskBody(missed, sessions, pct),
+      alertTitle: (name) => $t.notifications.alertTitle(name),
+      alertBody: (reason) => $t.notifications.alertBody(reason),
       deniedTitle: $t.notifications.deniedTitle,
       deniedBody: (action, resource, status) =>
         $t.notifications.deniedBody(action, resource, status),

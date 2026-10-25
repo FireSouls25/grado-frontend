@@ -823,6 +823,35 @@ export interface WarningRevision {
 }
 
 /** Every correction of one llamado, newest first. */
+export interface AcademicAlert {
+  ID: string;
+  StudentID: string;
+  StudentName?: string;
+  TeacherID: string;
+  Reason: string;
+  Status: 'open' | 'reviewed';
+  CreatedAt: string;
+  ReviewedAt: string;
+  ReviewedBy: string;
+}
+
+/** Open academic alerts, newest first (admin + secretary). */
+export async function listAcademicAlerts(): Promise<AcademicAlert[]> {
+  return (await api.get<AcademicAlert[]>('/v1/academic-alerts')) ?? [];
+}
+
+/** Every alert of one student, newest first. */
+export async function studentAlerts(id: string): Promise<AcademicAlert[]> {
+  return (await api.get<AcademicAlert[]>(`/v1/students/${encodeURIComponent(id)}/alerts`)) ?? [];
+}
+
+/** Marks an open alert as reviewed (admin only). */
+export async function reviewAcademicAlert(id: string): Promise<AcademicAlert> {
+  const updated = await api.post<AcademicAlert>(`/v1/academic-alerts/${encodeURIComponent(id)}/review`, {});
+  if (!updated) throw missing('Alerta');
+  return updated;
+}
+
 export async function warningRevisions(id: string): Promise<WarningRevision[]> {
   return (await api.get<WarningRevision[]>(`/v1/warnings/${encodeURIComponent(id)}/revisions`)) ?? [];
 }

@@ -333,6 +333,19 @@ export const es = {
     backToDetail: 'Volver al detalle de la clase',
     loading: 'Cargando el formulario…'
   },
+  academicAlert: {
+    title: 'Alerta académica',
+    action: 'Alerta académica',
+    reasonLabel: 'Motivo de la alerta',
+    reasonPlaceholder: 'Describe la situación: comportamiento, faltas reiteradas, a qué debe estar atento el admin…',
+    save: 'Enviar alerta',
+    saved: 'Alerta enviada. Los admins la revisarán.',
+    openCount: (n: number) => (n === 1 ? '1 alerta abierta' : `${n} alertas abiertas`),
+    openLabel: 'abierta',
+    reviewedLabel: 'revisada',
+    reviewAction: 'Marcar revisada',
+    reviewedOk: 'Alerta marcada como revisada.'
+  },
   warnings: {
     title: 'Llamados de atención',
     newAction: 'Nuevo llamado',
@@ -575,7 +588,8 @@ export const es = {
       schedule: 'Bloque de horario',
       subject: 'Materia',
       assignment: 'Asignación',
-      group: 'Salón'
+      group: 'Salón',
+      'academic-alert': 'Alerta académica'
     }
   },
   notifications: {
@@ -587,6 +601,8 @@ export const es = {
     riskTitle: (name: string) => `Faltas críticas: ${name}`,
     riskBody: (missed: number, sessions: number, pct: number) =>
       `${missed} faltas en ${sessions} llamadas (${pct}% de asistencia)`,
+    alertTitle: (name: string) => `Alerta académica: ${name}`,
+    alertBody: (reason: string) => reason,
     deniedTitle: 'Cambio denegado',
     deniedBody: (action: string, resource: string, status: number) =>
       `${action} sobre ${resource} (${status}): sin permiso o periodo cerrado. Pide a un admin que lo revise.`,

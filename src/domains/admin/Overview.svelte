@@ -23,6 +23,8 @@
     classReport,
     dashboardSummary,
     warningsRecent,
+    listAcademicAlerts,
+    reviewAcademicAlert,
     studentProfile,
     teacherHistory,
     scheduleEntries,
@@ -31,8 +33,10 @@
     type TeacherSummary,
     type YearGroup,
     type RecentWarning,
+    type AcademicAlert,
     type DashboardSummary
   } from './api';
+  import { notify } from '$lib/ui/notice';
   import Dropdown from '$lib/ui/Dropdown.svelte';
   $: roles = $profile.me?.roles ?? [];
 
@@ -63,6 +67,8 @@
     actionLabel: string | null;
     /** Teléfono para llamar (tel:); null = sin llamada. */
     call: string | null;
+    /** Id de alerta para marcar revisada inline; null = sin revisión. */
+    reviewId: string | null;
     done: boolean;
   }
 
@@ -99,6 +105,7 @@
   let bareSubjectNames: string[] = [];
   let salonsNoDirector: { gid: string; label: string }[] = [];
   let guardianPhones: Record<string, string> = {};
+  let openAlerts: AcademicAlert[] = [];
   let todayClasses: {
     gid: string;
     label: string;
@@ -325,6 +332,17 @@
   // reales (asistencia mensual por docente, horario por docente, catálogo
   // de materias con asignaciones y ficha del estudiante para el teléfono
   // del acudiente). En paralelo con tope; lo que falle pinta vacío.
+  async function reviewAlert(id: string) {
+    try {
+      await reviewAcademicAlert(id);
+      tasks = tasks.filter((x) => x.id !== `alerta-${id}`);
+      openAlerts = openAlerts.filter((a) => a.ID !== id);
+      notify($t.academicAlert.reviewedOk);
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : $t.common.loadError);
+    }
+  }
+
   async function loadTeacherExtras() {
     teacherMonth = { present: 0, absent: 0, late: 0, known: false };
     unassignedTeachers = [];
@@ -384,6 +402,11 @@
     } catch {
       guardianPhones = {};
     }
+    try {
+      openAlerts = (await guarded(() => listAcademicAlerts())) ?? [];
+    } catch {
+      openAlerts = [];
+    }
   }
 
   async function loadSecondary() {
@@ -424,6 +447,7 @@
         href: `/admin/estudiantes/${encodeURIComponent(row.id)}/resumen`,
         actionLabel: $t.admin.openSummary,
         call: guardianPhones[row.id] ?? null,
+        reviewId: null,
         done: false
       });
     }
@@ -436,6 +460,7 @@
         href: `/admin/docentes/${encodeURIComponent(teacher.ID)}`,
         actionLabel: $t.admin.reviewAction,
         call: null,
+        reviewId: null,
         done: false
       });
     }
@@ -449,6 +474,7 @@
         href: staffManage ? '/admin/docentes' : null,
         actionLabel: staffManage ? $t.admin.assignDirectionLine : null,
         call: null,
+        reviewId: null,
         done: false
       });
     }
@@ -461,6 +487,7 @@
         href: '/admin/horario',
         actionLabel: $t.admin.goSchedule,
         call: null,
+        reviewId: null,
         done: false
       });
     }
@@ -473,6 +500,21 @@
         href: '/admin/horario',
         actionLabel: $t.admin.goSchedule,
         call: null,
+        reviewId: null,
+        done: false
+      });
+    }
+    const staffReview = canManageUsers($profile.me?.roles ?? []);
+    for (const a of openAlerts) {
+      next.push({
+        id: `alerta-${a.ID}`,
+        sev: 'grave',
+        title: `${$t.academicAlert.title}: ${a.StudentName || a.StudentID.slice(0, 8)}`,
+        meta: a.Reason,
+        href: `/admin/estudiantes/${encodeURIComponent(a.StudentID)}/resumen`,
+        actionLabel: staffReview ? null : $t.admin.openSummary,
+        call: null,
+        reviewId: staffReview ? a.ID : null,
         done: false
       });
     }
@@ -960,6 +1002,9 @@
                       {/if}
                       {#if task.href && task.actionLabel}
                         <button type="button" class="go" on:click={() => task.href && push(task.href)}>{task.actionLabel}</button>
+                      {/if}
+                      {#if task.reviewId}
+                        <button type="button" class="go" on:click={() => task.reviewId && reviewAlert(task.reviewId)}>{$t.academicAlert.reviewAction}</button>
                       {/if}
                     </div>
                     {/if}

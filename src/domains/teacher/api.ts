@@ -135,6 +135,27 @@ export async function studentIncidents(id: string): Promise<StudentIncident[]> {
   return (await api.get<StudentIncident[]>(`/v1/students/${encodeURIComponent(id)}/incidents`)) ?? [];
 }
 
+export interface AcademicAlertInput {
+  studentIDs: string[];
+  reason: string;
+}
+
+export interface AcademicAlert {
+  ID: string;
+  StudentID: string;
+  TeacherID: string;
+  Reason: string;
+  Status: 'open' | 'reviewed';
+  CreatedAt: string;
+  ReviewedAt: string;
+  ReviewedBy: string;
+}
+
+/** Raises one academic alert per student for admin review. */
+export async function raiseAcademicAlerts(input: AcademicAlertInput): Promise<AcademicAlert[]> {
+  return (await api.post<AcademicAlert[]>('/v1/academic-alerts', input)) ?? [];
+}
+
 export async function issueWarnings(draft: WarningDraft): Promise<Warning[]> {
   return (await api.post<Warning[]>('/v1/warnings/batch', draft)) ?? [];
 }

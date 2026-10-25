@@ -9,6 +9,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
+  import AcademicAlertSheet from './AcademicAlertSheet.svelte';
   import { classRoster, isMissing, openSession, recordMark } from './api';
   import { groupsByYear, listSubjects } from '../admin/api';
   import { dateKey, saveRollcall } from './rollcall';
@@ -291,6 +292,7 @@
   }
 
   let warnOpen = false;
+  let alertOpen = false;
 </script>
 
 <TeacherShell active="agenda">
@@ -305,6 +307,9 @@
       <button type="button" class="collective" on:click={() => (warnOpen = true)}>
         <Icon name="warn" /> {$t.agenda.warnActionLong}
       </button>
+      <button type="button" class="collective ghost" on:click={() => (alertOpen = true)}>
+        <Icon name="warn" /> {$t.academicAlert.action}
+      </button>
     </div>
     <WarningNewSheet
       open={warnOpen}
@@ -312,6 +317,13 @@
       originLabel={titleLabel}
       onClose={() => (warnOpen = false)}
       onSaved={() => (warnOpen = false)}
+    />
+    <AcademicAlertSheet
+      open={alertOpen}
+      groupID={groupID}
+      originLabel={titleLabel}
+      onClose={() => (alertOpen = false)}
+      onSaved={() => (alertOpen = false)}
     />
   </div>
 

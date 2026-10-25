@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import {
   auditRecent,
   dashboardSummary,
+  listAcademicAlerts,
   listSubjects,
   subjectAssignments
 } from '../domains/admin/api';
@@ -83,6 +84,8 @@ export interface NoticeStrings {
   resourceLabel: (resource: string) => string;
   riskTitle: (name: string) => string;
   riskBody: (missed: number, sessions: number, pct: number) => string;
+  alertTitle: (name: string) => string;
+  alertBody: (reason: string) => string;
   deniedTitle: string;
   deniedBody: (action: string, resource: string, status: number) => string;
   bareSubjectsTitle: string;
@@ -135,10 +138,11 @@ function createEngine() {
   // exitosas) vive en la bitácora, no en la campana.
   async function refreshAdmin(strings: NoticeStrings) {
     const year = new Date().getFullYear();
-    const [entries, subjects, summary] = await Promise.all([
+    const [entries, subjects, summary, alerts] = await Promise.all([
       guarded(() => auditRecent(20)),
       guarded(() => listSubjects()),
-      guarded(() => dashboardSummary(year))
+      guarded(() => dashboardSummary(year)),
+      guarded(() => listAcademicAlerts())
     ]);
     const items: Notice[] = [];
     const now = Date.now();
@@ -156,6 +160,17 @@ function createEngine() {
         href: null,
         at: new Date(e.HappenedAt).getTime() || now,
         sig: String(e.ID)
+      });
+    }
+    for (const a of alerts ?? []) {
+      items.push({
+        id: `alert-${a.ID}`,
+        kind: 'alert',
+        title: strings.alertTitle(a.StudentName || a.StudentID.slice(0, 8)),
+        body: strings.alertBody(a.Reason),
+        href: `/admin/estudiantes/${encodeURIComponent(a.StudentID)}/resumen`,
+        at: Date.parse(a.CreatedAt) || now,
+        sig: `${a.ID}-${a.Status}`
       });
     }
     for (const r of summary?.TopRisk ?? []) {

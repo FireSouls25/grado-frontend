@@ -9,19 +9,22 @@
   import AdminShell from './AdminShell.svelte';
   import { guarded, goBack } from '$lib/nav';
   import { profile as profileStore } from '$lib/shell/profile';
-  import { canWriteWarnings } from '$lib/access';
+  import { canManageUsers, canWriteWarnings } from '$lib/access';
   import { t } from '$lib/i18n';
   import type { StudentProfile, Warning } from '$lib/api/types';
   import {
     studentProfile,
     studentReport,
     studentWarnings,
+    studentAlerts,
+    reviewAcademicAlert,
     recordSessionMark,
     sessionDetail,
     warningRevisions,
     type StudentReport,
     type SessionRevisionRow,
-    type WarningRevision
+    type WarningRevision,
+    type AcademicAlert
   } from './api';
   import WarningCorrectForm from './WarningCorrectForm.svelte';
   import WarningRevisionTrail from './WarningRevisionTrail.svelte';
@@ -44,6 +47,8 @@
   let editingWarning: { id: string; gravity: 'mild' | 'moderate' | 'severe'; title: string; description: string } | null = null;
   let warnRevsFor: string | null = null;
   let warnRevs: Record<string, WarningRevision[]> = {};
+  let alerts: AcademicAlert[] = [];
+  let reviewingAlert: string | null = null;
   let warnRevsLoading = false;
   let trailFor: string | null = null;
   let trailRows: SessionRevisionRow[] = [];
@@ -150,22 +155,39 @@
     await load();
   }
 
+  $: openAlerts = alerts.filter((a) => a.Status === 'open');
+
+  async function reviewAlert(id: string) {
+    reviewingAlert = id;
+    try {
+      await reviewAcademicAlert(id);
+      notify($t.academicAlert.reviewedOk);
+      await load();
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : $t.common.loadError);
+    } finally {
+      reviewingAlert = null;
+    }
+  }
+
   async function load() {
     state = 'loading';
     loadError = null;
     try {
-      const [p, r, w] = await Promise.all([
+      const [p, r, w, al] = await Promise.all([
         guarded(() => studentProfile(id)),
         guarded(() => studentReport(id)),
-        guarded(() => studentWarnings(id))
+        guarded(() => studentWarnings(id)),
+        guarded(() => studentAlerts(id))
       ]);
-      if (p === null || r === null || w === null) {
+      if (p === null || r === null || w === null || al === null) {
         state = 'error';
         return;
       }
       profile = p;
       report = r;
       warnings = w;
+      alerts = (al ?? []).slice().sort((a, b) => (a.CreatedAt < b.CreatedAt ? 1 : -1));
       state = 'ready';
     } catch (err) {
       loadError = err;
@@ -259,6 +281,33 @@
         {/if}
       </section>
 
+      {#if alerts.length > 0}
+        <section class="card" aria-label={$t.academicAlert.title}>
+          <div class="row-head">
+            <h2>{$t.academicAlert.title} ({openAlerts.length} {$t.academicAlert.openLabel})</h2>
+          </div>
+          <ul class="rows">
+            {#each alerts as a (a.ID)}
+              <li>
+                <span class={`mk ${a.Status === 'open' ? 'sev-severe' : 'sev-mild'}`}>{a.Status === 'open' ? $t.academicAlert.openLabel : $t.academicAlert.reviewedLabel}</span>
+                <div class="meta">
+                  <strong>{a.Reason}</strong>
+                  <span>{momentDay(a.CreatedAt)}</span>
+                  {#if a.Status === 'open' && canManageUsers($profileStore.me?.roles)}
+                    <span class="rowbtns">
+                      <button
+                        type="button" class="mini"
+                        disabled={reviewingAlert === a.ID}
+                        on:click={() => reviewAlert(a.ID)}
+                      >{$t.academicAlert.reviewAction}</button>
+                    </span>
+                  {/if}
+                </div>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
       <section class="card" aria-label={$t.studentSummary.warningsTitle}>
         <div class="row-head">
           <h2>{$t.studentSummary.warningsTitle} ({sortedWarnings.length})</h2>
