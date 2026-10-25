@@ -715,7 +715,7 @@
               <button
                 type="button"
                 class="grow"
-                on:click={() => push(`/admin/estudiantes/${encodeURIComponent(w.StudentID)}/resumen`)}
+                on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(w.StudentID)}&nombre=${encodeURIComponent(w.StudentName)}&llamado=${encodeURIComponent(w.ID)}`)}
               >
                 <span class={`sev ${w.Gravity === 'mild' ? 'leve' : w.Gravity === 'moderate' ? 'medio' : 'grave'}`}>
                   {w.Gravity === 'mild' ? $t.roster.warnGravityMild : w.Gravity === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere}

@@ -13,7 +13,7 @@
   import { groupsByYear, createStudent, createClassGroup, classReport, warningsRecent, teachers, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
-  import { guarded } from '$lib/nav';
+  import { guarded, queryParam } from '$lib/nav';
   import { mapSettled } from '$lib/async';
   import { foldSearch } from '$lib/search';
 
@@ -74,11 +74,8 @@
       }
       groups = [...data].sort((a, b) => a.Grade - b.Grade || a.GroupNo - b.GroupNo);
       picked = null;
-      const salon = /(?:^|&)salon=([^&]*)/.exec(querystring || '')?.[1];
-      if (salon) {
-        const gid = decodeURIComponent(salon);
-        picked = groups.find((g) => g.GroupID === gid) ?? null;
-      }
+      const salon = queryParam(querystring, 'salon');
+      if (salon) picked = groups.find((g) => g.GroupID === salon) ?? null;
       loaded = true;
       void loadTeachers();
       void loadReports();

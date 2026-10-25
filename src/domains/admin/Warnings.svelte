@@ -13,7 +13,7 @@
   import WarningRevisionTrail from './WarningRevisionTrail.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
-  import { guarded } from '$lib/nav';
+  import { guarded, queryParam } from '$lib/nav';
   import { foldSearch } from '$lib/search';
   import {
     warningsRecent,
@@ -289,14 +289,14 @@
     }
   }
 
-  load().then(() => {
-    const qs = querystring || '';
-    const mID = /(?:^|&)estudiante=([^&]*)/.exec(qs);
-    if (!mID) return;
-    const id = decodeURIComponent(mID[1]);
-    const mName = /(?:^|&)nombre=([^&]*)/.exec(qs);
-    const name = mName ? decodeURIComponent(mName[1]) : '';
-    if (id) void openStudent(id, name);
+  load().then(async () => {
+    const id = queryParam(querystring, 'estudiante');
+    if (!id) return;
+    const name = queryParam(querystring, 'nombre');
+    await openStudent(id, name);
+    // Llamado específico: abre su trail dentro de la ficha.
+    const wid = queryParam(querystring, 'llamado');
+    if (wid && !revsOpen[wid]) await toggleRevs(wid);
   });
 </script>
 

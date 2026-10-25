@@ -29,6 +29,18 @@ export async function backOrHome(): Promise<void> {
   }
 }
 
+/** Lee un query param del hash (?clave=valor). El router no siempre
+ *  entrega `querystring` como prop, así que se lee del hash directamente:
+ *  mismo patrón que ya usa Nuevo llamado para pre-seleccionar. */
+export function queryParam(prop: string, key: string): string {
+  try {
+    const qs = prop || window.location.hash.split('?')[1] || '';
+    return new URLSearchParams(qs).get(key) ?? '';
+  } catch {
+    return '';
+  }
+}
+
 /** Run an API call: on 401 rotate once and retry; when the session is
  *  really dead (revoked, disabled, rotated elsewhere) sign out locally,
  *  flag the expiry notice and land on login. 403 keeps back-or-home. */

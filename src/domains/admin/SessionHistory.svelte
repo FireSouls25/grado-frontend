@@ -11,7 +11,7 @@
   import SessionCorrectSheet from './SessionCorrectSheet.svelte';
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
-  import { guarded } from '$lib/nav';
+  import { guarded, queryParam } from '$lib/nav';
   import {
     groupsByYear,
     classSessionsHistory,
@@ -210,8 +210,8 @@
 
   (async () => {
     await loadGroups();
-    const m = /(?:^|&)sesion=([^&]*)/.exec(querystring || '');
-    const sid = m ? decodeURIComponent(m[1]) : '';
+    const m = queryParam(querystring, 'sesion');
+    const sid = m;
     if (sid) {
       deepSession = sid;
       state = 'loading';
