@@ -26,8 +26,13 @@
         ($t.studentDetail.actionLabel as Record<string, string>)[a] ?? a,
       resourceLabel: (r: string) =>
         ($t.studentDetail.resourceLabel as Record<string, string>)[r] ?? r,
-      deniedSuffix: $t.notifications.deniedSuffix,
+      riskTitle: (name) => $t.notifications.riskTitle(name),
+      riskBody: (missed, sessions, pct) => $t.notifications.riskBody(missed, sessions, pct),
+      deniedTitle: $t.notifications.deniedTitle,
+      deniedBody: (action, resource, status) =>
+        $t.notifications.deniedBody(action, resource, status),
       bareSubjectsTitle: $t.notifications.bareSubjectsTitle,
+      bareSubjectsBody: (count, names) => $t.notifications.bareSubjectsBody(count, names),
       scheduleChangedTitle: $t.notifications.scheduleChangedTitle,
       scheduleChangedBody: (count, day) => $t.notifications.scheduleChangedBody(count, day),
       dayName: (w) => weekdayName(w, $t.admin.scheduleWeekdays, $t.admin.scheduleWeekend)

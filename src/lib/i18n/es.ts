@@ -568,9 +568,19 @@ export const es = {
     title: 'Avisos',
     markAllRead: 'Marcar leídos',
     emptyTitle: 'Sin avisos',
-    emptyBody: 'Cuando haya actividad o algo requiera tu atención, aparecerá aquí.',
-    deniedSuffix: ' · denegado',
+    emptyBody:
+      'Solo aparece aquí lo que requiere tu atención: faltas críticas, cambios denegados o materias sin docente.',
+    riskTitle: (name: string) => `Faltas críticas: ${name}`,
+    riskBody: (missed: number, sessions: number, pct: number) =>
+      `${missed} faltas en ${sessions} llamadas (${pct}% de asistencia)`,
+    deniedTitle: 'Cambio denegado',
+    deniedBody: (action: string, resource: string, status: number) =>
+      `${action} sobre ${resource} (${status}): sin permiso o periodo cerrado`,
     bareSubjectsTitle: 'Materias sin docente',
+    bareSubjectsBody: (count: number, names: string) =>
+      count === 1
+        ? `1 materia sin docente asignado: ${names}`
+        : `${count} materias sin docente: ${names}`,
     scheduleChangedTitle: 'Tu horario cambió',
     scheduleChangedBody: (count: number, day: string) =>
       count === 1 ? `1 clase el ${day}` : `${count} clases el ${day}`

@@ -1,5 +1,10 @@
 import { writable } from 'svelte/store';
-import { auditRecent, listSubjects, subjectAssignments } from '../domains/admin/api';
+import {
+  auditRecent,
+  dashboardSummary,
+  listSubjects,
+  subjectAssignments
+} from '../domains/admin/api';
 import { daySchedule } from '../domains/teacher/api';
 import { me } from '../domains/teacher/api';
 import { guarded } from './nav';
@@ -17,22 +22,27 @@ export interface Notice {
   body: string;
   href: string | null;
   at: number;
+  /** Huella del contenido: si no cambia, un aviso descartado no revive. */
+  sig: string;
 }
 
-const SEEN_KEY = 'grado.notifSeen';
+const DISMISS_KEY = 'grado.notifDismissed';
 const SNAP_KEY = 'grado.notifSnap';
 
-function loadSeen(): number {
+function loadDismissed(): Record<string, string> {
   try {
-    return Number(localStorage.getItem(SEEN_KEY) ?? 0) || 0;
+    return JSON.parse(localStorage.getItem(DISMISS_KEY) ?? '{}') as Record<string, string>;
   } catch {
-    return 0;
+    return {};
   }
 }
 
-function saveSeen(value: number): void {
+function saveDismissed(dismissed: Record<string, string>): void {
   try {
-    localStorage.setItem(SEEN_KEY, String(value));
+    const keys = Object.keys(dismissed).slice(-100);
+    const trimmed: Record<string, string> = {};
+    for (const k of keys) trimmed[k] = dismissed[k];
+    localStorage.setItem(DISMISS_KEY, JSON.stringify(trimmed));
   } catch {
     /* ignore */
   }
@@ -71,8 +81,12 @@ export function timeAgo(at: number, now = Date.now()): string {
 export interface NoticeStrings {
   actionLabel: (action: string) => string;
   resourceLabel: (resource: string) => string;
-  deniedSuffix: string;
+  riskTitle: (name: string) => string;
+  riskBody: (missed: number, sessions: number, pct: number) => string;
+  deniedTitle: string;
+  deniedBody: (action: string, resource: string, status: number) => string;
   bareSubjectsTitle: string;
+  bareSubjectsBody: (count: number, names: string) => string;
   scheduleChangedTitle: string;
   scheduleChangedBody: (count: number, day: string) => string;
   dayName: (weekday: number) => string;
@@ -89,41 +103,75 @@ function createEngine() {
   let timer: ReturnType<typeof setInterval> | null = null;
 
   function markSeen() {
-    saveSeen(Date.now());
-    update((s) => ({ ...s, unread: 0 }));
-  }
-
-  function pushNotices(items: Notice[]) {
-    const seen = loadSeen();
     update((s) => {
-      const known = new Map(s.notices.map((n) => [n.id, n]));
-      for (const item of items) {
-        // Las alertas derivadas se regeneran cada ciclo: conservan su
-        // primer aviso para no revivir el badge eternamente.
-        const prev = known.get(item.id);
-        known.set(item.id, prev ? { ...item, at: prev.at } : item);
-      }
-      const notices = [...known.values()].sort((a, b) => b.at - a.at).slice(0, 50);
-      return { notices, unread: notices.filter((n) => n.at > seen).length, loading: s.loading };
+      const dismissed = loadDismissed();
+      for (const n of s.notices) dismissed[n.id] = n.sig;
+      saveDismissed(dismissed);
+      return { notices: [], unread: 0, loading: s.loading };
     });
   }
 
+  function pushNotices(items: Notice[]) {
+    const dismissed = loadDismissed();
+    update((s) => {
+      const known = new Map(s.notices.map((n) => [n.id, n]));
+      for (const item of items) {
+        // Un aviso descartado solo revive si su contenido cambio
+        // (misma alerta, situacion nueva) o si es un evento nuevo.
+        if (dismissed[item.id] === item.sig) continue;
+        delete dismissed[item.id];
+        const prev = known.get(item.id);
+        known.set(item.id, prev && prev.sig === item.sig ? { ...item, at: prev.at } : item);
+      }
+      saveDismissed(dismissed);
+      const notices = [...known.values()].sort((a, b) => b.at - a.at).slice(0, 50);
+      return { notices, unread: notices.length, loading: s.loading };
+    });
+  }
+
+  // Solo lo que requiere atención directa: cambios denegados (sin
+  // permiso o periodo cerrado), estudiantes en faltas críticas y
+  // materias sin docente. La actividad rutinaria (actualizaciones
+  // exitosas) vive en la bitácora, no en la campana.
   async function refreshAdmin(strings: NoticeStrings) {
-    const [entries, subjects] = await Promise.all([
+    const year = new Date().getFullYear();
+    const [entries, subjects, summary] = await Promise.all([
       guarded(() => auditRecent(20)),
-      guarded(() => listSubjects())
+      guarded(() => listSubjects()),
+      guarded(() => dashboardSummary(year))
     ]);
     const items: Notice[] = [];
     const now = Date.now();
     for (const e of entries ?? []) {
-      const denied = e.Status >= 400;
+      if (e.Status < 400) continue;
       items.push({
         id: `audit-${e.ID}`,
-        kind: 'activity',
-        title: strings.actionLabel(e.Action),
-        body: `${strings.resourceLabel(e.Resource)}${denied ? strings.deniedSuffix : ''}`,
+        kind: 'alert',
+        title: strings.deniedTitle,
+        body: strings.deniedBody(
+          strings.actionLabel(e.Action),
+          strings.resourceLabel(e.Resource),
+          e.Status
+        ),
         href: '/admin/auditoria',
-        at: new Date(e.HappenedAt).getTime() || now
+        at: new Date(e.HappenedAt).getTime() || now,
+        sig: String(e.ID)
+      });
+    }
+    for (const r of summary?.TopRisk ?? []) {
+      if (r.Sessions < 5) continue;
+      const missed = r.Sessions - r.Presences;
+      if (missed < 0 || missed / r.Sessions < 0.15) continue;
+      const pct = Math.round((r.Presences / r.Sessions) * 100);
+      const name = `${r.Surnames} ${r.Names}`.trim();
+      items.push({
+        id: `risk-${r.StudentID}`,
+        kind: 'alert',
+        title: strings.riskTitle(name),
+        body: strings.riskBody(missed, r.Sessions, pct),
+        href: `/admin/estudiantes/${encodeURIComponent(r.StudentID)}/resumen`,
+        at: now,
+        sig: `${r.Sessions}-${r.Presences}`
       });
     }
     // Materias sin docente asignado: una pasada paralela barata.
@@ -142,9 +190,10 @@ function createEngine() {
           id: 'alert-bare-subjects',
           kind: 'alert',
           title: strings.bareSubjectsTitle,
-          body: bare.join(', '),
+          body: strings.bareSubjectsBody(bare.length, bare.join(', ')),
           href: '/admin/horario',
-          at: now
+          at: now,
+          sig: bare.join('|')
         });
       }
     }
@@ -184,7 +233,8 @@ function createEngine() {
           title: strings.scheduleChangedTitle,
           body: strings.scheduleChangedBody(classes.length, strings.dayName(days[i])),
           href: '/agenda',
-          at: now
+          at: now,
+          sig
         });
       }
     });
