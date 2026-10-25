@@ -22,12 +22,18 @@
     dashboardSummary,
     warningsRecent,
     incidentsRecent,
+    studentProfile,
+    teacherHistory,
+    scheduleEntries,
+    listSubjects,
+    subjectAssignments,
     type TeacherSummary,
     type YearGroup,
     type RecentWarning,
     type RecentIncident,
     type DashboardSummary
   } from './api';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
 
   // Consola del administrador (identidad docs/diseno.md, referencia
   // proto/ConsolaAdmin.svelte): encabezado en crema sobre lámina blanca,
@@ -52,8 +58,11 @@
     sev: Sev;
     title: string;
     meta: string;
-    action: 'go' | 'soon';
-    href: string;
+    /** Ir directo a la pantalla que lo configura; null = sin destino. */
+    href: string | null;
+    actionLabel: string | null;
+    /** Teléfono para llamar (tel:); null = sin llamada. */
+    call: string | null;
     done: boolean;
   }
 
@@ -73,6 +82,24 @@
   let reportsKnown = false;
   let reportCount = 0;
   let salonRates: { label: string; rate: number }[] = [];
+  let salonTotals: {
+    gid: string;
+    label: string;
+    presences: number;
+    absences: number;
+    excused: number;
+    evasions: number;
+    lates: number;
+    sessions: number;
+  }[] = [];
+  let donutScope = '';
+  let weekTotals = { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0 };
+  let weekKnown = false;
+  let teacherMonth = { present: 0, absent: 0, late: 0, known: false };
+  let unassignedTeachers: { id: string; name: string }[] = [];
+  let bareSubjectNames: string[] = [];
+  let salonsNoDirector: { gid: string; label: string }[] = [];
+  let guardianPhones: Record<string, string> = {};
   let risk: RiskRow[] = [];
   let warnings: RecentWarning[] = [];
   let incidents: RecentIncident[] = [];
@@ -157,6 +184,9 @@
   async function loadReports() {
     totals = { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0, sessions: 0 };
     salonRates = [];
+    salonTotals = [];
+    donutScope = '';
+    weekKnown = false;
     risk = [];
     reportCount = 0;
     reportsKnown = false;
@@ -176,6 +206,16 @@
       const report = result.value;
       if (!report) return;
       reportCount += 1;
+      salonTotals.push({
+        gid: report.ClassGroupID,
+        label: labelOf.get(report.ClassGroupID) ?? '',
+        presences: report.Totals.Presences,
+        absences: report.Totals.Absences,
+        excused: report.Totals.Excused,
+        evasions: report.Totals.Evasions,
+        lates: report.Totals.Lates,
+        sessions: report.Sessions
+      });
       totals.sessions += report.Sessions;
       totals.presences += report.Totals.Presences;
       totals.absences += report.Totals.Absences;
@@ -227,7 +267,72 @@
       .filter((r) => r.sessions > 0 && (r.rate < RATE_FLOOR || r.absences + r.evasions >= 3))
       .sort((a, b) => a.rate - b.rate);
     await loadSecondary();
+    await loadTeacherExtras();
     buildTasks();
+  }
+
+  // Estadística docente y pendientes configurables: todo de endpoints
+  // reales (asistencia mensual por docente, horario por docente, catálogo
+  // de materias con asignaciones y ficha del estudiante para el teléfono
+  // del acudiente). En paralelo con tope; lo que falle pinta vacío.
+  async function loadTeacherExtras() {
+    teacherMonth = { present: 0, absent: 0, late: 0, known: false };
+    unassignedTeachers = [];
+    bareSubjectNames = [];
+    guardianPhones = {};
+    const directed = new Set(teacherList.map((x) => x.HomeroomClassID).filter(Boolean));
+    salonsNoDirector = groups
+      .filter((g) => !directed.has(g.ClassLabel))
+      .map((g) => ({ gid: g.GroupID, label: g.ClassLabel }));
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const from = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+    const to = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const [hist, sched] = await Promise.all([
+      mapSettled(teacherList, 4, (x) => teacherHistory(x.ID, from, to)),
+      mapSettled(teacherList, 4, (x) => scheduleEntries({ teacherID: x.ID }))
+    ]);
+    const present = { n: 0 };
+    const absent = { n: 0 };
+    const late = { n: 0 };
+    hist.forEach((result) => {
+      if (result.status !== 'fulfilled' || !result.value?.Summary) return;
+      present.n += result.value.Summary.Present;
+      absent.n += result.value.Summary.Absent;
+      late.n += result.value.Summary.Late;
+    });
+    teacherMonth = { present: present.n, absent: absent.n, late: late.n, known: teacherList.length > 0 };
+    sched.forEach((result, i) => {
+      if (result.status !== 'fulfilled') return;
+      if ((result.value ?? []).length === 0) {
+        const x = teacherList[i];
+        if (x && x.Active) unassignedTeachers.push({ id: x.ID, name: `${x.Surnames} ${x.Names}`.trim() });
+      }
+    });
+    try {
+      const subs = (await guarded(() => listSubjects())) ?? [];
+      const settled = await mapSettled(subs, 4, (s) => subjectAssignments(s.ID));
+      settled.forEach((result, i) => {
+        if (result.status !== 'fulfilled') return;
+        const open = (result.value ?? []).filter((a) => !a.EndedAt || a.EndedAt.startsWith('0001')).length;
+        if (open === 0 && subs[i]) bareSubjectNames.push(subs[i].Name);
+      });
+    } catch {
+      bareSubjectNames = [];
+    }
+    try {
+      const settled = await mapSettled(risk.slice(0, 5), 4, (r) => studentProfile(r.id));
+      const phones: Record<string, string> = {};
+      settled.forEach((result, i) => {
+        if (result.status !== 'fulfilled' || !result.value) return;
+        const p = result.value;
+        const phone = p.Caregiver?.Phone || p.Mother?.Phone || p.Father?.Phone || '';
+        if (phone && risk[i]) phones[risk[i].id] = phone;
+      });
+      guardianPhones = phones;
+    } catch {
+      guardianPhones = {};
+    }
   }
 
   async function loadSecondary() {
@@ -236,9 +341,14 @@
       summary = data ?? null;
       if (summary) {
         const m = summary.MarksLast7d;
-        if (m.Presences + m.Absences + m.Excused + m.Evasions + m.Lates > 0) {
-          totals = { presences: m.Presences, absences: m.Absences, excused: m.Excused, evasions: m.Evasions, lates: m.Lates, sessions: 0 };
-        }
+        weekTotals = {
+          presences: m.Presences,
+          absences: m.Absences,
+          excused: m.Excused,
+          evasions: m.Evasions,
+          lates: m.Lates
+        };
+        weekKnown = m.Presences + m.Absences + m.Excused + m.Evasions + m.Lates > 0;
       }
     } catch {
       summary = null;
@@ -257,25 +367,65 @@
 
   function buildTasks() {
     const next: Task[] = [];
-    for (const teacher of teacherList.filter((t) => !t.Active)) {
+    // Riesgo de asistencia: llamar al acudiente y abrir el resumen.
+    for (const row of risk.slice(0, 5)) {
+      const grave = row.rate < 75 || row.evasions >= 2;
+      next.push({
+        id: `riesgo-${row.id}`,
+        sev: grave ? 'grave' : 'medio',
+        title: `${$t.admin.reviewAction}: ${row.name}`,
+        meta: `${row.rate}% · ${row.absences} ${$t.admin.colAbsences} · ${row.evasions} ${$t.admin.colEvasions}`,
+        href: `/admin/estudiantes/${encodeURIComponent(row.id)}/resumen`,
+        actionLabel: $t.admin.openSummary,
+        call: guardianPhones[row.id] ?? null,
+        done: false
+      });
+    }
+    for (const teacher of teacherList.filter((x) => !x.Active)) {
       next.push({
         id: `inactivo-${teacher.ID}`,
         sev: 'medio',
         title: `${teacher.Surnames} ${teacher.Names}`.trim(),
         meta: $t.admin.inactive,
-        action: 'go',
         href: `/admin/docentes/${encodeURIComponent(teacher.ID)}`,
+        actionLabel: $t.admin.reviewAction,
+        call: null,
         done: false
       });
     }
-    for (const row of risk.slice(0, 5)) {
+    for (const g of salonsNoDirector) {
       next.push({
-        id: `riesgo-${row.id}`,
-        sev: row.rate < 75 || row.evasions >= 2 ? 'grave' : 'medio',
-        title: `${$t.admin.reviewAction}: ${row.name}`,
-        meta: `${row.rate}% · ${row.absences} ${$t.admin.colAbsences} · ${row.evasions} ${$t.admin.colEvasions}`,
-        action: 'soon',
-        href: '',
+        id: `nodir-${g.gid}`,
+        sev: 'medio',
+        title: $t.admin.noDirectorTask(g.label),
+        meta: $t.admin.noDirectorMeta,
+        href: '/admin/docentes',
+        actionLabel: $t.admin.assignDirectionLine,
+        call: null,
+        done: false
+      });
+    }
+    for (const x of unassignedTeachers) {
+      next.push({
+        id: `sinasig-${x.id}`,
+        sev: 'leve',
+        title: $t.admin.unassignedTeacherTask(x.name),
+        meta: $t.admin.unassignedTeacherMeta,
+        href: '/admin/horario',
+        actionLabel: $t.admin.goSchedule,
+        call: null,
+        done: false
+      });
+    }
+    for (const name of bareSubjectNames) {
+      next.push({
+        id: `sinmat-${name}`,
+        sev: 'medio',
+        title: $t.admin.bareSubjectTask(name),
+        meta: $t.admin.bareSubjectMeta,
+        href: '/admin/horario',
+        actionLabel: $t.admin.goSchedule,
+        call: null,
         done: false
       });
     }
@@ -314,9 +464,37 @@
   $: visibleRisk = risk.filter((r) => (q ? r.name.toLowerCase().includes(q) : true));
   $: openTasks = tasks.filter((t) => !t.done).length;
 
-  $: marksTotal = totals.presences + totals.absences + totals.excused + totals.evasions + totals.lates;
+  $: scopeOptions = [
+    { value: '', label: $t.admin.donutGlobal },
+    ...salonTotals.map((s) => ({ value: s.gid, label: s.label }))
+  ];
+  $: scopedTotals = (() => {
+    if (!donutScope) {
+      return salonTotals.reduce(
+        (acc, s) => ({
+          presences: acc.presences + s.presences,
+          absences: acc.absences + s.absences,
+          excused: acc.excused + s.excused,
+          evasions: acc.evasions + s.evasions,
+          lates: acc.lates + s.lates
+        }),
+        { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0 }
+      );
+    }
+    const s = salonTotals.find((x) => x.gid === donutScope);
+    return s
+      ? { presences: s.presences, absences: s.absences, excused: s.excused, evasions: s.evasions, lates: s.lates }
+      : { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0 };
+  })();
+  $: scopedZero =
+    scopedTotals.presences + scopedTotals.absences + scopedTotals.excused + scopedTotals.evasions + scopedTotals.lates === 0;
+  // Sin llamadas por salón todavía, el global recurre a los últimos 7
+  // días para no pintar vacío teniendo datos reales.
+  $: useWeekFallback = donutScope === '' && scopedZero && weekKnown;
+  $: donutTotals = useWeekFallback ? weekTotals : scopedTotals;
+  $: marksTotal = donutTotals.presences + donutTotals.absences + donutTotals.excused + donutTotals.evasions + donutTotals.lates;
   $: hasDonut = marksTotal > 0;
-  $: donutRate = hasDonut ? Math.round((totals.presences / marksTotal) * 100) : 0;
+  $: donutRate = hasDonut ? Math.round((donutTotals.presences / marksTotal) * 100) : 0;
 
   $: warningsWeek = summary
     ? summary.WarningsLast7d.Mild + summary.WarningsLast7d.Moderate + summary.WarningsLast7d.Severe
@@ -337,11 +515,15 @@
     : warnings.length > 0;
   $: hasSalonRates = salonRates.length > 0;
 
-  $: donut = makeDonut($theme, totals, hasDonut);
+  $: donut = makeDonut($theme, donutTotals, hasDonut);
   $: gravityBars = makeGravityBars($theme, gravityCounts, hasGravity);
   $: salonBars = makeSalonBars($theme, salonRates);
 
-  function makeDonut(_theme: Theme, marks: typeof totals, has: boolean) {
+  function makeDonut(
+    _theme: Theme,
+    marks: { presences: number; absences: number; excused: number; evasions: number; lates: number },
+    has: boolean
+  ) {
     return {
       series: [
         {
@@ -490,13 +672,17 @@
                 <div class="stat">
                   <div class="stat-in">
                     <small>{$t.admin.warningsTitle}</small>
-                    <strong>{warningsKnown ? graveCount : '—'}</strong>
-                    <span>{$t.admin.attNoData}</span>
+                    <strong>{warningsKnown ? gravityCounts[0] + gravityCounts[1] + gravityCounts[2] : '—'}</strong>
+                    <span>{warningsKnown ? $t.admin.warningsBreakdown(gravityCounts[2], gravityCounts[1], gravityCounts[0]) : $t.admin.attNoData}</span>
                   </div>
                   <div class="stat-ft">
                     <span class="ibadge"><Icon name="warn" /></span>
-                    <span>{$t.admin.callSoonNote}</span>
-                    <span class="soon">{$t.admin.soon}</span>
+                    <span>{statWarnings ?? '—'}</span>
+                    {#if warningsKnown && gravityCounts[0] + gravityCounts[1] + gravityCounts[2] > 0}
+                      <button type="button" class="mini-act" on:click={() => push('/admin/llamados')}>{$t.admin.attActionList}</button>
+                    {:else}
+                      <span class="soon">{$t.admin.soon}</span>
+                    {/if}
                   </div>
                 </div>
               </div>
@@ -511,7 +697,18 @@
               <p class="cat-kicker">{$t.admin.attendanceTitle}</p>
               <div class="gfx">
                 <div class="panel">
-                  <div class="panel-head"><h2>{$t.admin.attendanceTitle}</h2></div>
+                  <div class="panel-head">
+                    <h2>{$t.admin.attendanceTitle}</h2>
+                    <Dropdown
+                      label={$t.admin.donutScopeLabel}
+                      value={donutScope}
+                      options={scopeOptions}
+                      on:select={(e) => (donutScope = String(e.detail))}
+                    />
+                  </div>
+                  {#if useWeekFallback}
+                    <p class="muted-note">{$t.admin.donutWeekNote}</p>
+                  {/if}
                   <div class="donut-wrap">
                     <Chart option={donut} empty={!hasDonut} emptyLabel={hasDonut ? $t.admin.attendanceTitle : ''} height={220} />
                     {#if hasDonut}<span class="donut-center">{donutRate}%</span>{/if}
@@ -546,6 +743,50 @@
                     <span class="ibadge"><Icon name="pin" /></span>
                     {$t.admin.salonBelow(salonRates.filter((s) => s.rate < RATE_FLOOR).length)}
                   </p>
+                {/if}
+              </div>
+
+              <p class="cat-kicker">{$t.admin.teachersPanelTitle}</p>
+              <div class="panel">
+                <div class="panel-head">
+                  <h2>{$t.admin.teachersPanelTitle}</h2>
+                  <button type="button" class="mini-act" on:click={() => push('/admin/docentes')}>{$t.admin.attActionList}</button>
+                </div>
+                {#if !teachersKnown}
+                  <Skeleton rows={2} />
+                {:else if teacherList.length === 0}
+                  <EmptyState icon="users" title={$t.admin.teachersPanelTitle} body={$t.admin.teachersEmpty} />
+                {:else}
+                  {@const active = teacherList.filter((x) => x.Active).length}
+                  {@const directors = teacherList.filter((x) => x.Active && x.HomeroomClassID).length}
+                  <div class="kpis slim" aria-label={$t.admin.teachersPanelTitle}>
+                    <div class="kpi"><small>{$t.admin.teachersActive}</small><strong>{active}</strong></div>
+                    <div class="kpi"><small>{$t.admin.teachersInactive}</small><strong>{teacherList.length - active}</strong></div>
+                    <div class="kpi"><small>{$t.admin.teachersDirectors}</small><strong>{directors}</strong></div>
+                    <div class="kpi"><small>{$t.admin.teachersUnassigned}</small><strong>{unassignedTeachers.length}</strong></div>
+                  </div>
+                  {#if teacherMonth.known && teacherMonth.present + teacherMonth.absent + teacherMonth.late > 0}
+                    <div class="kpis slim">
+                      <div class="kpi"><small>{$t.admin.markPresent}</small><strong>{teacherMonth.present}</strong></div>
+                      <div class="kpi"><small>{$t.admin.markAbsence}</small><strong>{teacherMonth.absent}</strong></div>
+                      <div class="kpi"><small>{$t.admin.markLate}</small><strong>{teacherMonth.late}</strong></div>
+                    </div>
+                    <p class="muted-note">{$t.admin.teachersMonth}</p>
+                  {/if}
+                  {#if unassignedTeachers.length > 0}
+                    <ul class="prows simple">
+                      {#each unassignedTeachers.slice(0, 5) as x (x.id)}
+                        <li>
+                          <button type="button" class="prow link" on:click={() => push(`/admin/docentes/${encodeURIComponent(x.id)}`)}>
+                            <span class="avatar" aria-hidden="true">{initials(x.name)}</span>
+                            <span class="who"><strong>{x.name}</strong></span>
+                            <span class="countchip">{$t.admin.unassignedTeacherMeta}</span>
+                            <span class="go" aria-hidden="true"><Icon name="next" /></span>
+                          </button>
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
                 {/if}
               </div>
 
@@ -595,8 +836,15 @@
                           <div class="detail-box">
                             <span><strong>{row.name}</strong> · {row.rate}% · {year}</span>
                             <span class="sp"></span>
-                            <span class="soon">{$t.admin.openFile} · {$t.admin.soon}</span>
-                            <span class="soon">{$t.admin.callAction} · {$t.admin.soon}</span>
+                            <button type="button" class="mini-act" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.id)}/resumen`)}>
+                              {$t.admin.openSummary}
+                            </button>
+                            <button type="button" class="mini-act" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.id)}`)}>
+                              {$t.admin.openFile}
+                            </button>
+                            {#if guardianPhones[row.id]}
+                              <a class="mini-act call" href={`tel:${guardianPhones[row.id]}`}>{$t.admin.callAction}</a>
+                            {/if}
                           </div>
                         {/if}
                       </li>
@@ -673,12 +921,15 @@
                   </button>
                   <span class={`sev ${task.sev}`}><i></i>{task.sev}</span>
                   <div class="todo-t"><strong>{task.title}</strong><small>{task.meta}</small></div>
-                  {#if !task.done}
-                    {#if task.action === 'go'}
-                      <button type="button" class="go" on:click={() => push(task.href)}>{$t.admin.reviewAction}</button>
-                    {:else}
-                      <span class="soon">{$t.admin.soon}</span>
-                    {/if}
+                  {#if !task.done && (task.call || (task.href && task.actionLabel))}
+                    <div class="tacts">
+                      {#if task.call}
+                        <a class="go call" href={`tel:${task.call}`}>{$t.admin.callAction}</a>
+                      {/if}
+                      {#if task.href && task.actionLabel}
+                        <button type="button" class="go" on:click={() => task.href && push(task.href)}>{task.actionLabel}</button>
+                      {/if}
+                    </div>
                   {/if}
                 </li>
               {/each}
@@ -875,8 +1126,43 @@
     white-space: nowrap;
     flex: none;
   }
-  .detail-box .soon {
-    margin-left: 0;
+  .mini-act.call {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+  }
+  .muted-note {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin: 4px 0 8px;
+  }
+  .kpis.slim {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  @media (max-width: 700px) {
+    .kpis.slim {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .prows.simple {
+    margin-top: 10px;
+  }
+  .prow.link {
+    cursor: pointer;
+  }
+  .tacts {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .go.call {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
   }
   .kpis {
     display: grid;
