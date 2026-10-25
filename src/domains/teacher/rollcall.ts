@@ -12,6 +12,7 @@ export interface RollcallRecord {
   Present: number;
   Absent: number;
   Permission: number;
+  Late?: number;
 }
 
 const STORAGE_KEY = 'grado.rollcalls.v1';

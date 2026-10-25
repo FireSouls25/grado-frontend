@@ -10,6 +10,7 @@
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
   import { classRoster, isMissing, openSession, recordMark } from './api';
+  import { groupsByYear, listSubjects } from '../admin/api';
   import { dateKey, saveRollcall } from './rollcall';
   import type { RosterEntry } from '$lib/api/types';
   import { guarded, goBack } from '$lib/nav';
@@ -43,8 +44,8 @@
   // las pone el horario del backend cuando exista; aquí no se inventan.
   let meta: ClassMeta = { subject: '', group: '' };
   $: meta = {
-    subject: humanize(subjectParam),
-    group: groupID
+    subject: subjectName || humanize(subjectParam),
+    group: groupLabel || groupID
   };
   $: titleLabel = meta.subject ? `${meta.subject} · ${meta.group}` : meta.group;
 
@@ -61,10 +62,15 @@
   let roster: RosterEntry[] = [];
   let present = new Set<string>();
   let presentInit = new Set<string>();
-  // Ausentes separados por permiso: el docente registra la falta con
-  // permiso (absence-permission) por estudiante antes de guardar.
+  // Ausentes separados por permiso y por atraso: el docente registra
+  // la falta con permiso (absence-permission) o el atraso (late) por
+  // estudiante antes de guardar.
   let permission = new Set<string>();
   let permissionInit = new Set<string>();
+  let late = new Set<string>();
+  let lateInit = new Set<string>();
+  let groupLabel = '';
+  let subjectName = '';
   let sessionID = '';
   let sessionMissing = false;
   let feedback = '';
@@ -90,10 +96,13 @@
       const data = await guarded(() => classRoster(groupID));
       if (data === null) return; // 401/403 already navigated away
       roster = [...data].sort(bySurname);
+      void resolveLabels();
       present = new Set(roster.map((r) => r.StudentID));
       presentInit = new Set(present);
       permission = new Set();
       permissionInit = new Set();
+      late = new Set();
+      lateInit = new Set();
     } catch {
       // Backend sin nómina todavía (404 o error): vacío honesto, no lista falsa.
       roster = [];
@@ -101,8 +110,28 @@
       presentInit = new Set();
       permission = new Set();
       permissionInit = new Set();
+      late = new Set();
+      lateInit = new Set();
     } finally {
       loading = false;
+    }
+  }
+
+  // Nombre del salon y de la materia para no exponer ids internos:
+  // el docente ya puede leer salones y el catalogo de materias.
+  async function resolveLabels() {
+    try {
+      const year = new Date().getFullYear();
+      const [gs, subs] = await Promise.all([
+        guarded(() => groupsByYear(year)),
+        guarded(() => listSubjects())
+      ]);
+      const g = (gs ?? []).find((x) => x.GroupID === groupID);
+      if (g) groupLabel = g.ClassLabel;
+      const s = (subs ?? []).find((x) => x.ID === subjectParam);
+      if (s) subjectName = s.Name;
+    } catch {
+      /* vacio honesto: se muestran los ids */
     }
   }
 
@@ -112,10 +141,12 @@
     if (present.has(id)) present.delete(id);
     else {
       present.add(id);
-      permission.delete(id); // presente y con permiso son excluyentes
+      permission.delete(id); // presente excluye permiso y atraso
+      late.delete(id);
     }
     present = present;
     permission = permission;
+    late = late;
     feedback = '';
   }
 
@@ -124,7 +155,25 @@
   function cyclePermission(id: string) {
     if (present.has(id)) return;
     if (permission.has(id)) permission.delete(id);
-    else permission.add(id);
+    else {
+      permission.add(id);
+      late.delete(id);
+    }
+    permission = permission;
+    late = late;
+    feedback = '';
+  }
+
+  // Alterna entre falta injustificada y atraso; solo aplica a quien no
+  // está presente.
+  function cycleLate(id: string) {
+    if (present.has(id)) return;
+    if (late.has(id)) late.delete(id);
+    else {
+      late.add(id);
+      permission.delete(id);
+    }
+    late = late;
     permission = permission;
     feedback = '';
   }
@@ -132,7 +181,8 @@
   $: presentCount = roster.filter((r) => present.has(r.StudentID)).length;
   $: notPresent = roster.filter((r) => !present.has(r.StudentID));
   $: permissionCount = notPresent.filter((r) => permission.has(r.StudentID)).length;
-  $: absentCount = notPresent.length - permissionCount;
+  $: lateCount = notPresent.filter((r) => late.has(r.StudentID)).length;
+  $: absentCount = notPresent.length - permissionCount - lateCount;
   $: presentPct = roster.length ? Math.round((presentCount / roster.length) * 100) : 0;
 
   async function ensureSession(): Promise<boolean> {
@@ -155,11 +205,14 @@
     for (const r of roster) next.add(r.StudentID);
     present = next;
     permission = new Set();
+    late = new Set();
     feedback = '';
   }
 
   function markAllAbsent() {
     present = new Set<string>();
+    permission = new Set<string>();
+    late = new Set<string>();
     feedback = '';
   }
 
@@ -172,7 +225,8 @@
       Students: roster.length,
       Present: presentCount,
       Absent: absentCount,
-      Permission: permissionCount
+      Permission: permissionCount,
+      Late: lateCount
     });
   }
 
@@ -187,22 +241,17 @@
         // Sin sesión en el backend: se conserva el estado local y se dice.
         presentInit = new Set(present);
         permissionInit = new Set(permission);
+        lateInit = new Set(late);
         snapshotRollcall();
         feedback = $t.attendance.savedLocal;
         return;
       }
+      const markOf = (p: Set<string>, q: Set<string>, l: Set<string>, id: string) =>
+        p.has(id) ? '' : q.has(id) ? 'absence-permission' : l.has(id) ? 'late' : 'absence';
       for (const r of roster) {
         // Marca equivalente de cada estado (presente = "").
-        const wasMark = presentInit.has(r.StudentID)
-          ? ''
-          : permissionInit.has(r.StudentID)
-            ? 'absence-permission'
-            : 'absence';
-        const isMark = present.has(r.StudentID)
-          ? ''
-          : permission.has(r.StudentID)
-            ? 'absence-permission'
-            : 'absence';
+        const wasMark = markOf(presentInit, permissionInit, lateInit, r.StudentID);
+        const isMark = markOf(present, permission, late, r.StudentID);
         if (wasMark === isMark) continue;
         try {
           await recordMark(sessionID, r.StudentID, isMark, '');
@@ -212,6 +261,7 @@
       }
       presentInit = new Set(present);
       permissionInit = new Set(permission);
+      lateInit = new Set(late);
       snapshotRollcall();
       feedback = $t.attendance.saved;
     } catch (err) {
@@ -223,11 +273,6 @@
   }
 
   let warnOpen = false;
-
-  function openCollective() {
-    const q = subjectParam ? `?materia=${encodeURIComponent(subjectParam)}` : '';
-    push(`/llamado/${encodeURIComponent(groupID)}${q}`);
-  }
 </script>
 
 <TeacherShell active="agenda">
@@ -239,10 +284,7 @@
     <p class="eyebrow">{$t.attendance.eyebrow}</p>
     <h1 class="title">{$t.attendance.title}</h1>
     <div class="headactions">
-      <button type="button" class="collective" on:click={openCollective}>
-        <Icon name="warn" /> {$t.attendance.collective}
-      </button>
-      <button type="button" class="collective ghost" on:click={() => (warnOpen = true)}>
+      <button type="button" class="collective" on:click={() => (warnOpen = true)}>
         <Icon name="warn" /> {$t.agenda.warnActionLong}
       </button>
     </div>
@@ -281,6 +323,7 @@
             <p class="sum-row"><span class="dot present"></span> {$t.attendance.presentLabel} <strong>{$t.attendance.studentsCount(presentCount)}</strong></p>
             <p class="sum-row"><span class="dot absent"></span> {$t.attendance.absentLabel} <strong>{$t.attendance.studentsCount(absentCount)}</strong></p>
             <p class="sum-row"><span class="dot permission"></span> {$t.attendance.permissionLabel} <strong>{$t.attendance.studentsCount(permissionCount)}</strong></p>
+            <p class="sum-row"><span class="dot late"></span> {$t.attendance.lateLabel} <strong>{$t.attendance.studentsCount(lateCount)}</strong></p>
           </div>
           {#if sessionMissing}
             <p class="note">{$t.attendance.noSessionNote}</p>
@@ -316,19 +359,35 @@
                   <span class="box">{#if present.has(r.StudentID)}<Icon name="check" />{/if}</span>
                 </button>
                 <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
-                <span class="who"><strong>{r.Surnames}, {r.Names}</strong><small>{r.StudentID}</small></span>
+                <span class="who"><strong>{r.Surnames}, {r.Names}</strong><small>{r.DocumentID}</small></span>
                 {#if present.has(r.StudentID)}
                   <span class="markpill present">{$t.roster.present}</span>
                 {:else}
-                  <button
-                    type="button"
-                    class={`markpill togglable ${permission.has(r.StudentID) ? 'permitted' : 'absent'}`}
-                    aria-pressed={permission.has(r.StudentID)}
-                    title={$t.attendance.permissionHint}
-                    on:click={() => cyclePermission(r.StudentID)}
-                  >
-                    {permission.has(r.StudentID) ? $t.roster.permission : $t.roster.absent}
-                  </button>
+                  <span class="miniseg" role="group" aria-label={`${r.Surnames} ${r.Names}`}>
+                    <button
+                      type="button"
+                      class="markpill togglable"
+                      class:permitted={permission.has(r.StudentID)}
+                      aria-pressed={permission.has(r.StudentID)}
+                      title={$t.attendance.permissionHint}
+                      on:click={() => cyclePermission(r.StudentID)}
+                    >
+                      {$t.roster.permission}
+                    </button>
+                    <button
+                      type="button"
+                      class="markpill togglable"
+                      class:lated={late.has(r.StudentID)}
+                      aria-pressed={late.has(r.StudentID)}
+                      title={$t.attendance.lateHint}
+                      on:click={() => cycleLate(r.StudentID)}
+                    >
+                      {$t.roster.late}
+                    </button>
+                  </span>
+                  {#if !permission.has(r.StudentID) && !late.has(r.StudentID)}
+                    <span class="markpill absent">{$t.roster.absent}</span>
+                  {/if}
                 {/if}
               </li>
             {/each}
@@ -402,11 +461,6 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
-  }
-  .collective.ghost {
-    background: var(--surface);
-    color: var(--ink);
-    border: 1px solid var(--line);
   }
   .sheet {
     background: var(--surface);
@@ -700,6 +754,20 @@
   }
   button.markpill.togglable:hover {
     filter: brightness(0.96);
+  }
+  .markpill.lated {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+  }
+  .miniseg {
+    display: flex;
+    gap: 6px;
+    flex: none;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .dot.late {
+    background: var(--chip-yellow-ink);
   }
   .hint {
     color: var(--muted);

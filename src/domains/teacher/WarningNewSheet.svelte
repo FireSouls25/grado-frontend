@@ -71,11 +71,11 @@
     roster = [];
     selected = [];
     query = '';
-    if (!title) title = titleOptions[0] ?? '';
+    if (!title) title = (titleOptions ?? [])[0] ?? '';
     if (!description) description = $t.warning.descDefault;
     try {
       const data = await guarded(() => classRoster(groupID));
-      if (data !== null) roster = [...data].sort(bySurname);
+      roster = Array.isArray(data) ? [...data].sort(bySurname) : [];
     } catch {
       roster = [];
     } finally {

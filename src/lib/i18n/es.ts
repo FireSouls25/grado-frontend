@@ -167,8 +167,8 @@ export const es = {
     roomLabel: (room: string) => `Salón ${room}`,
     rollLocalTag: 'Local',
     rollTooltip: 'Llamado de hoy guardado en este dispositivo (registro local).',
-    rollCounts: (p: number, a: number, x: number) =>
-      `${p} presentes · ${a} ausentes · ${x} con permiso`,
+    rollCounts: (p: number, a: number, x: number, l = 0) =>
+      `${p} presentes · ${a} ausentes · ${x} con permiso${l > 0 ? ` · ${l} con atraso` : ''}`,
     loading: 'Cargando tu agenda…',
     emptyTitle: 'Sin clases este día',
     emptyBody: 'No tienes clases asignadas para este día. Elige otro día de la semana.',
@@ -264,7 +264,9 @@ export const es = {
     presentLabel: 'Asistentes',
     absentLabel: 'Ausentes',
     permissionLabel: 'Con permiso',
-    permissionHint: 'Pulsa la etiqueta para alternar entre falta injustificada y falta con permiso.',
+    permissionHint: 'Pulsa para alternar entre falta injustificada y falta con permiso.',
+    lateHint: 'Pulsa para alternar entre falta injustificada y atraso.',
+    lateLabel: 'Atrasados',
     studentsCount: (count: number) =>
       count === 1 ? '1 Estudiante' : `${count} Estudiantes`,
     listTitle: (group: string) => `Listado del Salón (${group})`,
@@ -283,7 +285,7 @@ export const es = {
     emptyRosterTitle: 'Salón sin lista',
     emptyRosterBody:
       'El backend aún no expone la nómina de este salón. Vuelve a intentarlo más tarde.',
-    saveHint: 'Marca con el check a quienes asistieron. Sin marca cuenta como ausente.',
+    saveHint: 'Marca con el check a quienes asistieron y usa las etiquetas para permiso o atraso. Sin marca cuenta como ausente.',
     markAllPresent: 'Marcar todos presentes',
     markAllAbsent: 'Marcar todos ausentes',
     classDesc:

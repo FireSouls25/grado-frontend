@@ -238,11 +238,12 @@
                   <span
                     class="factpill roll"
                     title={$t.agenda.rollTooltip}
-                    aria-label={$t.agenda.rollCounts(rec.Present, rec.Absent, rec.Permission)}
+                    aria-label={$t.agenda.rollCounts(rec.Present, rec.Absent, rec.Permission, rec.Late ?? 0)}
                   >
                     <i class="dot p"></i>{rec.Present}
                     <i class="dot a"></i>{rec.Absent}
                     <i class="dot x"></i>{rec.Permission}
+                    {#if (rec.Late ?? 0) > 0}<i class="dot l"></i>{rec.Late}{/if}
                     <small class="tag">{$t.agenda.rollLocalTag}</small>
                   </span>
                 {/if}
@@ -531,6 +532,9 @@
   }
   .factpill.roll i.dot.x {
     background: var(--m-permission);
+  }
+  .factpill.roll i.dot.l {
+    background: var(--m-late);
   }
   .factpill.roll small.tag {
     font-size: 0.62rem;
