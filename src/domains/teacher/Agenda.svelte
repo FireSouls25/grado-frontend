@@ -8,7 +8,7 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
-  import TeacherTabs from './TeacherTabs.svelte';
+  import TeacherShell from './TeacherShell.svelte';
   import { daySchedule, isMissing, type TeacherClass } from './api';
   import { loadRollcall } from './rollcall';
   import { guarded } from '$lib/nav';
@@ -150,7 +150,8 @@
       : new Map<string, null>();
 </script>
 
-<div class="agenda">
+<TeacherShell active="agenda">
+  <div class="agenda">
   <TopBar title={$t.app.name}><TopActions /></TopBar>
 
   <div class="pagehead">
@@ -257,16 +258,14 @@
   </div>
 </div>
 
-<TeacherTabs active="agenda" />
+</TeacherShell>
 
 <style>
   .agenda {
-    min-height: 100vh;
-    min-height: 100svh;
-    background: var(--bg);
+    margin: 0 auto;
+    max-width: 1400px;
+    min-width: 0;
     color: var(--ink);
-    /* Reserva para la barra inferior fija, no espacio muerto. */
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
   .pagehead {
     margin-bottom: 12px;

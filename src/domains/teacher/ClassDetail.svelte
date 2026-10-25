@@ -7,7 +7,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import TeacherTabs from './TeacherTabs.svelte';
+  import TeacherShell from './TeacherShell.svelte';
   import { classRoster, isMissing, openSession, recordMark } from './api';
   import { dateKey, saveRollcall } from './rollcall';
   import type { RosterEntry } from '$lib/api/types';
@@ -227,7 +227,8 @@
   }
 </script>
 
-<div class="attendance">
+<TeacherShell active="agenda">
+  <div class="attendance">
   <TopBar title={$t.app.name} showBack onBack={() => goBack('/agenda')}><TopActions /></TopBar>
 
   <div class="pagehead">
@@ -332,16 +333,14 @@
   </div>
 </div>
 
-<TeacherTabs active="agenda" />
+</TeacherShell>
 
 <style>
   .attendance {
-    min-height: 100vh;
-    min-height: 100svh;
-    background: var(--bg);
+    margin: 0 auto;
+    max-width: 1400px;
+    min-width: 0;
     color: var(--ink);
-    /* Reserva para la barra inferior fija, no espacio muerto. */
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
   .pagehead {
     margin-bottom: 12px;

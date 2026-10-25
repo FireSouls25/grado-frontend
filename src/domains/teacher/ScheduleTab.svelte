@@ -4,7 +4,7 @@
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import TeacherTabs from './TeacherTabs.svelte';
+  import TeacherShell from './TeacherShell.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
@@ -79,7 +79,8 @@
   }
 </script>
 
-<div class="page">
+<TeacherShell active="horario">
+  <div class="page">
   <TopBar title={$t.schedule.title}><TopActions /></TopBar>
 
   <div class="pagehead">
@@ -129,16 +130,14 @@
   </div>
 </div>
 
-<TeacherTabs active="horario" />
+</TeacherShell>
 
 <style>
   .page {
-    min-height: 100vh;
-    min-height: 100svh;
-    background: var(--bg);
+    margin: 0 auto;
+    max-width: 1400px;
+    min-width: 0;
     color: var(--ink);
-    /* Reserva para la barra inferior fija, no espacio muerto. */
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
   .pagehead {
     margin-bottom: 12px;
