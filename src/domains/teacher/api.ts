@@ -123,6 +123,18 @@ export interface WarningSnapshot {
   classID: string;
 }
 
+export interface StudentIncident {
+  ID: string;
+  Title: string;
+  HappenedAt: string;
+  Severity: string;
+}
+
+/** The student's own fault history (same readers as warnings). */
+export async function studentIncidents(id: string): Promise<StudentIncident[]> {
+  return (await api.get<StudentIncident[]>(`/v1/students/${encodeURIComponent(id)}/incidents`)) ?? [];
+}
+
 export async function issueWarnings(draft: WarningDraft): Promise<Warning[]> {
   return (await api.post<Warning[]>('/v1/warnings/batch', draft)) ?? [];
 }

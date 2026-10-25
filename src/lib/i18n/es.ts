@@ -185,7 +185,13 @@ export const es = {
   studentHome: {
     eyebrow: 'Consola del estudiante',
     title: 'Mi historial',
-    body: 'Aquí verás tus asistencias, llamados y faltas. Esta vista estará disponible próximamente.'
+    attendanceTitle: 'Mi asistencia',
+    warningsTitle: 'Mis llamados',
+    incidentsTitle: 'Mis faltas',
+    recentTitle: 'Últimas marcas',
+    noMarks: 'Sin marcas registradas: tus llamadas aparecen aquí.',
+    noWarnings: 'No tienes llamados de atención.',
+    noIncidents: 'No tienes faltas registradas.'
   },
   teacher: {
     eyebrow: 'Consola docente',
