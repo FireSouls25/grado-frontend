@@ -260,7 +260,7 @@
                 class="warn"
                 on:click={() => (warnFor = { gid: item.GroupID, label: `${item.Grade} · ${item.SubjectName}` })}
               >
-                {$t.agenda.warnAction}
+                {$t.agenda.warnActionLong}
               </button>
             </div>
           </li>

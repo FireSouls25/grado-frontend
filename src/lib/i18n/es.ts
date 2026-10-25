@@ -151,6 +151,7 @@ export const es = {
     stateNext: 'Siguiente',
     openList: 'Abrir lista',
     warnAction: 'Llamado',
+    warnActionLong: 'Generar llamado de atención',
     searchLabel: 'Buscar en tu agenda',
     todayLabel: 'Clases de hoy',
     todayValue: (count: number) => `${count} clases`,

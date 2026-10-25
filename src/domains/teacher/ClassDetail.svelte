@@ -8,6 +8,7 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import TeacherShell from './TeacherShell.svelte';
+  import WarningNewSheet from './WarningNewSheet.svelte';
   import { classRoster, isMissing, openSession, recordMark } from './api';
   import { dateKey, saveRollcall } from './rollcall';
   import type { RosterEntry } from '$lib/api/types';
@@ -221,6 +222,8 @@
     }
   }
 
+  let warnOpen = false;
+
   function openCollective() {
     const q = subjectParam ? `?materia=${encodeURIComponent(subjectParam)}` : '';
     push(`/llamado/${encodeURIComponent(groupID)}${q}`);
@@ -235,9 +238,21 @@
     <p class="crumbs">{$t.attendance.breadcrumbHome} <span>›</span> {$t.attendance.breadcrumbAgenda} <span>›</span> <strong>{$t.attendance.breadcrumbHere}</strong></p>
     <p class="eyebrow">{$t.attendance.eyebrow}</p>
     <h1 class="title">{$t.attendance.title}</h1>
-    <button type="button" class="collective" on:click={openCollective}>
-      <Icon name="warn" /> {$t.attendance.collective}
-    </button>
+    <div class="headactions">
+      <button type="button" class="collective" on:click={openCollective}>
+        <Icon name="warn" /> {$t.attendance.collective}
+      </button>
+      <button type="button" class="collective ghost" on:click={() => (warnOpen = true)}>
+        <Icon name="warn" /> {$t.agenda.warnActionLong}
+      </button>
+    </div>
+    <WarningNewSheet
+      open={warnOpen}
+      groupID={groupID}
+      originLabel={titleLabel}
+      onClose={() => (warnOpen = false)}
+      onSaved={() => (warnOpen = false)}
+    />
   </div>
 
   <div class="sheet">
@@ -382,6 +397,16 @@
   .collective :global(svg) {
     width: 15px;
     height: 15px;
+  }
+  .headactions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .collective.ghost {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
   }
   .sheet {
     background: var(--surface);
