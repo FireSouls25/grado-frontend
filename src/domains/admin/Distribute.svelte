@@ -95,12 +95,17 @@
     return grade === 11 ? $t.cierre.distGraduate : $t.cierre.distPass;
   }
 
+  let gradeInit = false;
+
   // Recuerda la última elección por año y grado: al cambiar de grado
-  // se recupera su número de salones, modo y límites.
-  function loadGradeConfig() {
+  // se recupera su número de salones, modo y límites. El grado solo se
+  // restaura una vez al abrir; después manda el selector.
+  function loadGradeConfig(includeGrade: boolean) {
     try {
-      const g = Number(localStorage.getItem(`grado.distrib.grade.${destYear}`));
-      if (Number.isInteger(g) && g >= 1 && g <= 11) targetGrade = g;
+      if (includeGrade) {
+        const g = Number(localStorage.getItem(`grado.distrib.grade.${destYear}`));
+        if (Number.isInteger(g) && g >= 1 && g <= 11) targetGrade = g;
+      }
       const n = Number(localStorage.getItem(`grado.distrib.salons.${destYear}.${targetGrade}`));
       if (Number.isInteger(n) && n >= 1 && n <= 8) salonCount = n;
       const mo = localStorage.getItem(`grado.distrib.mode.${destYear}.${targetGrade}`);
@@ -126,9 +131,16 @@
     }
   }
 
-  $: if (state === 'ready') {
-    targetGrade;
-    loadGradeConfig();
+  $: if (state === 'ready' && !gradeInit) {
+    gradeInit = true;
+    loadGradeConfig(true);
+  }
+
+  function onGradeChange(g: number) {
+    if (!Number.isInteger(g) || g < 1 || g > 11) return;
+    targetGrade = g;
+    selected = null;
+    loadGradeConfig(false);
   }
 
   $: {
@@ -491,14 +503,11 @@
           label={$t.cierre.distGradeLabel}
           value={String(targetGrade)}
           options={Array.from({ length: 11 }, (_, i) => ({ value: String(i + 1), label: gradeLabel(i + 1) }))}
-          on:select={(e) => {
-            targetGrade = Number(e.detail);
-            selected = null;
-          }}
+          on:select={(e) => onGradeChange(Number(e.detail))}
         />
         <div class="stepper" role="group" aria-label={$t.cierre.distSalonsLabel}>
           <button type="button" aria-label="−" disabled={salonCount <= 1} on:click={() => (salonCount = Math.max(1, salonCount - 1))}>‹</button>
-          <strong>{salonCount} {$t.cierre.distSalons(salonCount)}</strong>
+          <strong>{$t.cierre.distSalons(salonCount)}</strong>
           <button type="button" aria-label="+" disabled={salonCount >= 8} on:click={() => (salonCount = Math.min(8, salonCount + 1))}>›</button>
         </div>
       </div>
