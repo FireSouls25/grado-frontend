@@ -230,7 +230,7 @@
   function markLabel(mark: string): string {
     if (mark === 'evasion') return $t.roster.evasion;
     if (mark === 'late') return $t.roster.late;
-    if (mark === 'absence') return $t.roster.absent;
+    if (mark === 'absence') return $t.roster.absentShort;
     if (mark === 'absence-permission') return $t.roster.permission;
     return $t.roster.present;
   }

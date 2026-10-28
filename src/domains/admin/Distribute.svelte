@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -60,6 +60,7 @@
   let salonMax = 35;
   let suggesting = false;
   let suggestNote = '';
+  let rowsSaved = -1;
   let stats: Record<string, { risk: number; bad: boolean }> = {};
   let placed: Record<string, number> = {};
   let dragOverCol: number | null = null;
@@ -89,6 +90,12 @@
 
   function gradeLabel(g: number): string {
     return `${g}°`;
+  }
+
+  function targetOf(c: { decision: string; fromGrade: number }): number {
+    if (c.decision === 'promote') return c.fromGrade + 1;
+    if (c.decision === 'repeat') return c.fromGrade;
+    return -1;
   }
 
   function passLabel(grade: number): string {
@@ -126,21 +133,105 @@
       localStorage.setItem(`grado.distrib.mode.${destYear}.${targetGrade}`, suggestMode);
       localStorage.setItem(`grado.distrib.min.${destYear}.${targetGrade}`, String(salonMin));
       localStorage.setItem(`grado.distrib.max.${destYear}.${targetGrade}`, String(salonMax));
+      localStorage.setItem(`grado.distrib.placed.${destYear}.${targetGrade}`, JSON.stringify(placed));
     } catch {
       /* sin almacenamiento: la sesión sigue funcionando */
     }
   }
 
+  function restorePlaced() {
+    try {
+      const raw = localStorage.getItem(`grado.distrib.placed.${destYear}.${targetGrade}`);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Record<string, number>;
+      const next: Record<string, number> = {};
+      for (const [id, col] of Object.entries(saved)) {
+        if (Number.isInteger(col) && col >= 0 && col < salonCount) next[id] = col as number;
+      }
+      placed = next;
+    } catch {
+      /* arranca vacío */
+    }
+  }
+
+  // Min/max razonables según el volumen real: si no hay elección
+  // guardada, se proponen desde el promedio por salón.
+  function autoMinMax() {
+    try {
+      const hasMin = localStorage.getItem(`grado.distrib.min.${destYear}.${targetGrade}`) !== null;
+      const hasMax = localStorage.getItem(`grado.distrib.max.${destYear}.${targetGrade}`) !== null;
+      if (hasMin && hasMax) return;
+      const perPool = pool.filter((c) => targetOf(c) === targetGrade);
+      if (perPool.length === 0) return;
+      const avg = perPool.length / Math.max(1, salonCount);
+      if (!hasMin) salonMin = Math.max(1, Math.floor(avg * 0.7));
+      if (!hasMax) salonMax = Math.max(salonMin + 1, Math.ceil(avg * 1.3));
+    } catch {
+      /* conserva los valores actuales */
+    }
+  }
+
   $: if (state === 'ready' && !gradeInit) {
     gradeInit = true;
-    loadGradeConfig(true);
+    void (async () => {
+      loadGradeConfig(true);
+      await tick();
+      autoMinMax();
+      restorePlaced();
+    })();
+  }
+
+  // Guarda lo decidido en la pestaña Pasa/No pasa sin destino: la
+  // distribución asigna el salón después. Omite lo idéntico a lo ya
+  // guardado para no duplicar historial.
+  async function saveDecisions() {
+    if (saving) return;
+    saveError = '';
+    saving = true;
+    try {
+      let done = 0;
+      for (const c of srcChoices) {
+        const key = c.studentID + '|' + c.fromGroupID;
+        const prev = recorded[key];
+        if (prev && prev.decision === c.decision) {
+          done += 1;
+          continue;
+        }
+        const rec = await guarded(() =>
+          recordPromotion({
+            studentID: c.studentID,
+            fromGroupID: c.fromGroupID,
+            decision: c.decision
+          })
+        );
+        if (!rec) {
+          saveError = $t.common.loadError;
+          return;
+        }
+        recorded[key] = { decision: c.decision, toGroupID: null };
+        done += 1;
+      }
+      rowsSaved = done;
+      notify($t.cierre.distDecisionsSaved(done));
+    } catch (err) {
+      saveError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      saving = false;
+    }
   }
 
   function onGradeChange(g: number) {
     if (!Number.isInteger(g) || g < 1 || g > 11) return;
     targetGrade = g;
     selected = null;
+    search = '';
+    rowsSaved = -1;
     loadGradeConfig(false);
+    void (async () => {
+      await tick();
+      autoMinMax();
+      restorePlaced();
+    })();
   }
 
   $: {
@@ -159,7 +250,6 @@
     loadError = null;
     choices = {};
     recorded = {};
-    placed = {};
     selected = null;
     try {
       const data = await guarded(() => groupsByYear(year));
@@ -338,10 +428,12 @@
       const hi = Math.max(1, Math.max(salonMin, salonMax));
       if (pool.length > salonCount * hi) {
         suggestNote = $t.cierre.distTooMany(pool.length, salonCount * hi);
+        notify(suggestNote);
         return;
       }
       if (pool.length < salonCount * lo) {
         suggestNote = $t.cierre.distTooFew(pool.length, salonCount * lo);
+        notify(suggestNote);
         return;
       }
       const byName = (a: (typeof pool)[number], b: (typeof pool)[number]) =>
@@ -496,6 +588,12 @@
             </li>
           {/each}
         </ul>
+        <div class="confirmbar">
+          <button type="button" class="primary" disabled={saving} on:click={saveDecisions}>
+            {saving ? $t.common.retrying : $t.cierre.distSaveDecisions}
+          </button>
+        </div>
+        {#if rowsSaved >= 0}<p class="note" role="status">{$t.cierre.distDecisionsSaved(rowsSaved)}</p>{/if}
       {/if}
     {:else}
       <div class="pickers">

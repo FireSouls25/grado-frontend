@@ -671,6 +671,11 @@ export async function closeYear(id: string): Promise<SchoolYear> {
   return api.post<SchoolYear>(`/v1/schoolyears/${encodeURIComponent(id)}/close`, {});
 }
 
+/** Emergency reopen of a closed year (admin only, audited). */
+export async function reopenYear(id: string): Promise<SchoolYear> {
+  return api.post<SchoolYear>(`/v1/schoolyears/${encodeURIComponent(id)}/reopen`, {});
+}
+
 /** Year-end decision per student. */
 export type PromotionDecision = 'promote' | 'repeat' | 'graduate';
 

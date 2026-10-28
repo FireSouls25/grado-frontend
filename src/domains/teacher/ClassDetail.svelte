@@ -347,7 +347,7 @@
                     aria-pressed={cur === 'absence'}
                     on:click={() => pick(r.StudentID, 'absence')}
                   >
-                    {$t.studentSummary.markAbsence}
+                    {$t.roster.absentShort}
                   </button>
                   <button
                     type="button"

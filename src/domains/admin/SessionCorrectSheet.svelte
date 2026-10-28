@@ -112,7 +112,7 @@
             {$t.roster.present}
           </button>
           <button type="button" class:absent={segOf(s.id, s.current) === 'absence'} aria-pressed={segOf(s.id, s.current) === 'absence'} on:click={() => pick(s.id, 'absence')}>
-            {$t.roster.absent}
+            {$t.roster.absentShort}
           </button>
           <button type="button" class:evasion={segOf(s.id, s.current) === 'evasion'} aria-pressed={segOf(s.id, s.current) === 'evasion'} on:click={() => pick(s.id, 'evasion')}>
             {$t.roster.evasion}

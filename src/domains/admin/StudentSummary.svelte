@@ -66,8 +66,8 @@
   $: sortedWarnings = warnings.slice().sort((a, b) => (b.HappenedAt < a.HappenedAt ? -1 : 1));
 
   function markName(mark: string): string {
-    if (mark === 'absence') return $t.studentSummary.markAbsence;
-    if (mark === 'absence-permission') return $t.studentSummary.markPermission;
+    if (mark === 'absence') return $t.roster.absentShort;
+    if (mark === 'absence-permission') return $t.roster.absentShort;
     if (mark === 'evasion') return $t.studentSummary.markEvasion;
     if (mark === 'late') return $t.studentSummary.markLate;
     return mark;

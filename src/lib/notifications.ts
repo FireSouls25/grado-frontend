@@ -138,8 +138,16 @@ function createEngine() {
   // exitosas) vive en la bitácora, no en la campana.
   async function refreshAdmin(strings: NoticeStrings) {
     const year = new Date().getFullYear();
-    const [entries, subjects, summary, alerts] = await Promise.all([
-      guarded(() => auditRecent(20)),
+    // La bitácora es solo admin: para otros roles se omite sin navegar
+    // (un 403 aquí no es negación de la página, así que no pasa por
+    // guarded, que redirigiría fuera).
+    let entries: Awaited<ReturnType<typeof auditRecent>> | null = null;
+    try {
+      entries = await auditRecent(20);
+    } catch {
+      entries = null;
+    }
+    const [subjects, summary, alerts] = await Promise.all([
       guarded(() => listSubjects()),
       guarded(() => dashboardSummary(year)),
       guarded(() => listAcademicAlerts())
