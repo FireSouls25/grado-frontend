@@ -22,6 +22,7 @@
     recordPromotion,
     promotionsForGroup,
     closeYear,
+    reopenYear,
     createClassGroup,
     type YearGroup,
     type Promotion,
@@ -41,6 +42,7 @@
   let copyFeedback = '';
   let closeSaving = false;
   let closeError = '';
+  let reopening = false;
   let earlyOverride = false;
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
@@ -111,6 +113,23 @@
     : '';
   $: staffAdmin = canManageUsers($profile.me?.roles ?? []);
   $: closeAllowed = !yearClosed && (yearEnded || earlyOverride) && staffAdmin;
+
+  async function confirmReopen() {
+    if (!yearRec || closeSaving) return;
+    closeError = '';
+    closeSaving = true;
+    try {
+      await guarded(() => reopenYear(yearRec.ID));
+      reopening = false;
+      notify($t.cierre.reopenedOk);
+      await loadYears();
+      await loadGroups();
+    } catch (err) {
+      closeError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      closeSaving = false;
+    }
+  }
 
   async function confirmClose() {
     if (!yearRec || closeSaving) return;
@@ -346,6 +365,26 @@
         {#if yearClosed}
           <p class="muted"><strong>{$t.cierre.lockedTitle}</strong></p>
           <p class="muted">{$t.cierre.lockedBody}</p>
+          {#if staffAdmin}
+            {#if !reopening}
+              <button type="button" class="mini danger" on:click={() => { reopening = true; closeError = ''; }}>
+                {$t.cierre.reopenAction}
+              </button>
+            {:else}
+              <div class="confirmbox" role="alertdialog" aria-label={$t.cierre.reopenTitle}>
+                <p><strong>{$t.cierre.reopenSure}</strong></p>
+                {#if closeError}<p class="error" role="alert">{closeError}</p>{/if}
+                <div class="rowbtns">
+                  <button type="button" class="mini" disabled={closeSaving} on:click={() => (reopening = false)}>
+                    {$t.common.cancel}
+                  </button>
+                  <button type="button" class="mini danger" disabled={closeSaving} on:click={confirmReopen}>
+                    {closeSaving ? '…' : $t.cierre.reopenConfirm}
+                  </button>
+                </div>
+              </div>
+            {/if}
+          {/if}
         {:else if !yearEnded}
           <p class="muted"><strong>{$t.cierre.notYetTitle}.</strong> {$t.cierre.notYetBody(yearEndLabel)}</p>
           <label class="override">
