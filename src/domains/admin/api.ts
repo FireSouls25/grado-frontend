@@ -732,6 +732,22 @@ export interface Promotion {
   DecidedAt: string;
 }
 
+export interface Enrollment {
+  ID: string;
+  StudentID: string;
+  ClassGroupID: string;
+}
+
+export async function enrollmentsForStudent(studentID: string): Promise<Enrollment[]> {
+  return (
+    (await api.get<Enrollment[]>(`/v1/enrollments?studentID=${encodeURIComponent(studentID)}`)) ?? []
+  );
+}
+
+export async function deleteEnrollment(id: string): Promise<void> {
+  await api.del(`/v1/enrollments/${encodeURIComponent(id)}`);
+}
+
 export interface PromotionInput {
   studentID: string;
   fromGroupID: string;

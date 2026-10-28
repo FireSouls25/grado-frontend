@@ -18,6 +18,8 @@
     classReport,
     promotionsForGroup,
     recordPromotion,
+    enrollmentsForStudent,
+    deleteEnrollment,
     createClassGroup,
     studentReport,
     type YearGroup,
@@ -60,6 +62,9 @@
   // sobrescribiría lo guardado del otro con datos ajenos).
   let doneIDs: Set<string> = new Set();
   let hydratedFor = '';
+  // destCache: salones del grado destino (para sembrar columnas desde
+  // el backend y medir lo pendiente sin viajes extra).
+  let destCache: YearGroup[] = [];
   let selected: string | null = null;
   let suggestMode: 'balanced' | 'split' = 'balanced';
   let salonMin = 10;
@@ -82,9 +87,6 @@
     .sort((a, b) => `${a.surnames} ${a.names}`.localeCompare(`${b.surnames} ${b.names}`, 'es'));
   $: q = search.trim().toLowerCase();
   $: pool = Object.values(choices).filter((c) => {
-    // Los ya matriculados en el destino salen del pendiente: el sistema
-    // recuerda dónde están y no se les vuelve a pedir ubicación.
-    if (doneIDs.has(c.studentID)) return false;
     const target = c.decision === 'promote' ? c.fromGrade + 1 : c.decision === 'repeat' ? c.fromGrade : -1;
     if (target !== targetGrade) return false;
     if (q && !`${c.surnames} ${c.names}`.toLowerCase().includes(q)) return false;
@@ -173,21 +175,46 @@
     }
   }
 
-  // Recalcula quiénes ya quedaron matriculados en el destino: su
-  // decisión registrada trae salón del año destino y salen del pendiente.
+  // Recalcula quiénes ya quedaron matriculados en el destino y siembra
+  // las columnas desde el backend (la verdad manda sobre el borrador).
+  // Sin salones en el destino no hay dónde sembrar: se conserva el borrador.
   async function refreshDone() {
     try {
       const dest = await destSalons();
+      destCache = dest;
       const ids = new Set(dest.map((g) => g.GroupID));
+      const colOf = new Map(dest.map((g) => [g.GroupID, g.GroupNo - 1]));
       const done = new Set<string>();
+      const seeded: Record<string, number> = {};
       for (const [key, r] of Object.entries(recorded)) {
-        if (r.toGroupID && ids.has(r.toGroupID)) done.add(key.split('|')[0]);
+        if (r.toGroupID && ids.has(r.toGroupID)) {
+          done.add(key.split('|')[0]);
+          const col = colOf.get(r.toGroupID);
+          if (col !== undefined && col >= 0 && col < salonCount) seeded[key.split('|')[0]] = col;
+        }
       }
       doneIDs = done;
+      if (Object.keys(seeded).length > 0) placed = { ...placed, ...seeded };
     } catch {
       doneIDs = new Set();
+      destCache = [];
     }
   }
+
+  // Lo pendiente de guardar: ubicados que difieren de lo registrado
+  // (decisión o destino) más los desubicados que siguen matriculados.
+  $: pendingCount = pool.filter((c) => {
+    const key = c.studentID + '|' + c.fromGroupID;
+    const prev = recorded[key];
+    const want: PromotionDecision =
+      c.decision === 'graduate' ? 'graduate' : c.fromGrade === targetGrade ? 'repeat' : 'promote';
+    const col = placed[c.studentID];
+    if (col === undefined) return !!prev?.toGroupID;
+    if (!prev) return true;
+    if (prev.decision !== want) return true;
+    const expect = destCache[col]?.GroupID ?? destCache.find((g) => g.GroupNo === col + 1)?.GroupID;
+    return prev.toGroupID !== (expect ?? null);
+  }).length;
 
   // Min/max razonables según el volumen real: si no hay elección
   // guardada, se proponen desde el promedio por salón.
@@ -533,17 +560,31 @@
         }
         salons.push(found.GroupID);
       }
+      const destIDs = new Set(salons);
       // Cada ubicado queda con decisión y matrícula donde se decidió;
       // lo idéntico a lo ya guardado se omite para no duplicar.
+      // Sin columna pero con matrícula en el destino: se desmatricula
+      // (quitar del salón también se guarda).
       let done = 0;
       for (const c of pool) {
         const col = placed[c.studentID];
-        if (col === undefined) continue;
-        const toGroupID = salons[col];
-        if (!toGroupID) continue;
         const key = c.studentID + '|' + c.fromGroupID;
         const prev = recorded[key];
         const want: PromotionDecision = c.decision === 'graduate' ? 'graduate' : c.fromGrade === targetGrade ? 'repeat' : 'promote';
+        if (col === undefined) {
+          if (prev?.toGroupID && destIDs.has(prev.toGroupID)) {
+            const ens = (await guarded(() => enrollmentsForStudent(c.studentID))) ?? [];
+            const match = ens.find((e) => e.ClassGroupID === prev.toGroupID);
+            if (match) {
+              await guarded(() => deleteEnrollment(match.ID));
+            }
+            recorded[key] = { decision: prev.decision, toGroupID: null };
+            done += 1;
+          }
+          continue;
+        }
+        const toGroupID = salons[col];
+        if (!toGroupID) continue;
         if (prev && prev.decision === want && prev.toGroupID === toGroupID) {
           done += 1;
           continue;
@@ -563,20 +604,10 @@
         recorded[key] = { decision: want, toGroupID: want === 'graduate' ? null : toGroupID };
         done += 1;
       }
-      // Sin borrado: lo confirmado sale del pendiente (recorded trae
-      // destino) y se queda visible en su salón. Lo no ubicado se
-      // conserva tal cual para seguir después o al volver.
-      const destIDs = new Set(salons);
-      const doneSet = new Set(doneIDs);
-      for (const [key, r] of Object.entries(recorded)) {
-        if (r.toGroupID && destIDs.has(r.toGroupID)) doneSet.add(key.split('|')[0]);
-      }
-      doneIDs = doneSet;
-      const kept: Record<string, number> = {};
-      for (const [id, col] of Object.entries(placed)) {
-        if (!doneSet.has(id)) kept[id] = col;
-      }
-      placed = kept;
+      // Sin borrado: lo confirmado queda visible en su salón (sembrado
+      // desde el backend) y lo no ubicado se conserva para seguir después
+      // o al volver.
+      await refreshDone();
       notify($t.cierre.distConfirmed(done));
       selected = null;
     } catch (err) {
@@ -696,7 +727,8 @@
         {:else}
           <EmptyState icon="users" title={$t.cierre.distEmptyPool} body={$t.cierre.distEmptyPoolBody} />
         {/if}
-      {:else}
+      {/if}
+      {#if pool.length > 0 || destCache.length > 0}
         <div class="board">
           <section class="col pool" aria-label={$t.cierre.distPool}>
             <h3>{$t.cierre.distPool} ({unplaced.length})</h3>
@@ -743,9 +775,13 @@
               </div>
               <ul>
                 {#each list as c (c.studentID)}
+                  {@const rkey = c.studentID + '|' + c.fromGroupID}
                   <li>
                     <span class="placed">
                       <strong>{c.surnames}, {c.names}</strong>
+                      {#if recorded[rkey]?.toGroupID}
+                        <span class="donebadge">{$t.cierre.distPlaced}</span>
+                      {/if}
                       <button type="button" class="x" aria-label={$t.common.unplace} on:click={() => unplace(c.studentID)}>×</button>
                     </span>
                   </li>
@@ -756,9 +792,14 @@
         </div>
         {#if saveError}<p class="error" role="alert">{saveError}</p>{/if}
         <div class="confirmbar">
-          <button type="button" class="primary" disabled={saving} on:click={confirm}>
+          <button type="button" class="primary" disabled={saving || pendingCount === 0} on:click={confirm}>
             {saving ? $t.common.retrying : $t.cierre.distConfirm}
           </button>
+          {#if pendingCount > 0}
+            <span class="note">{$t.cierre.distPending(pendingCount)}</span>
+          {:else if pool.length > 0}
+            <span class="note">{$t.cierre.distSaved}</span>
+          {/if}
         </div>
       {/if}
     {/if}
@@ -1054,6 +1095,16 @@
     min-width: 0;
     font-size: 0.82rem;
     overflow-wrap: anywhere;
+  }
+  .donebadge {
+    flex: none;
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+    font-size: 0.68rem;
+    font-weight: 800;
+    border-radius: var(--radius-pill);
+    padding: 3px 10px;
+    white-space: nowrap;
   }
   .x {
     flex: none;

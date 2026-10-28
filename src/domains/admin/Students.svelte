@@ -11,7 +11,8 @@
   import Icon from '$lib/ui/Icon.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import { groupsByYear, createStudent, createClassGroup, classReport, warningsRecent, teachers, listAcademicAlerts, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
-  import { isMissing } from '../teacher/api';
+  import { isMissing, classRoster } from '../teacher/api';
+  import type { RosterEntry } from '$lib/api/types';
   import { ApiError } from '$lib/api/types';
   import { guarded, queryParam, goBack } from '$lib/nav';
   import { profile } from '$lib/shell/profile';
@@ -46,7 +47,47 @@
   let warns: RecentWarning[] = [];
   let teacherList: TeacherSummary[] = [];
   let reports: Record<string, ClassReport> = {};
+  let rosters: Record<string, RosterEntry[]> = {};
   let reportsDone = false;
+
+  // Nómina real del salón: reporte (llamadas) + matriculados que aún no
+  // tienen llamada (ceros honestos). Sin esto, un salón listo antes de
+  // la primera lista sale vacío aunque tenga estudiantes asignados.
+  function mergedOf(g: YearGroup) {
+    const rep = reports[g.GroupID];
+    const known = new Set((rep?.Students ?? []).map((s) => s.StudentID));
+    const extra = (rosters[g.GroupID] ?? [])
+      .filter((r) => !known.has(r.StudentID))
+      .map((r) => ({
+        StudentID: r.StudentID,
+        Surnames: r.Surnames,
+        Names: r.Names,
+        Presences: 0,
+        Absences: 0,
+        Excused: 0,
+        Evasions: 0,
+        Lates: 0,
+        Sessions: 0
+      }));
+    return [...(rep?.Students ?? []), ...extra];
+  }
+
+  function sheetFor(g: YearGroup) {
+    return {
+      label: g.ClassLabel,
+      days: reports[g.GroupID]?.Sessions ?? 0,
+      students: mergedOf(g).map((s) => ({
+        surnames: s.Surnames,
+        names: s.Names,
+        presences: s.Presences,
+        absences: s.Absences,
+        excused: s.Excused,
+        evasions: s.Evasions,
+        lates: s.Lates,
+        sessions: s.Sessions
+      }))
+    };
+  }
   let q2 = '';
   let minAbs = '';
   let minLate = '';
@@ -155,12 +196,22 @@
     // Mismo tope que el Resumen: N salones sin N viajes simultáneos.
     // reportsDone marca el fin del intento (éxito o vacío): sin él, un
     // salón sin reporte dejaba "Cargando nóminas…" para siempre.
-    const settled = await mapSettled(groups, 5, (g) => classReport(g.GroupID));
+    const settled = await mapSettled(groups, 5, async (g) => {
+      const [rep, ros] = await Promise.all([
+        classReport(g.GroupID).catch(() => null),
+        classRoster(g.GroupID).catch(() => [] as RosterEntry[])
+      ]);
+      return { rep, ros };
+    });
     const next: Record<string, ClassReport> = {};
+    const nextRos: Record<string, RosterEntry[]> = {};
     settled.forEach((result, i) => {
-      if (result.status === 'fulfilled' && result.value) next[groups[i].GroupID] = result.value;
+      if (result.status !== 'fulfilled' || !result.value) return;
+      if (result.value.rep) next[groups[i].GroupID] = result.value.rep;
+      nextRos[groups[i].GroupID] = result.value.ros ?? [];
     });
     reports = next;
+    rosters = nextRos;
     reportsDone = true;
   }
 
@@ -223,7 +274,7 @@
   // pantalla. Se arma en el cliente con lo que ya está en memoria (sin
   // endpoint nuevo) y se descarga como archivo.
   $: allRoster = groups.flatMap((g) =>
-    (reports[g.GroupID]?.Students ?? []).map((s) => ({
+    mergedOf(g).map((s) => ({
       ...s,
       group: g.ClassLabel,
       rate: rateOf(s.Presences, s.Sessions),
@@ -317,7 +368,7 @@
 
   let exporting = false;
   let exportOpen = false;
-  $: totalExportStudents = groups.reduce((n, g) => n + (reports[g.GroupID]?.Students.length ?? 0), 0);
+  $: totalExportStudents = groups.reduce((n, g) => n + mergedOf(g).length, 0);
   let exportAll = true;
   let exportPicked: Record<string, boolean> = {};
 
@@ -350,22 +401,8 @@
       if (exportAll) {
         const sheets = [];
         for (const g of selected) {
-          const rep = await guarded(() => classReport(g.GroupID));
-          if (!rep) continue;
-          sheets.push({
-            label: g.ClassLabel,
-            days: rep.Sessions,
-            students: rep.Students.map((s) => ({
-              surnames: s.Surnames,
-              names: s.Names,
-              presences: s.Presences,
-              absences: s.Absences,
-              excused: s.Excused,
-              evasions: s.Evasions,
-              lates: s.Lates,
-              sessions: s.Sessions
-            }))
-          });
+          if (mergedOf(g).length === 0) continue;
+          sheets.push(sheetFor(g));
         }
         if (sheets.length === 0) {
           notify($t.admin.exportEmpty);
@@ -377,23 +414,9 @@
         });
       } else {
         for (const g of selected) {
-          const rep = await guarded(() => classReport(g.GroupID));
-          if (!rep) continue;
+          if (mergedOf(g).length === 0) continue;
           const safe = g.ClassLabel.replace(/[\\/:*?"<>|]/g, '-');
-          await exportStudentsWorkbook(`grado-estudiantes-${safe}-${year}.xlsx`, [{
-            label: g.ClassLabel,
-            days: rep.Sessions,
-            students: rep.Students.map((s) => ({
-              surnames: s.Surnames,
-              names: s.Names,
-              presences: s.Presences,
-              absences: s.Absences,
-              excused: s.Excused,
-              evasions: s.Evasions,
-              lates: s.Lates,
-              sessions: s.Sessions
-            }))
-          }], { ...text, title: `${$t.admin.studentExcelTitle(year)} · ${g.ClassLabel}` });
+          await exportStudentsWorkbook(`grado-estudiantes-${safe}-${year}.xlsx`, [sheetFor(g)], { ...text, title: `${$t.admin.studentExcelTitle(year)} · ${g.ClassLabel}` });
         }
       }
       exportOpen = false;
@@ -456,7 +479,7 @@
           <label class="xrow">
             <input type="checkbox" checked={exportAll || !!exportPicked[g.GroupID]} disabled={exportAll} on:change={() => toggleExportGroup(g.GroupID)} />
             <span class="xmain"><strong>{g.ClassLabel}</strong></span>
-            <span class="xcount">{$t.admin.groupStudents(reports[g.GroupID]?.Students.length ?? 0)}</span>
+            <span class="xcount">{$t.admin.groupStudents(mergedOf(g).length)}</span>
           </label>
         </li>
       {/each}
@@ -512,7 +535,7 @@
               <strong>{g.ClassLabel}</strong>
               <small>{dir ? `${dir.Surnames} ${dir.Names}`.trim() : $t.admin.noDirector}</small>
             </span>
-            <span class="sub">{known ? $t.admin.groupStudents(reports[g.GroupID]?.Students.length ?? 0) : '—'}</span>
+            <span class="sub">{known ? $t.admin.groupStudents(mergedOf(g).length) : '—'}</span>
             <span class="go" aria-hidden="true"><Icon name="next" /></span>
           </button>
         {/each}

@@ -125,6 +125,9 @@ export const es = {
       n === 1
         ? '1 estudiante ya quedó ubicado en su salón del próximo año.'
         : `${n} estudiantes ya quedaron ubicados en sus salones del próximo año.`,
+    distPlaced: 'Ubicado',
+    distPending: (n: number) => (n === 1 ? '1 cambio por guardar.' : `${n} cambios por guardar.`),
+    distSaved: 'Todo guardado: los salones muestran la matrícula real.',
     distConfirm: 'Confirmar distribución',
     distPlaceHere: 'Poner aquí',
     distConfirmed: (n: number) => (n === 1 ? '1 estudiante ubicado.' : `${n} estudiantes ubicados.`),
