@@ -260,15 +260,17 @@
                       disabled={acting === s.SessionID + s.Mark}
                       on:click={() => togglePermission(s.SessionID, s.Mark)}
                     >{s.Mark === 'absence' ? $t.studentSummary.justifyAction : $t.studentSummary.unjustifiedAction}</button>
-                    <button
-                      type="button" class="mini"
-                      on:click={() => (correcting = { sessionID: s.SessionID, mark: s.Mark })}
-                    >{$t.studentSummary.modifyAction}</button>
-                    <button type="button" class="mini" on:click={() => openTrail(s.SessionID)}>
-                      {trailFor === s.SessionID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
-                    </button>
                   </span>
                 {/if}
+                <span class="rowbtns">
+                  <button
+                    type="button" class="mini"
+                    on:click={() => (correcting = { sessionID: s.SessionID, mark: s.Mark })}
+                  >{$t.studentSummary.modifyAction}</button>
+                  <button type="button" class="mini" on:click={() => openTrail(s.SessionID)}>
+                    {trailFor === s.SessionID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
+                  </button>
+                </span>
                 {#if trailFor === s.SessionID}
                   {#if trailLoading}
                     <p class="muted">{$t.common.retrying}</p>
@@ -284,11 +286,13 @@
         {/if}
       </section>
 
-      {#if alerts.length > 0}
-        <section class="card" aria-label={$t.academicAlert.title}>
-          <div class="row-head">
-            <h2>{$t.academicAlert.title} ({openAlerts.length} {$t.academicAlert.openLabel})</h2>
-          </div>
+      <section class="card" aria-label={$t.academicAlert.title}>
+        <div class="row-head">
+          <h2>{$t.academicAlert.title} ({openAlerts.length} {$t.academicAlert.openLabel})</h2>
+        </div>
+        {#if alerts.length === 0}
+          <p class="muted">{$t.academicAlert.empty}</p>
+        {:else}
           <ul class="rows">
             {#each alerts as a (a.ID)}
               <li>
@@ -309,8 +313,8 @@
               </li>
             {/each}
           </ul>
-        </section>
-      {/if}
+        {/if}
+      </section>
       <section class="card" aria-label={$t.studentSummary.warningsTitle}>
         <div class="row-head">
           <h2>{$t.studentSummary.warningsTitle} ({sortedWarnings.length})</h2>

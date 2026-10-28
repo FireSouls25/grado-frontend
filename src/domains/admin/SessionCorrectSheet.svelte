@@ -29,6 +29,7 @@
   function baseOf(current: string): SegMark {
     if (current === 'evasion') return 'evasion';
     if (current === 'late') return 'late';
+    if (!current) return '';
     return 'absence';
   }
 

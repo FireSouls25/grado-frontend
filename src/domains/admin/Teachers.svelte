@@ -98,6 +98,11 @@
       Phone: '',
       Email: '',
       Sex: '' as '' | 'female' | 'male',
+      Address: '',
+      Birthplace: '',
+      Birthdate: '',
+      MedicalConditions: '',
+      HomeroomClassID: '',
       Username: '',
       Password: ''
     };
@@ -231,7 +236,12 @@
         DocumentID: form.DocumentID.trim(),
         Phone: form.Phone.trim(),
         Email: form.Email.trim(),
-        Sex: form.Sex
+        Sex: form.Sex,
+        Address: form.Address.trim(),
+        Birthplace: form.Birthplace.trim(),
+        Birthdate: form.Birthdate,
+        MedicalConditions: form.MedicalConditions.trim(),
+        HomeroomClassID: form.HomeroomClassID.trim()
       });
       let extra = '';
       const username = form.Username.trim();
@@ -382,13 +392,16 @@
 
 <Sheet open={creating} title={$t.admin.newTeacher} onClose={() => (creating = false)}>
   <form class="form" on:submit|preventDefault={save}>
+    <p class="req-note">{$t.admin.formRequiredNote}</p>
+    <h3 class="formsub">{$t.admin.formSectionBasic}</h3>
     <div class="row2">
-      <label>{$t.admin.formNames}<input bind:value={form.Names} autocomplete="off" /></label>
-      <label>{$t.admin.formSurnames}<input bind:value={form.Surnames} autocomplete="off" /></label>
+      <label><span>{$t.admin.formNames} <span class="req" aria-hidden="true">*</span></span><input required bind:value={form.Names} autocomplete="off" /></label>
+      <label><span>{$t.admin.formSurnames} <span class="req" aria-hidden="true">*</span></span><input required bind:value={form.Surnames} autocomplete="off" /></label>
     </div>
     <div class="row2">
       <label
-        >{$t.admin.formDocument}<input
+        ><span>{$t.admin.formDocument} <span class="req" aria-hidden="true">*</span></span><input
+          required
           bind:value={form.DocumentID}
           placeholder={$t.admin.formDocumentPlaceholder}
           inputmode="numeric"
@@ -397,6 +410,13 @@
         /></label
       >
       <label
+        >{$t.admin.formBirthdateTeacher}<input type="date" lang="es-CO" bind:value={form.Birthdate} /></label
+      >
+    </div>
+    <label>{$t.admin.formBirthplace}<input bind:value={form.Birthplace} autocomplete="off" /></label>
+    <h3 class="formsub">{$t.admin.formSectionContact}</h3>
+    <div class="row2">
+      <label
         >{$t.admin.formPhone}<input
           bind:value={form.Phone}
           type="tel"
@@ -404,8 +424,6 @@
           autocomplete="off"
         /></label
       >
-    </div>
-    <div class="row2">
       <label
         >{$t.admin.formEmail}<input
           bind:value={form.Email}
@@ -415,6 +433,9 @@
           autocomplete="off"
         /></label
       >
+    </div>
+    <label>{$t.admin.formAddress}<input bind:value={form.Address} autocomplete="off" /></label>
+    <div class="row2">
       <label
         >{$t.admin.formSex}
         <select bind:value={form.Sex}>
@@ -423,7 +444,11 @@
           <option value="male">{$t.admin.formSexMale}</option>
         </select></label
       >
+      <label>{$t.admin.formMedicalTeacher}<input bind:value={form.MedicalConditions} autocomplete="off" /></label>
     </div>
+    <h3 class="formsub">{$t.admin.formSectionWork}</h3>
+    <label>{$t.admin.formHomeroom}<input bind:value={form.HomeroomClassID} placeholder={$t.admin.formHomeroomPlaceholder} autocomplete="off" /></label>
+    <h3 class="formsub">{$t.admin.formSectionAccount}</h3>
     <div class="row2">
       <label
         >{$t.admin.formUsername}<input
@@ -621,6 +646,22 @@
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .formsub {
+    margin: 8px 0 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .req-note {
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin: 0;
+  }
+  .req {
+    color: var(--danger, #b3261e);
+    font-weight: 800;
   }
   .hint {
     color: var(--muted);

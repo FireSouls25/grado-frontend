@@ -51,15 +51,62 @@
   let minLate = '';
   let fWarn: '' | 'yes' = '';
 
+  function freshGuardian() {
+    return { Names: '', DocumentID: '', Phone: '', Occupation: '', Address: '' };
+  }
+
+  function freshCondition() {
+    return { Has: false, Detail: '' };
+  }
+
   function freshForm() {
     return {
       Names: '',
       Surnames: '',
       ClassID: '',
       DocumentID: '',
+      Phone: '',
+      Address: '',
+      Birthplace: '',
       Birthdate: '',
-      CaregiverName: '',
-      CaregiverPhone: ''
+      Email: '',
+      BloodType: '',
+      Vision: freshCondition(),
+      Hearing: freshCondition(),
+      IsNew: false,
+      PreviousSchool: '',
+      TransferReason: '',
+      Mother: freshGuardian(),
+      Father: freshGuardian(),
+      Caregiver: freshGuardian(),
+      LivesWith: '',
+      Siblings: [] as { Name: string; ClassID: string }[],
+      MedicalReport: '',
+      DiversityCondition: '',
+      SpecialistReport: freshCondition()
+    };
+  }
+
+  function addSibling() {
+    form.Siblings = [...form.Siblings, { Name: '', ClassID: '' }];
+  }
+
+  function removeSibling(i: number) {
+    form.Siblings = form.Siblings.filter((_, j) => j !== i);
+  }
+
+  function condOf(c: { Has: boolean; Detail: string }) {
+    const detail = c.Detail.trim();
+    return { Has: c.Has || detail !== '', Detail: detail };
+  }
+
+  function guardianOf(g: { Names: string; DocumentID: string; Phone: string; Occupation: string; Address: string }) {
+    return {
+      Names: g.Names.trim(),
+      DocumentID: g.DocumentID.trim(),
+      Phone: g.Phone.trim(),
+      Occupation: g.Occupation.trim(),
+      Address: g.Address.trim()
     };
   }
 
@@ -276,8 +323,27 @@
         Surnames: form.Surnames.trim(),
         ClassID: form.ClassID.trim(),
         DocumentID: form.DocumentID.trim(),
+        Phone: form.Phone.trim(),
+        Address: form.Address.trim(),
+        Birthplace: form.Birthplace.trim(),
         Birthdate: form.Birthdate,
-        Caregiver: { Names: form.CaregiverName.trim(), Phone: form.CaregiverPhone.trim() }
+        Email: form.Email.trim(),
+        BloodType: form.BloodType.trim(),
+        Vision: condOf(form.Vision),
+        Hearing: condOf(form.Hearing),
+        IsNew: form.IsNew,
+        PreviousSchool: form.PreviousSchool.trim(),
+        TransferReason: form.TransferReason.trim(),
+        Mother: guardianOf(form.Mother),
+        Father: guardianOf(form.Father),
+        Caregiver: guardianOf(form.Caregiver),
+        LivesWith: form.LivesWith.trim(),
+        Siblings: form.Siblings
+          .map((s) => ({ Name: s.Name.trim(), ClassID: s.ClassID.trim() }))
+          .filter((s) => s.Name !== '' || s.ClassID !== ''),
+        MedicalReport: form.MedicalReport.trim(),
+        DiversityCondition: form.DiversityCondition.trim(),
+        SpecialistReport: condOf(form.SpecialistReport)
       });
       feedback = $t.admin.createdStudent;
       form = freshForm();
@@ -465,18 +531,91 @@
 
 <Sheet open={creating} title={$t.admin.newStudent} onClose={() => (creating = false)}>
   <form class="form" on:submit|preventDefault={save}>
+    <p class="req-note">{$t.admin.formRequiredNote}</p>
+    <h3 class="formsub">{$t.admin.formSectionBasic}</h3>
     <div class="row2">
-      <label>{$t.admin.formNames}<input bind:value={form.Names} autocomplete="off" /></label>
-      <label>{$t.admin.formSurnames}<input bind:value={form.Surnames} autocomplete="off" /></label>
+      <label><span>{$t.admin.formNames} <span class="req" aria-hidden="true">*</span></span><input required bind:value={form.Names} autocomplete="off" /></label>
+      <label><span>{$t.admin.formSurnames} <span class="req" aria-hidden="true">*</span></span><input required bind:value={form.Surnames} autocomplete="off" /></label>
     </div>
     <div class="row2">
-      <label>{$t.admin.formDocument}<input bind:value={form.DocumentID} placeholder={$t.admin.formDocumentPlaceholder} inputmode="numeric" pattern="[0-9]*" autocomplete="off" /></label>
-      <label>{$t.admin.formClass}<input bind:value={form.ClassID} placeholder={$t.admin.formClassPlaceholder} autocomplete="off" /></label>
+      <label><span>{$t.admin.formDocument} <span class="req" aria-hidden="true">*</span></span><input required bind:value={form.DocumentID} placeholder={$t.admin.formDocumentPlaceholder} inputmode="numeric" pattern="[0-9]*" autocomplete="off" /></label>
+      <label><span>{$t.admin.formClass} <span class="req" aria-hidden="true">*</span></span><input required bind:value={form.ClassID} placeholder={$t.admin.formClassPlaceholder} autocomplete="off" /></label>
     </div>
-    <label>{$t.admin.formBirthdate}<input type="date" lang="es-CO" bind:value={form.Birthdate} /></label>
     <div class="row2">
-      <label>{$t.admin.formCaregiverName}<input bind:value={form.CaregiverName} autocomplete="off" /></label>
-      <label>{$t.admin.formCaregiverPhone}<input bind:value={form.CaregiverPhone} inputmode="tel" autocomplete="off" /></label>
+      <label>{$t.admin.formBirthdate}<input type="date" lang="es-CO" bind:value={form.Birthdate} /></label>
+      <label>{$t.admin.formBloodType}<input bind:value={form.BloodType} placeholder={$t.admin.formBloodPlaceholder} autocomplete="off" /></label>
+    </div>
+    <label>{$t.admin.formBirthplace}<input bind:value={form.Birthplace} autocomplete="off" /></label>
+    <label class="check"><input type="checkbox" bind:checked={form.IsNew} /><span>{$t.admin.formIsNew}</span></label>
+    <h3 class="formsub">{$t.admin.formSectionContact}</h3>
+    <div class="row2">
+      <label>{$t.admin.formPhone}<input bind:value={form.Phone} inputmode="tel" autocomplete="off" /></label>
+      <label>{$t.admin.formEmail}<input bind:value={form.Email} type="email" inputmode="email" autocapitalize="none" autocomplete="off" /></label>
+    </div>
+    <label>{$t.admin.formAddress}<input bind:value={form.Address} autocomplete="off" /></label>
+    <h3 class="formsub">{$t.admin.formSectionHealth}</h3>
+    <div class="row2">
+      <label class="check"><input type="checkbox" bind:checked={form.Vision.Has} /><span>{$t.admin.formVision}: {$t.admin.formConditionHas}</span></label>
+      <label>{$t.admin.formConditionDetail}<input bind:value={form.Vision.Detail} disabled={!form.Vision.Has && !form.Vision.Detail} autocomplete="off" /></label>
+    </div>
+    <div class="row2">
+      <label class="check"><input type="checkbox" bind:checked={form.Hearing.Has} /><span>{$t.admin.formHearing}: {$t.admin.formConditionHas}</span></label>
+      <label>{$t.admin.formConditionDetail}<input bind:value={form.Hearing.Detail} disabled={!form.Hearing.Has && !form.Hearing.Detail} autocomplete="off" /></label>
+    </div>
+    <div class="row2">
+      <label class="check"><input type="checkbox" bind:checked={form.SpecialistReport.Has} /><span>{$t.admin.formSpecialist}</span></label>
+      <label>{$t.admin.formConditionDetail}<input bind:value={form.SpecialistReport.Detail} disabled={!form.SpecialistReport.Has && !form.SpecialistReport.Detail} autocomplete="off" /></label>
+    </div>
+    <label>{$t.admin.formMedical}<input bind:value={form.MedicalReport} autocomplete="off" /></label>
+    <label>{$t.admin.formDiversity}<input bind:value={form.DiversityCondition} autocomplete="off" /></label>
+    <h3 class="formsub">{$t.admin.formSectionGuardian}</h3>
+    <div class="row2">
+      <label><span>{$t.admin.formCaregiverName} <span class="req" aria-hidden="true">*</span></span><input required bind:value={form.Caregiver.Names} autocomplete="off" /></label>
+      <label>{$t.admin.formCaregiverPhone}<input bind:value={form.Caregiver.Phone} inputmode="tel" autocomplete="off" /></label>
+    </div>
+    <div class="row2">
+      <label>{$t.admin.formGuardianDocument}<input bind:value={form.Caregiver.DocumentID} inputmode="numeric" autocomplete="off" /></label>
+      <label>{$t.admin.formGuardianOccupation}<input bind:value={form.Caregiver.Occupation} autocomplete="off" /></label>
+    </div>
+    <label>{$t.admin.formGuardianAddress}<input bind:value={form.Caregiver.Address} autocomplete="off" /></label>
+    <h3 class="formsub">{$t.admin.formSectionMother}</h3>
+    <div class="row2">
+      <label>{$t.admin.formGuardianName}<input bind:value={form.Mother.Names} autocomplete="off" /></label>
+      <label>{$t.admin.formCaregiverPhone}<input bind:value={form.Mother.Phone} inputmode="tel" autocomplete="off" /></label>
+    </div>
+    <div class="row2">
+      <label>{$t.admin.formGuardianDocument}<input bind:value={form.Mother.DocumentID} inputmode="numeric" autocomplete="off" /></label>
+      <label>{$t.admin.formGuardianOccupation}<input bind:value={form.Mother.Occupation} autocomplete="off" /></label>
+    </div>
+    <label>{$t.admin.formGuardianAddress}<input bind:value={form.Mother.Address} autocomplete="off" /></label>
+    <h3 class="formsub">{$t.admin.formSectionFather}</h3>
+    <div class="row2">
+      <label>{$t.admin.formGuardianName}<input bind:value={form.Father.Names} autocomplete="off" /></label>
+      <label>{$t.admin.formCaregiverPhone}<input bind:value={form.Father.Phone} inputmode="tel" autocomplete="off" /></label>
+    </div>
+    <div class="row2">
+      <label>{$t.admin.formGuardianDocument}<input bind:value={form.Father.DocumentID} inputmode="numeric" autocomplete="off" /></label>
+      <label>{$t.admin.formGuardianOccupation}<input bind:value={form.Father.Occupation} autocomplete="off" /></label>
+    </div>
+    <label>{$t.admin.formGuardianAddress}<input bind:value={form.Father.Address} autocomplete="off" /></label>
+    <h3 class="formsub">{$t.admin.formSectionOrigin}</h3>
+    <div class="row2">
+      <label>{$t.admin.formPreviousSchool}<input bind:value={form.PreviousSchool} autocomplete="off" /></label>
+      <label>{$t.admin.formTransferReason}<input bind:value={form.TransferReason} autocomplete="off" /></label>
+    </div>
+    <label>{$t.admin.formLivesWith}<input bind:value={form.LivesWith} autocomplete="off" /></label>
+    <h3 class="formsub">{$t.admin.formSectionSiblings}</h3>
+    {#each form.Siblings as sib, i (i)}
+      <div class="row2">
+        <label>{$t.admin.formSiblingName}<input bind:value={sib.Name} autocomplete="off" /></label>
+        <label>{$t.admin.formSiblingClass}<input bind:value={sib.ClassID} placeholder={$t.admin.formClassPlaceholder} autocomplete="off" /></label>
+      </div>
+    {/each}
+    <div class="rowbtns">
+      <button type="button" class="mini" on:click={addSibling}>{$t.admin.formAddSibling}</button>
+      {#if form.Siblings.length > 0}
+        <button type="button" class="mini" on:click={() => removeSibling(form.Siblings.length - 1)}>{$t.admin.formRemoveSibling}</button>
+      {/if}
     </div>
     {#if feedback}<p class="flash" role="status">{feedback}</p>{/if}
     <button class="primary" type="submit" disabled={saving}>
@@ -583,6 +722,49 @@
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .formsub {
+    margin: 8px 0 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .req-note {
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin: 0;
+  }
+  .req {
+    color: var(--danger, #b3261e);
+    font-weight: 800;
+  }
+  .check {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 10px !important;
+    min-height: 52px;
+  }
+  .check input {
+    width: 24px;
+    height: 24px;
+    min-height: 0;
+    accent-color: var(--accent);
+  }
+  .rowbtns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .mini {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-weight: 600;
   }
   .flash {
     background: var(--chip-green-bg);

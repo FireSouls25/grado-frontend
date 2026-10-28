@@ -265,13 +265,48 @@ export async function subjects(): Promise<Subject[]> {
   return listSubjects();
 }
 
+export interface GuardianInput {
+  Names: string;
+  DocumentID: string;
+  Phone: string;
+  Occupation: string;
+  Address: string;
+}
+
+export interface ConditionInput {
+  Has: boolean;
+  Detail: string;
+}
+
+export interface SiblingInput {
+  Name: string;
+  ClassID: string;
+}
+
 export interface NewStudent {
   Names: string;
   Surnames: string;
   ClassID: string;
   DocumentID: string;
+  Phone: string;
+  Address: string;
+  Birthplace: string;
   Birthdate: string;
-  Caregiver: { Names: string; Phone: string };
+  Email: string;
+  BloodType: string;
+  Vision: ConditionInput;
+  Hearing: ConditionInput;
+  IsNew: boolean;
+  PreviousSchool: string;
+  TransferReason: string;
+  Mother: GuardianInput;
+  Father: GuardianInput;
+  Caregiver: GuardianInput;
+  LivesWith: string;
+  Siblings: SiblingInput[];
+  MedicalReport: string;
+  DiversityCondition: string;
+  SpecialistReport: ConditionInput;
 }
 
 export interface NewTeacher {
@@ -282,6 +317,11 @@ export interface NewTeacher {
   Email: string;
   /** 'female' | 'male' | '' (no declarado). */
   Sex: string;
+  Address: string;
+  Birthplace: string;
+  Birthdate: string;
+  MedicalConditions: string;
+  HomeroomClassID: string;
 }
 
 export async function createStudent(input: NewStudent): Promise<{ ID: string }> {
@@ -518,7 +558,10 @@ export interface AuditEntry {
 }
 
 export async function createTeacher(input: NewTeacher): Promise<{ ID: string }> {
-  return api.post<{ ID: string }>('/v1/teachers', input);
+  const birthdate = input.Birthdate
+    ? `${input.Birthdate}T00:00:00Z`
+    : '0001-01-01T00:00:00Z';
+  return api.post<{ ID: string }>('/v1/teachers', { ...input, Birthdate: birthdate });
 }
 
 export interface NewUser {
