@@ -874,6 +874,12 @@
     gap: 8px;
     flex-wrap: wrap;
   }
+  .rowbtns .mini,
+  .rowbtns .primary {
+    min-height: 48px;
+    padding: 0 24px;
+    margin-top: 4px;
+  }
   .mini {
     display: inline-flex;
     align-items: center;

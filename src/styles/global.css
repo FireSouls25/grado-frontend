@@ -33,13 +33,14 @@
   --g-grave-bg: hsl(6, 70%, 91%);
   --g-grave-ink: hsl(0, 60%, 51%);
 
-  /* Asistencia: presente tinta; el resto grises cálidos. */
+  /* Asistencia: presente verde, ausente rojo, atraso amarillo, permiso
+     azul (no cuenta como falta), evasión violeta. */
   --m-present: hsl(104, 42%, 39%);
-  --m-absent: hsl(26, 55%, 45%);
-  --m-permission: hsl(105, 42%, 36%);
-  --m-permission-bg: hsl(105, 45%, 89%);
+  --m-absent: hsl(0, 62%, 47%);
+  --m-permission: hsl(205, 68%, 45%);
+  --m-permission-bg: hsl(205, 60%, 90%);
   --m-evasion: hsl(249, 17%, 56%);
-  --m-late: hsl(202, 38%, 53%);
+  --m-late: hsl(45, 85%, 38%);
 
   /* Compatibilidad: componentes actuales; los nuevos usan --g-* y --m-*. */
   --chip-green-bg: hsl(105, 30%, 90%);
@@ -87,11 +88,11 @@
   --g-grave-ink: hsl(0, 100%, 71%);
 
   --m-present: hsl(105, 45%, 67%);
-  --m-absent: hsl(26, 60%, 62%);
-  --m-permission: hsl(105, 50%, 70%);
-  --m-permission-bg: hsl(105, 40%, 22%);
+  --m-absent: hsl(0, 75%, 66%);
+  --m-permission: hsl(205, 80%, 72%);
+  --m-permission-bg: hsl(205, 45%, 24%);
   --m-evasion: hsl(250, 35%, 75%);
-  --m-late: hsl(203, 65%, 74%);
+  --m-late: hsl(48, 95%, 62%);
 
   --chip-green-bg: hsl(105, 30%, 16%);
   --chip-green-ink: hsl(105, 45%, 68%);
@@ -137,11 +138,11 @@
     --g-grave-ink: hsl(0, 100%, 71%);
 
     --m-present: hsl(105, 45%, 67%);
-    --m-absent: hsl(26, 60%, 62%);
-    --m-permission: hsl(105, 50%, 70%);
-    --m-permission-bg: hsl(105, 40%, 22%);
+    --m-absent: hsl(0, 75%, 66%);
+    --m-permission: hsl(205, 80%, 72%);
+    --m-permission-bg: hsl(205, 45%, 24%);
     --m-evasion: hsl(250, 35%, 75%);
-    --m-late: hsl(203, 65%, 74%);
+    --m-late: hsl(48, 95%, 62%);
 
     --chip-green-bg: hsl(105, 30%, 16%);
     --chip-green-ink: hsl(105, 45%, 68%);

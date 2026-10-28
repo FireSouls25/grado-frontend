@@ -26,6 +26,11 @@ const HEADER_FONT = { bold: true, color: { rgb: 'FFFFFFFF' } };
 const TITLE_FILL = { patternType: 'solid', fgColor: { rgb: 'FFF6ECDC' } };
 const TOTAL_FILL = { patternType: 'solid', fgColor: { rgb: 'FFF0DCC0' } };
 const BAND_FILL = { patternType: 'solid', fgColor: { rgb: 'FFFBF4E9' } };
+const COL_PRESENT = { patternType: 'solid', fgColor: { rgb: 'FFDFF0D8' } };
+const COL_ABSENT = { patternType: 'solid', fgColor: { rgb: 'FFF7DAD2' } };
+const COL_PERMISSION = { patternType: 'solid', fgColor: { rgb: 'FFD7E8F5' } };
+const COL_EVASION = { patternType: 'solid', fgColor: { rgb: 'FFE6E0F2' } };
+const COL_LATE = { patternType: 'solid', fgColor: { rgb: 'FFFFF0C8' } };
 const THIN_BORDER = {
   top: { style: 'thin', color: { rgb: 'FFB9A68A' } },
   bottom: { style: 'thin', color: { rgb: 'FFB9A68A' } },
@@ -73,7 +78,7 @@ function colName(i: number): string {
 }
 
 function download(name: string, wb: XLSX.WorkBook) {
-  const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
   const blob = new Blob([bytes], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   });
@@ -103,8 +108,12 @@ export function salonSheet(salon: SalonSheet, t: {
   ws['A1'] = textCell(t.title, TITLE_FILL, TITLE_FONT);
   ws['A2'] = textCell(`${t.daysLabel}: ${salon.days}`, TITLE_FILL);
   const headRow = 3;
+  const headInk = { bold: true, color: { rgb: 'FFFFFFFF' } };
+  const headMetricInk = { bold: true, color: { rgb: 'FF5A3A1A' } };
+  const headFills = [HEADER_FILL, HEADER_FILL, HEADER_FILL, COL_PRESENT, COL_ABSENT, COL_PERMISSION, COL_EVASION, COL_LATE, HEADER_FILL, HEADER_FILL];
   H.forEach((h, i) => {
-    ws[`${colName(i)}${headRow}`] = textCell(h, HEADER_FILL, HEADER_FONT);
+    const metric = i >= 3 && i <= 7;
+    ws[`${colName(i)}${headRow}`] = textCell(h, headFills[i] ?? HEADER_FILL, metric ? headMetricInk : headInk);
   });
   const first = headRow + 1;
   students.forEach((s, k) => {
@@ -114,20 +123,13 @@ export function salonSheet(salon: SalonSheet, t: {
     ws[`A${r}`] = numCell(k + 1);
     ws[`B${r}`] = textCell(s.surnames);
     ws[`C${r}`] = textCell(s.names);
-    ws[`D${r}`] = numCell(s.presences);
-    ws[`E${r}`] = numCell(s.absences);
-    ws[`F${r}`] = numCell(s.excused);
-    ws[`G${r}`] = numCell(s.evasions);
-    ws[`H${r}`] = numCell(s.lates);
+    ws[`D${r}`] = numCell(s.presences, COL_PRESENT);
+    ws[`E${r}`] = numCell(s.absences, COL_ABSENT);
+    ws[`F${r}`] = numCell(s.excused, COL_PERMISSION);
+    ws[`G${r}`] = numCell(s.evasions, COL_EVASION);
+    ws[`H${r}`] = numCell(s.lates, COL_LATE);
     ws[`I${r}`] = numCell(s.sessions);
-    const band = k % 2 === 1 ? BAND_FILL : undefined;
-    ws[`J${r}`] = formulaCell(rate, `D${r}/SUM(D${r}:H${r})`, band, undefined, '0%');
-    if (band) {
-      for (const c of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']) {
-        const cell = ws[`${c}${r}`];
-        if (cell) styleCell(cell, BAND_FILL);
-      }
-    }
+    ws[`J${r}`] = formulaCell(rate, `D${r}/SUM(D${r}:H${r})`, undefined, BOLD, '0%');
   });
   const last = first + students.length;
   ws[`A${last}`] = textCell('', TOTAL_FILL);
@@ -143,8 +145,11 @@ export function salonSheet(salon: SalonSheet, t: {
     });
     return acc;
   });
+  const colTints = [COL_PRESENT, COL_ABSENT, COL_PERMISSION, COL_EVASION, COL_LATE, undefined];
   cols.forEach((c, i) => {
-    ws[`${c}${last}`] = formulaCell(sums[i], `SUM(${c}${first}:${c}${last - 1})`, TOTAL_FILL, BOLD);
+    const cell = formulaCell(sums[i], `SUM(${c}${first}:${c}${last - 1})`, TOTAL_FILL, BOLD);
+    if (colTints[i]) cell.s = { ...(cell.s ?? {}), border: THIN_BORDER, fill: colTints[i], font: BOLD };
+    ws[`${c}${last}`] = cell;
   });
   const totalMarks = sums[0] + sums[1] + sums[2] + sums[3] + sums[4];
   ws[`J${last}`] = formulaCell(

@@ -53,6 +53,7 @@
   interface RiskRow {
     id: string;
     name: string;
+    presences: number;
     absences: number;
     excused: number;
     evasions: number;
@@ -292,6 +293,7 @@
       .map(([id, s]) => ({
         id,
         name: `${s.surnames}, ${s.names}`.trim().replace(/^,/, '').trim() || id,
+        presences: s.presences,
         absences: s.absences,
         excused: s.excused,
         evasions: s.evasions,
@@ -737,10 +739,10 @@
           data: has
             ? [
                 { value: marks.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#4e8a3c') } },
-                { value: marks.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#b26a35') } },
-                { value: marks.excused, name: $t.admin.markPermission, itemStyle: { color: cssVar('--m-permission', '#4c8757') } },
+                { value: marks.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#c0392b') } },
+                { value: marks.excused, name: $t.admin.markPermission, itemStyle: { color: cssVar('--m-permission', '#2f6db3') } },
                 { value: marks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#8377a8') } },
-                { value: marks.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#5b93b5') } }
+                { value: marks.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#9a7b12') } }
               ]
             : []
         }
@@ -1045,7 +1047,13 @@
                           <span class="countchip" class:alert={row.evasions > 0}>{row.evasions} {$t.admin.colEvasions}</span>
                           <span class="rateblock">
                             <strong class:low={row.rate < RATE_FLOOR}>{row.rate}%</strong>
-                            <span class="rbar"><span class:low={row.rate < RATE_FLOOR} style={`width:${row.rate}%`}></span></span>
+                            <span class="rbar stack" role="img" aria-label={`${row.presences} ✓ · ${row.absences} ✗ · ${row.lates} ⏰ · ${row.excused} P`}>
+                              {#if row.presences > 0}<span class="sg-present" style={`width:${(row.presences / row.sessions) * 100}%`}></span>{/if}
+                              {#if row.excused > 0}<span class="sg-permission" style={`width:${(row.excused / row.sessions) * 100}%`}></span>{/if}
+                              {#if row.lates > 0}<span class="sg-late" style={`width:${(row.lates / row.sessions) * 100}%`}></span>{/if}
+                              {#if row.absences > 0}<span class="sg-absent" style={`width:${(row.absences / row.sessions) * 100}%`}></span>{/if}
+                              {#if row.evasions > 0}<span class="sg-evasion" style={`width:${(row.evasions / row.sessions) * 100}%`}></span>{/if}
+                            </span>
                             <small>
                               {row.rate - RATE_FLOOR >= 0
                                 ? $t.admin.rateAbove(row.rate - RATE_FLOOR)
@@ -1679,8 +1687,28 @@
     background: var(--ink);
     border-radius: 999px;
   }
-  .rbar span.low {
-    background: var(--g-grave-ink);
+  .rbar.stack {
+    display: flex;
+    background: var(--tint);
+  }
+  .rbar.stack span {
+    border-radius: 0;
+    min-width: 2px;
+  }
+  .rbar .sg-present {
+    background: var(--m-present);
+  }
+  .rbar .sg-permission {
+    background: var(--m-permission);
+  }
+  .rbar .sg-late {
+    background: var(--m-late);
+  }
+  .rbar .sg-absent {
+    background: var(--m-absent);
+  }
+  .rbar .sg-evasion {
+    background: var(--m-evasion);
   }
   .rateblock small {
     color: var(--muted);
