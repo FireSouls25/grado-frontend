@@ -760,6 +760,8 @@ export interface StudentSessionEntry {
   SchoolYear: number;
   Period: number;
   Mark: string;
+  /** Latest revision note, if any: the recorded permission reason. */
+  Note?: string;
 }
 
 export interface StudentReport {

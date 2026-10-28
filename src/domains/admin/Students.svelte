@@ -10,7 +10,7 @@
   import { notify } from '$lib/ui/notice';
   import Icon from '$lib/ui/Icon.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
-  import { groupsByYear, createStudent, createClassGroup, classReport, warningsRecent, teachers, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
+  import { groupsByYear, createStudent, createClassGroup, classReport, warningsRecent, teachers, listAcademicAlerts, type YearGroup, type ClassReport, type RecentWarning, type TeacherSummary } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { guarded, queryParam, goBack } from '$lib/nav';
@@ -24,6 +24,7 @@
   export let querystring: string = '';
 
   let groups: YearGroup[] = [];
+  let alerted: Set<string> = new Set();
   let loaded = false;
   let failed = false;
   let loadError: unknown = null;
@@ -119,6 +120,12 @@
       warns = (await warningsRecent(100)) ?? [];
     } catch {
       warns = [];
+    }
+    try {
+      const open = (await guarded(() => listAcademicAlerts())) ?? [];
+      alerted = new Set(open.map((a) => a.StudentID));
+    } catch {
+      alerted = new Set();
     }
   }
 
@@ -404,7 +411,13 @@
                 aria-label={`${$t.studentDetail.title}: ${s.Surnames} ${s.Names}`}
               >
                 <span class="who">
-                  <strong>{s.Surnames} {s.Names}</strong>
+                  <span class="namerow"><strong>{s.Surnames} {s.Names}</strong>
+                  {#if alerted.has(s.StudentID)}
+                    <span class="alertbadge" title={$t.academicAlert.hasOpen} aria-label={$t.academicAlert.hasOpen}>
+                      <Icon name="warn" />
+                    </span>
+                  {/if}
+                  </span>
                   <span class="seemore">{$t.studentDetail.viewProfile} ›</span>
                   {#if !picked || s.calls > 0}
                     <small>
@@ -896,6 +909,32 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .namerow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .namerow strong {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .alertbadge {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+  }
+  .alertbadge :global(svg) {
+    width: 15px;
+    height: 15px;
   }
   .seemore {
     color: var(--accent);

@@ -1,13 +1,16 @@
 <script lang="ts">
   // Hoja compartida para corregir marcas de una llamada: mismo lenguaje
-  // que la lista docente (seg de 5 marcas por estudiante + motivo junto
-  // a Guardar) y mismo guardado (POST /v1/sessions/{id}/marks por marca).
-  // La usan el historial de llamadas y el resumen del estudiante.
+  // que la lista docente y mismo guardado (POST /v1/sessions/{id}/marks
+  // por marca). El segmento trae los 4 estados y el permiso va aparte:
+  // solo se activa en falta y exige su motivo, que queda registrado.
+  // La usan el historial de llamadas y el resumen del estudiante
+  // (secretaría y admin; el docente no corrige).
   import Sheet from '$lib/ui/Sheet.svelte';
   import { t } from '$lib/i18n';
   import { recordSessionMark } from './api';
 
   type CorrectMark = '' | 'absence' | 'absence-permission' | 'evasion' | 'late';
+  type SegMark = '' | 'absence' | 'evasion' | 'late';
 
   export let open = false;
   export let title: string = '';
@@ -17,21 +20,38 @@
   export let onClose: () => void = () => {};
   export let onSaved: () => void = () => {};
 
-  let sel: Record<string, CorrectMark> = {};
+  let sel: Record<string, SegMark> = {};
+  let perm: Record<string, boolean> = {};
   let note = '';
   let error = '';
   let saving = false;
 
-  function markName(m: string): string {
-    if (m === 'absence') return $t.admin.markAbsence;
-    if (m === 'absence-permission') return $t.admin.markPermission;
-    if (m === 'late') return $t.admin.markLate;
-    if (m === 'evasion') return $t.admin.markEvasion;
-    return $t.admin.markPresent;
+  function baseOf(current: string): SegMark {
+    if (current === 'evasion') return 'evasion';
+    if (current === 'late') return 'late';
+    return 'absence';
+  }
+
+  function permInitOf(current: string): boolean {
+    return current === 'absence-permission';
+  }
+
+  function segOf(id: string, current: string): SegMark {
+    return sel[id] ?? baseOf(current);
+  }
+
+  function permOf(id: string, current: string): boolean {
+    return perm[id] ?? permInitOf(current);
+  }
+
+  function finalOf(id: string, current: string): CorrectMark {
+    if (permOf(id, current)) return 'absence-permission';
+    return segOf(id, current);
   }
 
   function reset() {
     sel = {};
+    perm = {};
     note = '';
     error = '';
     saving = false;
@@ -39,21 +59,33 @@
 
   $: if (open) reset();
 
-  function pick(studentID: string, mark: CorrectMark) {
+  function pick(studentID: string, mark: SegMark) {
     sel = { ...sel, [studentID]: mark };
   }
 
+  function togglePerm(studentID: string) {
+    const cur = students.find((s) => s.id === studentID)?.current ?? '';
+    perm = { ...perm, [studentID]: !permOf(studentID, cur) };
+  }
+
+  $: anyPermOn = students.some((s) => permOf(s.id, s.current));
+
   async function save() {
     error = '';
-    const changed = Object.entries(sel);
+    const changed = students.filter((s) => finalOf(s.id, s.current) !== s.current);
     if (changed.length === 0) {
       error = $t.troll.shistory.pickStudent;
       return;
     }
+    if (changed.some((s) => finalOf(s.id, s.current) === 'absence-permission') && !note.trim()) {
+      error = $t.troll.shistory.needPermissionReason;
+      return;
+    }
     saving = true;
     try {
-      for (const [studentID, mark] of changed) {
-        await recordSessionMark(sessionId, studentID, mark, mark === '' ? '' : note.trim());
+      for (const s of changed) {
+        const mark = finalOf(s.id, s.current);
+        await recordSessionMark(sessionId, s.id, mark, mark === 'absence-permission' ? note.trim() : '');
       }
       onSaved();
     } catch (err) {
@@ -76,35 +108,48 @@
           <span class="name">{s.name}</span>
         </span>
         <span class="seg" role="group" aria-label={s.name}>
-          <button type="button" class:present={(sel[s.id] ?? s.current) === ''} aria-pressed={(sel[s.id] ?? s.current) === ''} on:click={() => pick(s.id, '')}>
-            {$t.admin.markPresent}
+          <button type="button" class:present={segOf(s.id, s.current) === ''} aria-pressed={segOf(s.id, s.current) === ''} on:click={() => pick(s.id, '')}>
+            {$t.roster.present}
           </button>
-          <button type="button" class:absent={(sel[s.id] ?? s.current) === 'absence'} aria-pressed={(sel[s.id] ?? s.current) === 'absence'} on:click={() => pick(s.id, 'absence')}>
-            {$t.admin.markAbsence}
+          <button type="button" class:absent={segOf(s.id, s.current) === 'absence'} aria-pressed={segOf(s.id, s.current) === 'absence'} on:click={() => pick(s.id, 'absence')}>
+            {$t.roster.absent}
           </button>
-          <button type="button" class:perm={(sel[s.id] ?? s.current) === 'absence-permission'} aria-pressed={(sel[s.id] ?? s.current) === 'absence-permission'} on:click={() => pick(s.id, 'absence-permission')}>
-            {$t.admin.markPermission}
+          <button type="button" class:evasion={segOf(s.id, s.current) === 'evasion'} aria-pressed={segOf(s.id, s.current) === 'evasion'} on:click={() => pick(s.id, 'evasion')}>
+            {$t.roster.evasion}
           </button>
-          <button type="button" class:evasion={(sel[s.id] ?? s.current) === 'evasion'} aria-pressed={(sel[s.id] ?? s.current) === 'evasion'} on:click={() => pick(s.id, 'evasion')}>
-            {$t.admin.markEvasion}
-          </button>
-          <button type="button" class:late={(sel[s.id] ?? s.current) === 'late'} aria-pressed={(sel[s.id] ?? s.current) === 'late'} on:click={() => pick(s.id, 'late')}>
-            {$t.admin.markLate}
+          <button type="button" class:late={segOf(s.id, s.current) === 'late'} aria-pressed={segOf(s.id, s.current) === 'late'} on:click={() => pick(s.id, 'late')}>
+            {$t.roster.late}
           </button>
         </span>
+        <button
+          type="button"
+          class="permbtn"
+          class:on={permOf(s.id, s.current)}
+          aria-pressed={permOf(s.id, s.current)}
+          disabled={segOf(s.id, s.current) !== 'absence' && !permOf(s.id, s.current)}
+          title={$t.troll.shistory.permissionHint}
+          on:click={() => togglePerm(s.id)}
+        >
+          {$t.roster.permission}
+        </button>
       </li>
     {/each}
   </ul>
+  {#if anyPermOn}
+    <label class="reason">
+      <span>{$t.troll.shistory.permissionReasonLabel}</span>
+      <input
+        class="motivo"
+        type="text"
+        placeholder={$t.troll.shistory.permissionReasonPlaceholder}
+        aria-label={$t.troll.shistory.permissionReasonLabel}
+        bind:value={note}
+        maxlength="140"
+      />
+    </label>
+  {/if}
   {#if error}<p class="flash error" role="alert">{error}</p>{/if}
   <div class="actions">
-    <input
-      class="motivo"
-      type="text"
-      placeholder={$t.troll.shistory.correctNotePlaceholder}
-      aria-label={$t.troll.shistory.correctNoteLabel}
-      bind:value={note}
-      maxlength="140"
-    />
     <button type="button" class="mini" on:click={() => { reset(); onClose(); }}>{$t.common.cancel}</button>
     <button type="button" class="mini primary" disabled={saving} on:click={save}>
       {saving ? $t.troll.saving : $t.common.save}
@@ -178,6 +223,7 @@
     font-size: 0.85rem;
     font-weight: 700;
     color: var(--muted);
+    flex: 1;
   }
   .seg button.present {
     background: var(--chip-green-bg);
@@ -187,10 +233,6 @@
     background: var(--chip-pink-bg);
     color: var(--g-grave-ink);
   }
-  .seg button.perm {
-    background: var(--m-permission-bg);
-    color: var(--m-permission);
-  }
   .seg button.evasion {
     background: var(--chip-purple-bg);
     color: var(--chip-purple-ink);
@@ -199,22 +241,41 @@
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
   }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
+  .permbtn {
+    flex: 1 1 100%;
+    min-height: 44px;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--muted);
   }
-  .motivo {
-    flex: 1;
-    min-width: 180px;
+  .permbtn.on {
+    background: var(--m-permission-bg, #e8f0fe);
+    color: var(--m-permission, #1a56db);
+    border-color: transparent;
+  }
+  .permbtn:disabled {
+    opacity: 0.45;
+  }
+  .reason {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .reason .motivo {
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
     padding: 10px 12px;
     min-height: 48px;
     font-size: 0.9rem;
+    font-weight: 400;
   }
   .flash.error {
     border-radius: var(--radius);
@@ -224,6 +285,13 @@
     background: var(--chip-pink-bg);
     color: var(--g-grave-ink);
     font-weight: 600;
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
   }
   .mini {
     border: 1px solid var(--line);

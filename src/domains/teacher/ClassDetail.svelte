@@ -63,15 +63,10 @@
   let roster: RosterEntry[] = [];
   let present = new Set<string>();
   let presentInit = new Set<string>();
-  // Ausentes separados por permiso y por atraso: el docente registra
-  // la falta con permiso (absence-permission) o el atraso (late) por
+  // Ausentes separados por atraso: el docente registra el atraso
   // estudiante antes de guardar.
-  let permission = new Set<string>();
-  let permissionInit = new Set<string>();
   let late = new Set<string>();
   let lateInit = new Set<string>();
-  let evasion = new Set<string>();
-  let evasionInit = new Set<string>();
   let groupLabel = '';
   let subjectName = '';
   let sessionID = '';
@@ -102,23 +97,15 @@
       void resolveLabels();
       present = new Set(roster.map((r) => r.StudentID));
       presentInit = new Set(present);
-      permission = new Set();
-      permissionInit = new Set();
       late = new Set();
       lateInit = new Set();
-      evasion = new Set();
-      evasionInit = new Set();
     } catch {
       // Backend sin nómina todavía (404 o error): vacío honesto, no lista falsa.
       roster = [];
       present = new Set();
       presentInit = new Set();
-      permission = new Set();
-      permissionInit = new Set();
       late = new Set();
       lateInit = new Set();
-      evasion = new Set();
-      evasionInit = new Set();
     } finally {
       loading = false;
     }
@@ -144,48 +131,23 @@
 
   onMount(load);
 
-  type RollMark = '' | 'absence' | 'absence-permission' | 'late' | 'evasion';
+  // El docente solo marca presente, falta o atraso: el permiso lo
+  // otorgan la secretaría y el admin en las pantallas de corrección.
+  type RollMark = '' | 'absence' | 'late';
 
   function currentOf(id: string): RollMark {
     if (present.has(id)) return '';
-    if (permission.has(id)) return 'absence-permission';
     if (late.has(id)) return 'late';
-    if (evasion.has(id)) return 'evasion';
     return 'absence';
   }
 
-  // Mismo selector que las pantallas de admin: los estados como opciones
-  // y el permiso como boton separado. Una sola marca por estudiante.
   function pick(id: string, mark: RollMark) {
-    if (mark === '') {
-      present.add(id);
-      permission.delete(id);
-      late.delete(id);
-      evasion.delete(id);
-    } else {
-      present.delete(id);
-      if (mark === 'absence-permission') {
-        permission.add(id);
-        late.delete(id);
-        evasion.delete(id);
-      } else if (mark === 'late') {
-        late.add(id);
-        permission.delete(id);
-        evasion.delete(id);
-      } else if (mark === 'evasion') {
-        evasion.add(id);
-        permission.delete(id);
-        late.delete(id);
-      } else {
-        permission.delete(id);
-        late.delete(id);
-        evasion.delete(id);
-      }
-    }
+    if (mark === '') present.add(id);
+    else present.delete(id);
+    if (mark === 'late') late.add(id);
+    else late.delete(id);
     present = present;
-    permission = permission;
     late = late;
-    evasion = evasion;
     feedback = '';
   }
 
@@ -193,10 +155,8 @@
 
   $: presentCount = roster.filter((r) => present.has(r.StudentID)).length;
   $: notPresent = roster.filter((r) => !present.has(r.StudentID));
-  $: permissionCount = notPresent.filter((r) => permission.has(r.StudentID)).length;
   $: lateCount = notPresent.filter((r) => late.has(r.StudentID)).length;
-  $: evasionCount = notPresent.filter((r) => evasion.has(r.StudentID)).length;
-  $: absentCount = notPresent.length - permissionCount - lateCount - evasionCount;
+  $: absentCount = notPresent.length - lateCount;
   $: presentPct = roster.length ? Math.round((presentCount / roster.length) * 100) : 0;
 
   async function ensureSession(): Promise<boolean> {
@@ -218,17 +178,13 @@
     const next = new Set<string>();
     for (const r of roster) next.add(r.StudentID);
     present = next;
-    permission = new Set();
     late = new Set();
-    evasion = new Set();
     feedback = '';
   }
 
   function markAllAbsent() {
     present = new Set<string>();
-    permission = new Set<string>();
     late = new Set<string>();
-    evasion = new Set<string>();
     feedback = '';
   }
 
@@ -241,9 +197,8 @@
       Students: roster.length,
       Present: presentCount,
       Absent: absentCount,
-      Permission: permissionCount,
-      Late: lateCount,
-      Evasion: evasionCount
+      Permission: 0,
+      Late: lateCount
     });
   }
 
@@ -257,19 +212,17 @@
       if (!ok || !sessionID) {
         // Sin sesión en el backend: se conserva el estado local y se dice.
         presentInit = new Set(present);
-        permissionInit = new Set(permission);
         lateInit = new Set(late);
-        evasionInit = new Set(evasion);
         snapshotRollcall();
         feedback = $t.attendance.savedLocal;
         return;
       }
-      const markOf = (p: Set<string>, q: Set<string>, l: Set<string>, v: Set<string>, id: string): RollMark =>
-        p.has(id) ? '' : q.has(id) ? 'absence-permission' : l.has(id) ? 'late' : v.has(id) ? 'evasion' : 'absence';
+      const markOf = (p: Set<string>, l: Set<string>, id: string): RollMark =>
+        p.has(id) ? '' : l.has(id) ? 'late' : 'absence';
       for (const r of roster) {
         // Marca equivalente de cada estado (presente = "").
-        const wasMark = markOf(presentInit, permissionInit, lateInit, evasionInit, r.StudentID);
-        const isMark = markOf(present, permission, late, evasion, r.StudentID);
+        const wasMark = markOf(presentInit, lateInit, r.StudentID);
+        const isMark = markOf(present, late, r.StudentID);
         if (wasMark === isMark) continue;
         try {
           await recordMark(sessionID, r.StudentID, isMark, '');
@@ -278,9 +231,7 @@
         }
       }
       presentInit = new Set(present);
-      permissionInit = new Set(permission);
       lateInit = new Set(late);
-      evasionInit = new Set(evasion);
       snapshotRollcall();
       feedback = $t.attendance.saved;
     } catch (err) {
@@ -352,7 +303,6 @@
             <p class="rate"><strong>{presentPct}%</strong><span class="rbar"><span style={`width: ${presentPct}%`}></span></span></p>
             <p class="sum-row"><span class="dot present"></span> {$t.attendance.presentLabel} <strong>{$t.attendance.studentsCount(presentCount)}</strong></p>
             <p class="sum-row"><span class="dot absent"></span> {$t.attendance.absentLabel} <strong>{$t.attendance.studentsCount(absentCount)}</strong></p>
-            <p class="sum-row"><span class="dot permission"></span> {$t.attendance.permissionLabel} <strong>{$t.attendance.studentsCount(permissionCount)}</strong></p>
             <p class="sum-row"><span class="dot late"></span> {$t.attendance.lateLabel} <strong>{$t.attendance.studentsCount(lateCount)}</strong></p>
           </div>
           {#if sessionMissing}
@@ -401,14 +351,6 @@
                   </button>
                   <button
                     type="button"
-                    class:evasion={cur === 'evasion'}
-                    aria-pressed={cur === 'evasion'}
-                    on:click={() => pick(r.StudentID, 'evasion')}
-                  >
-                    {$t.studentSummary.markEvasion}
-                  </button>
-                  <button
-                    type="button"
                     class:late={cur === 'late'}
                     aria-pressed={cur === 'late'}
                     on:click={() => pick(r.StudentID, 'late')}
@@ -416,16 +358,6 @@
                     {$t.studentSummary.markLate}
                   </button>
                 </span>
-                <button
-                  type="button"
-                  class="permbtn"
-                  class:on={cur === 'absence-permission'}
-                  aria-pressed={cur === 'absence-permission'}
-                  title={$t.attendance.permissionHint}
-                  on:click={() => pick(r.StudentID, cur === 'absence-permission' ? 'absence' : 'absence-permission')}
-                >
-                  {$t.studentSummary.markPermission}
-                </button>
               </li>
             {/each}
           </ul>
@@ -628,9 +560,6 @@
     background: var(--m-absent);
     border: 1px solid var(--m-evasion);
   }
-  .dot.permission {
-    background: var(--m-permission);
-  }
   .note {
     color: var(--muted);
     font-size: 0.78rem;
@@ -776,30 +705,9 @@
     background: var(--chip-pink-bg);
     color: var(--g-grave-ink);
   }
-  .seg button.evasion {
-    background: var(--chip-purple-bg);
-    color: var(--chip-purple-ink);
-  }
   .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
-  }
-  .permbtn {
-    flex: none;
-    min-height: 44px;
-    padding: 6px 16px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-  .permbtn.on {
-    background: var(--m-permission-bg, #e8f0fe);
-    color: var(--m-permission, #1a56db);
-    border-color: transparent;
   }
   .dot.late {
     background: var(--chip-yellow-ink);

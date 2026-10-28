@@ -10,6 +10,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
+  import AcademicAlertSheet from './AcademicAlertSheet.svelte';
   import { daySchedule, isMissing, type TeacherClass } from './api';
   import { loadRollcall } from './rollcall';
   import { guarded } from '$lib/nav';
@@ -51,6 +52,8 @@
   let search = '';
   let searchEl: HTMLInputElement | null = null;
   let warnFor: { gid: string; label: string } | null = null;
+  let warnGlobal = false;
+  let alertGlobal = false;
 
   let loading = true;
   let loadError: unknown = null;
@@ -180,6 +183,14 @@
         <span class="statpill">{$t.agenda.registeredValue(doneCount, baseList.length)}</span>
       </div>
     </div>
+    <div class="rowbtns">
+      <button type="button" class="mini" on:click={() => (warnGlobal = true)}>
+        {$t.agenda.warnActionLong}
+      </button>
+      <button type="button" class="mini" on:click={() => (alertGlobal = true)}>
+        {$t.academicAlert.action}
+      </button>
+    </div>
   </div>
 
   <div class="sheet">
@@ -277,6 +288,24 @@
       originLabel={warnFor.label}
       onClose={() => (warnFor = null)}
       onSaved={() => (warnFor = null)}
+    />
+  {/if}
+  {#if warnGlobal}
+    <WarningNewSheet
+      open
+      scope="all"
+      originLabel={$t.agenda.allGroups}
+      onClose={() => (warnGlobal = false)}
+      onSaved={() => (warnGlobal = false)}
+    />
+  {/if}
+  {#if alertGlobal}
+    <AcademicAlertSheet
+      open
+      scope="all"
+      originLabel={$t.agenda.allGroups}
+      onClose={() => (alertGlobal = false)}
+      onSaved={() => (alertGlobal = false)}
     />
   {/if}
 </div>
@@ -572,6 +601,19 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .pagehead .rowbtns {
+    grid-column: auto;
+    margin-top: 10px;
+  }
+  .mini {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    padding: 9px 18px;
+    min-height: 44px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    background: var(--surface);
   }
   .open,
   .warn {

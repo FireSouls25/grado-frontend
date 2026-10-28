@@ -5,8 +5,9 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
   import { notify } from '$lib/ui/notice';
-  import { classRoster, isMissing, raiseAcademicAlerts } from './api';
+  import { classRoster, daySchedule, isMissing, raiseAcademicAlerts } from './api';
   import type { RosterEntry } from '$lib/api/types';
+  import type { TeacherClass } from './api';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { foldSearch } from '$lib/search';
@@ -17,13 +18,17 @@
   // aviso + pendiente + marca en la ficha).
   export let open = false;
   export let groupID = '';
+  /** all: junta la nómina de todos los salones del docente. */
+  export let scope: 'group' | 'all' = 'group';
   export let originLabel = '';
   export let onClose: () => void = () => {};
   export let onSaved: () => void = () => {};
 
   let loading = false;
   let loadedFor = '';
-  let roster: RosterEntry[] = [];
+  type GlobalRoster = RosterEntry & { groupLabel: string; groupID: string };
+
+  let roster: GlobalRoster[] = [];
   let reason = '';
   let query = '';
   let selected: string[] = [];
@@ -31,9 +36,6 @@
   let feedback = '';
   let feedbackError = false;
 
-  $: if (open && groupID && loadedFor !== groupID) {
-    void load();
-  }
   $: if (!open) {
     feedback = '';
     feedbackError = false;
@@ -52,19 +54,48 @@
 
   async function load() {
     loading = true;
-    loadedFor = groupID;
+    loadedFor = scope + groupID;
     roster = [];
     selected = [];
     query = '';
     reason = '';
     try {
-      const data = await guarded(() => classRoster(groupID));
-      roster = Array.isArray(data) ? [...data].sort(bySurname) : [];
+      if (scope === 'all') {
+        roster = await loadAll();
+      } else {
+        const data = await guarded(() => classRoster(groupID));
+        roster = Array.isArray(data) ? [...data].map((r) => ({ ...r, groupLabel: '', groupID: '' })).sort(bySurname) : [];
+      }
     } catch {
       roster = [];
     } finally {
       loading = false;
     }
+  }
+
+  $: if (open && (groupID || scope === 'all') && loadedFor !== scope + groupID) {
+    void load();
+  }
+
+  async function loadAll(): Promise<GlobalRoster[]> {
+    const days = await Promise.all([1, 2, 3, 4, 5, 6, 7].map((w) => daySchedule(w).catch(() => [] as TeacherClass[])));
+    const byGroup = new Map<string, string>();
+    for (const entries of days) {
+      for (const e of entries) {
+        if (e.GroupID && !byGroup.has(e.GroupID)) byGroup.set(e.GroupID, e.ClassLabel || e.GroupID.slice(0, 8));
+      }
+    }
+    const settled = await Promise.all(
+      [...byGroup.keys()].map(async (gid) => {
+        try {
+          const data = await guarded(() => classRoster(gid));
+          return Array.isArray(data) ? data.map((r) => ({ ...r, groupLabel: byGroup.get(gid) ?? '', groupID: gid })) : [];
+        } catch {
+          return [] as GlobalRoster[];
+        }
+      })
+    );
+    return settled.flat().sort(bySurname);
   }
 
   function toggle(id: string) {
@@ -135,7 +166,7 @@
               />
               <span class="who">
                 <strong>{r.Surnames}, {r.Names}</strong>
-                <small>{r.DocumentID}</small>
+                <small>{r.DocumentID}{(r as GlobalRoster).groupLabel ? ` · ${(r as GlobalRoster).groupLabel}` : ''}</small>
               </span>
             </label>
           </li>

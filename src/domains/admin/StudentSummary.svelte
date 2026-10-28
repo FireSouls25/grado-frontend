@@ -248,6 +248,9 @@
                 <span class="meta">
                   <strong>{momentDay(s.Date)}</strong>
                   <span>{s.ClassLabel} · {$t.admin.yearLabel} {s.SchoolYear}{#if s.Period} · {$t.troll.shistory.periodLabel(s.Period)}{/if}</span>
+                  {#if s.Mark === 'absence-permission' && s.Note}
+                    <small class="permnote">{$t.studentSummary.permissionWithReason(s.Note)}</small>
+                  {/if}
                 </span>
                 {#if s.Mark === 'absence' || s.Mark === 'absence-permission'}
                   <span class="rowbtns">
@@ -523,6 +526,13 @@
     font-size: 0.9rem;
     flex: 1;
     min-width: 200px;
+  }
+  .meta small {
+    color: var(--muted);
+  }
+  .meta small.permnote {
+    color: var(--m-permission, #1a56db);
+    font-weight: 600;
   }
   .rowbtns {
     display: flex;
