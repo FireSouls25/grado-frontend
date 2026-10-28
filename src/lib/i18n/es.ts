@@ -121,6 +121,10 @@ export const es = {
     distNoStudentsBody: 'Este salón no tiene nómina registrada.',
     distEmptyPool: 'Nada por distribuir',
     distEmptyPoolBody: 'Decide quién pasa en la pestaña Pasa / No pasa o revisa el grado destino.',
+    distAllDone: (n: number) =>
+      n === 1
+        ? '1 estudiante ya quedó ubicado en su salón del próximo año.'
+        : `${n} estudiantes ya quedaron ubicados en sus salones del próximo año.`,
     distConfirm: 'Confirmar distribución',
     distPlaceHere: 'Poner aquí',
     distConfirmed: (n: number) => (n === 1 ? '1 estudiante ubicado.' : `${n} estudiantes ubicados.`),

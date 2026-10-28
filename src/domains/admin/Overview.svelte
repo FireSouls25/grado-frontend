@@ -518,7 +518,7 @@
           salons: all.Salons
         });
       }
-      exportYearWorkbook(`grado-ano-${year}.xlsx`, year, periods, {
+      await exportYearWorkbook(`grado-ano-${year}.xlsx`, year, periods, {
         summaryTitle: $t.admin.exportYearTitle(year),
         yearLabel: $t.admin.yearLabel,
         periodLabel: $t.admin.periodWord,

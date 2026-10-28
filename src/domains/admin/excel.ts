@@ -1,8 +1,7 @@
-// Exportaciones a Excel con fórmulas reales (nunca valores fijos): el
-// porcentaje y los totales se calculan en la hoja, así la tabla sigue
-// viva si alguien corrige un dato a mano. Estilo sobrio: encabezado
-// tintado, bordes finos y fila de totales en negrita.
-import * as XLSX from 'xlsx';
+// Exportaciones a Excel con ExcelJS: estilos reales (rellenos, bordes,
+// negritas), columnas anchas, texto con ajuste y fórmulas vivas — el %
+// y los totales se calculan en la hoja, nunca van fijos.
+import ExcelJS from 'exceljs';
 
 export interface StudentRow {
   surnames: string;
@@ -21,64 +20,29 @@ export interface SalonSheet {
   students: StudentRow[];
 }
 
-const HEADER_FILL = { patternType: 'solid', fgColor: { rgb: 'FFC98F5F' } };
-const HEADER_FONT = { bold: true, color: { rgb: 'FFFFFFFF' } };
-const TITLE_FILL = { patternType: 'solid', fgColor: { rgb: 'FFF6ECDC' } };
-const TOTAL_FILL = { patternType: 'solid', fgColor: { rgb: 'FFF0DCC0' } };
-const BAND_FILL = { patternType: 'solid', fgColor: { rgb: 'FFFBF4E9' } };
-const COL_PRESENT = { patternType: 'solid', fgColor: { rgb: 'FFDFF0D8' } };
-const COL_ABSENT = { patternType: 'solid', fgColor: { rgb: 'FFF7DAD2' } };
-const COL_PERMISSION = { patternType: 'solid', fgColor: { rgb: 'FFD7E8F5' } };
-const COL_EVASION = { patternType: 'solid', fgColor: { rgb: 'FFE6E0F2' } };
-const COL_LATE = { patternType: 'solid', fgColor: { rgb: 'FFFFF0C8' } };
-const THIN_BORDER = {
-  top: { style: 'thin', color: { rgb: 'FFB9A68A' } },
-  bottom: { style: 'thin', color: { rgb: 'FFB9A68A' } },
-  left: { style: 'thin', color: { rgb: 'FFB9A68A' } },
-  right: { style: 'thin', color: { rgb: 'FFB9A68A' } }
-};
-const BOLD = { bold: true };
-const TITLE_FONT = { bold: true, sz: 14 };
+const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC98F5F' } };
+const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' } };
+const METRIC_INK: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FF5A3A1A' } };
+const TITLE_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF6ECDC' } };
+const TOTAL_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0DCC0' } };
+const COL_PRESENT: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDFF0D8' } };
+const COL_ABSENT: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7DAD2' } };
+const COL_PERMISSION: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD7E8F5' } };
+const COL_EVASION: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E0F2' } };
+const COL_LATE: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF0C8' } };
+const THIN: ExcelJS.BorderStyle = 'thin';
+const LINE = { style: THIN, color: { argb: 'FFB9A68A' } };
+const ALL_BORDERS: Partial<ExcelJS.Borders> = { top: LINE, bottom: LINE, left: LINE, right: LINE };
 
-function styleCell(cell: XLSX.CellObject, fill?: unknown, font?: unknown) {
-  cell.s = {
-    ...(cell.s ?? {}),
-    border: THIN_BORDER,
-    alignment: { wrapText: true, vertical: 'center' },
-    ...(fill ? { fill } : {}),
-    ...(font ? { font } : {})
-  };
-  return cell;
+function paint(cell: ExcelJS.Cell, fill?: ExcelJS.Fill, font?: Partial<ExcelJS.Font>) {
+  cell.border = ALL_BORDERS;
+  cell.alignment = { wrapText: true, vertical: 'middle' };
+  if (fill) cell.fill = fill;
+  if (font) cell.font = font;
 }
 
-function textCell(v: string, fill?: unknown, font?: unknown): XLSX.CellObject {
-  return styleCell({ t: 's', v }, fill, font);
-}
-
-function numCell(v: number, fill?: unknown, font?: unknown, fmt?: string): XLSX.CellObject {
-  const cell: XLSX.CellObject = { t: 'n', v };
-  if (fmt) cell.z = fmt;
-  return styleCell(cell, fill, font);
-}
-
-function formulaCell(computed: number, formula: string, fill?: unknown, font?: unknown, fmt?: string): XLSX.CellObject {
-  const cell: XLSX.CellObject = { t: 'n', v: computed, f: formula };
-  if (fmt) cell.z = fmt;
-  return styleCell(cell, fill, font);
-}
-
-function colName(i: number): string {
-  let s = '';
-  let n = i;
-  do {
-    s = String.fromCharCode(65 + (n % 26)) + s;
-    n = Math.floor(n / 26) - 1;
-  } while (n >= 0);
-  return s;
-}
-
-function download(name: string, wb: XLSX.WorkBook) {
-  const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
+async function download(name: string, wb: ExcelJS.Workbook) {
+  const bytes = await wb.xlsx.writeBuffer();
   const blob = new Blob([bytes], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   });
@@ -95,90 +59,110 @@ function download(name: string, wb: XLSX.WorkBook) {
 // Tabla de estudiantes de un salón: nombres en orden de lista, métricas
 // y % con fórmula sobre sus propias celdas. La fila de totales suma con
 // fórmulas y el % global divide los totales.
-export function salonSheet(salon: SalonSheet, t: {
-  title: string;
-  daysLabel: string;
-  headers: string[];
-  totalLabel: string;
-}) {
+function fillSalonSheet(
+  ws: ExcelJS.Worksheet,
+  salon: SalonSheet,
+  t: { title: string; daysLabel: string; headers: string[]; totalLabel: string }
+) {
   const { students } = salon;
-  const ws: XLSX.WorkSheet = {};
   const H = t.headers;
-  // Fila 1: título. Fila 2: días con llamada. Fila 3: encabezados.
-  ws['A1'] = textCell(t.title, TITLE_FILL, TITLE_FONT);
-  ws['A2'] = textCell(`${t.daysLabel}: ${salon.days}`, TITLE_FILL);
+  ws.mergeCells('A1:J1');
+  const title = ws.getCell('A1');
+  title.value = t.title;
+  paint(title, TITLE_FILL, { bold: true, size: 14 });
+  ws.getRow(1).height = 26;
+  const days = ws.getCell('A2');
+  days.value = `${t.daysLabel}: ${salon.days}`;
+  paint(days, TITLE_FILL, { bold: true });
+  ws.mergeCells('A2:J2');
+  ws.getRow(2).height = 20;
   const headRow = 3;
-  const headInk = { bold: true, color: { rgb: 'FFFFFFFF' } };
-  const headMetricInk = { bold: true, color: { rgb: 'FF5A3A1A' } };
-  const headFills = [HEADER_FILL, HEADER_FILL, HEADER_FILL, COL_PRESENT, COL_ABSENT, COL_PERMISSION, COL_EVASION, COL_LATE, HEADER_FILL, HEADER_FILL];
+  const metricFill = [COL_PRESENT, COL_ABSENT, COL_PERMISSION, COL_EVASION, COL_LATE];
   H.forEach((h, i) => {
+    const cell = ws.getCell(headRow, i + 1);
+    cell.value = h;
     const metric = i >= 3 && i <= 7;
-    ws[`${colName(i)}${headRow}`] = textCell(h, headFills[i] ?? HEADER_FILL, metric ? headMetricInk : headInk);
+    paint(cell, metric ? metricFill[i - 3] : HEADER_FILL, metric ? METRIC_INK : HEADER_FONT);
   });
+  ws.getRow(headRow).height = 26;
   const first = headRow + 1;
+  const colFills = [undefined, undefined, undefined, COL_PRESENT, COL_ABSENT, COL_PERMISSION, COL_EVASION, COL_LATE, undefined, undefined];
   students.forEach((s, k) => {
     const r = first + k;
     const total = s.presences + s.absences + s.excused + s.evasions + s.lates;
     const rate = total > 0 ? s.presences / total : 0;
-    ws[`A${r}`] = numCell(k + 1);
-    ws[`B${r}`] = textCell(s.surnames);
-    ws[`C${r}`] = textCell(s.names);
-    ws[`D${r}`] = numCell(s.presences, COL_PRESENT);
-    ws[`E${r}`] = numCell(s.absences, COL_ABSENT);
-    ws[`F${r}`] = numCell(s.excused, COL_PERMISSION);
-    ws[`G${r}`] = numCell(s.evasions, COL_EVASION);
-    ws[`H${r}`] = numCell(s.lates, COL_LATE);
-    ws[`I${r}`] = numCell(s.sessions);
-    ws[`J${r}`] = formulaCell(rate, `D${r}/SUM(D${r}:H${r})`, undefined, BOLD, '0%');
+    const vals: (string | number)[] = [
+      k + 1, s.surnames, s.names, s.presences, s.absences, s.excused, s.evasions, s.lates, s.sessions, 0
+    ];
+    vals.forEach((v, i) => {
+      const cell = ws.getCell(r, i + 1);
+      cell.value = v;
+      paint(cell, colFills[i]);
+    });
+    const pct = ws.getCell(r, 10);
+    pct.value = { formula: `D${r}/SUM(D${r}:H${r})`, result: rate };
+    pct.numFmt = '0%';
+    paint(pct, undefined, { bold: true });
+    ws.getRow(r).height = 20;
   });
   const last = first + students.length;
-  ws[`A${last}`] = textCell('', TOTAL_FILL);
-  ws[`B${last}`] = textCell(t.totalLabel, TOTAL_FILL, BOLD);
-  ws[`C${last}`] = textCell(`${students.length}`, TOTAL_FILL, BOLD);
-  const cols = ['D', 'E', 'F', 'G', 'H', 'I'];
-  const sums = cols.map((c) => {
+  const endVals: (string | number)[] = ['', t.totalLabel, students.length, 0, 0, 0, 0, 0, 0, 0];
+  const colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+  const metricTint = [undefined, undefined, undefined, COL_PRESENT, COL_ABSENT, COL_PERMISSION, COL_EVASION, COL_LATE, undefined, undefined];
+  endVals.forEach((v, i) => {
+    const cell = ws.getCell(last, i + 1);
+    cell.value = v;
+    paint(cell, TOTAL_FILL, { bold: true });
+    if (metricTint[i]) cell.fill = { ...(TOTAL_FILL as object), ...(metricTint[i] as object) } as ExcelJS.Fill;
+  });
+  ['D', 'E', 'F', 'G', 'H', 'I'].forEach((c) => {
+    const cell = ws.getCell(`${c}${last}`);
+    const col = c.charCodeAt(0) - 64;
     let acc = 0;
-    students.forEach((s, k) => {
-      const r = first + k;
-      const v = ws[`${c}${r}`]?.v;
+    students.forEach((_, k) => {
+      const v = ws.getCell(first + k, col).value;
       if (typeof v === 'number') acc += v;
     });
-    return acc;
+    cell.value = { formula: `SUM(${c}${first}:${c}${last - 1})`, result: acc };
   });
-  const colTints = [COL_PRESENT, COL_ABSENT, COL_PERMISSION, COL_EVASION, COL_LATE, undefined];
-  cols.forEach((c, i) => {
-    const cell = formulaCell(sums[i], `SUM(${c}${first}:${c}${last - 1})`, TOTAL_FILL, BOLD);
-    if (colTints[i]) cell.s = { ...(cell.s ?? {}), border: THIN_BORDER, fill: colTints[i], font: BOLD };
-    ws[`${c}${last}`] = cell;
-  });
-  const totalMarks = sums[0] + sums[1] + sums[2] + sums[3] + sums[4];
-  ws[`J${last}`] = formulaCell(
-    totalMarks > 0 ? sums[0] / totalMarks : 0,
-    `D${last}/SUM(D${last}:H${last})`,
-    TOTAL_FILL,
-    BOLD,
-    '0%'
-  );
-  ws['!ref'] = `A1:J${last}`;
-  ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 30 }, { wch: 11 }, { wch: 14 }, { wch: 13 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 13 }];
-  const heights: XLSX.RowInfo[] = [{ hpt: 26 }, { hpt: 20 }, { hpt: 24 }];
-  for (let r = first; r <= last; r++) heights[r - 1] = { hpt: r === last ? 22 : 20 };
-  ws['!rows'] = heights;
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }];
-  return ws;
+  const totalMarks = ['D', 'E', 'F', 'G', 'H'].reduce((a, c) => {
+    const v = ws.getCell(`${c}${last}`).value;
+    return a + (typeof v === 'object' && v !== null && 'result' in v && typeof v.result === 'number' ? v.result : 0);
+  }, 0);
+  const grand = ws.getCell(`J${last}`);
+  grand.value = {
+    formula: `D${last}/SUM(D${last}:H${last})`,
+    result: totalMarks > 0 ? sumResult(ws, `D${last}`) / totalMarks : 0
+  };
+  grand.numFmt = '0%';
+  paint(grand, TOTAL_FILL, { bold: true });
+  ws.getRow(last).height = 22;
+  ws.columns = [
+    { width: 5 }, { width: 30 }, { width: 30 }, { width: 11 }, { width: 14 },
+    { width: 13 }, { width: 11 }, { width: 11 }, { width: 10 }, { width: 13 }
+  ];
 }
 
-export function exportStudentsWorkbook(
+function sumResult(ws: ExcelJS.Worksheet, ref: string): number {
+  const v = ws.getCell(ref).value;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'object' && v !== null && 'result' in v && typeof (v as { result: unknown }).result === 'number') {
+    return (v as { result: number }).result;
+  }
+  return 0;
+}
+
+export async function exportStudentsWorkbook(
   file: string,
   salons: SalonSheet[],
   t: { title: string; daysLabel: string; headers: string[]; totalLabel: string }
 ) {
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
   for (const salon of salons) {
-    const name = salon.label.slice(0, 31) || 'Salón';
-    XLSX.utils.book_append_sheet(wb, salonSheet(salon, { ...t, title: `${t.title} · ${salon.label}` }), name);
+    const ws = wb.addWorksheet(salon.label.slice(0, 31) || 'Salón');
+    fillSalonSheet(ws, salon, { ...t, title: `${t.title} · ${salon.label}` });
   }
-  download(file, wb);
+  await download(file, wb);
 }
 
 export interface PeriodExport {
@@ -194,7 +178,7 @@ export interface PeriodExport {
 // Exportación del año: hoja Resumen (año general + tabla de periodos
 // con fórmulas sobre las hojas de cada periodo) y una hoja por periodo
 // con marcas, llamados y salones.
-export function exportYearWorkbook(
+export async function exportYearWorkbook(
   file: string,
   year: number,
   periods: PeriodExport[],
@@ -213,86 +197,150 @@ export function exportYearWorkbook(
     totalLabel: string;
   }
 ) {
-  const wb = XLSX.utils.book_new();
-  const ws: XLSX.WorkSheet = {};
-  ws['A1'] = textCell(t.summaryTitle, TITLE_FILL, TITLE_FONT);
-  ws['A2'] = textCell(`${t.yearLabel}: ${year}`, TITLE_FILL, BOLD);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Resumen');
+  ws.mergeCells('A1:G1');
+  const title = ws.getCell('A1');
+  title.value = t.summaryTitle;
+  paint(title, TITLE_FILL, { bold: true, size: 14 });
+  ws.getRow(1).height = 26;
+  const yl = ws.getCell('A2');
+  yl.value = `${t.yearLabel}: ${year}`;
+  paint(yl, TITLE_FILL, { bold: true });
+  ws.mergeCells('A2:G2');
   const head = 4;
-  const H = [t.periodLabel, t.rangeLabel, t.daysLabel, t.attendanceLabel, t.mildLabel, t.moderateLabel, t.severeLabel];
-  H.forEach((h, i) => {
-    ws[`${colName(i)}${head}`] = textCell(h, HEADER_FILL, BOLD);
-  });
+  [t.periodLabel, t.rangeLabel, t.daysLabel, t.attendanceLabel, t.mildLabel, t.moderateLabel, t.severeLabel].forEach(
+    (h, i) => {
+      const cell = ws.getCell(head, i + 1);
+      cell.value = h;
+      paint(cell, HEADER_FILL, HEADER_FONT);
+    }
+  );
+  ws.getRow(head).height = 26;
   periods.forEach((p, k) => {
     const r = head + 1 + k;
     const sheet = `P${p.n}`;
     const present = p.marks.Presences;
     const total = p.marks.StudentDays;
-    ws[`A${r}`] = textCell(`${t.periodLabel} ${p.n}`);
-    ws[`B${r}`] = textCell(`${p.start} – ${p.end}`);
-    ws[`C${r}`] = formulaCell(p.days, `'${sheet}'!B2`);
-    ws[`D${r}`] = formulaCell(total > 0 ? present / total : 0, `'${sheet}'!B4`, undefined, undefined, '0%');
-    ws[`E${r}`] = formulaCell(p.warnings.Mild, `'${sheet}'!B10`);
-    ws[`F${r}`] = formulaCell(p.warnings.Moderate, `'${sheet}'!B11`);
-    ws[`G${r}`] = formulaCell(p.warnings.Severe, `'${sheet}'!B12`);
+    const cells: Array<string | number | { formula: string; result: number }> = [
+      `${t.periodLabel} ${p.n}`,
+      `${p.start} – ${p.end}`,
+      { formula: `'${sheet}'!B2`, result: p.days },
+      { formula: `'${sheet}'!B4`, result: total > 0 ? present / total : 0 },
+      { formula: `'${sheet}'!B10`, result: p.warnings.Mild },
+      { formula: `'${sheet}'!B11`, result: p.warnings.Moderate },
+      { formula: `'${sheet}'!B12`, result: p.warnings.Severe }
+    ];
+    cells.forEach((v, i) => {
+      const cell = ws.getCell(r, i + 1);
+      cell.value = v;
+      paint(cell);
+    });
+    ws.getCell(r, 4).numFmt = '0%';
+    ws.getRow(r).height = 20;
   });
   const last = head + periods.length;
-  ws[`A${last}`] = textCell(t.totalLabel, TOTAL_FILL, BOLD);
   const sumDays = periods.reduce((a, p) => a + p.days, 0);
-  ws[`C${last}`] = formulaCell(sumDays, `SUM(C${head + 1}:C${last - 1})`, TOTAL_FILL, BOLD);
-  ws[`E${last}`] = formulaCell(periods.reduce((a, p) => a + p.warnings.Mild, 0), `SUM(E${head + 1}:E${last - 1})`, TOTAL_FILL, BOLD);
-  ws[`F${last}`] = formulaCell(periods.reduce((a, p) => a + p.warnings.Moderate, 0), `SUM(F${head + 1}:F${last - 1})`, TOTAL_FILL, BOLD);
-  ws[`G${last}`] = formulaCell(periods.reduce((a, p) => a + p.warnings.Severe, 0), `SUM(G${head + 1}:G${last - 1})`, TOTAL_FILL, BOLD);
-  ws['!ref'] = `A1:G${last}`;
-  ws['!cols'] = [{ wch: 12 }, { wch: 26 }, { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
-  XLSX.utils.book_append_sheet(wb, ws, 'Resumen');
+  const sumM = periods.reduce((a, p) => a + p.warnings.Mild, 0);
+  const sumMod = periods.reduce((a, p) => a + p.warnings.Moderate, 0);
+  const sumS = periods.reduce((a, p) => a + p.warnings.Severe, 0);
+  const endVals: Array<string | number | { formula: string; result: number }> = [
+    t.totalLabel,
+    '',
+    { formula: `SUM(C${head + 1}:C${last - 1})`, result: sumDays },
+    '',
+    { formula: `SUM(E${head + 1}:E${last - 1})`, result: sumM },
+    { formula: `SUM(F${head + 1}:F${last - 1})`, result: sumMod },
+    { formula: `SUM(G${head + 1}:G${last - 1})`, result: sumS }
+  ];
+  endVals.forEach((v, i) => {
+    const cell = ws.getCell(last, i + 1);
+    cell.value = v;
+    paint(cell, TOTAL_FILL, { bold: true });
+  });
+  ws.getRow(last).height = 22;
+  ws.columns = [{ width: 12 }, { width: 26 }, { width: 9 }, { width: 13 }, { width: 11 }, { width: 11 }, { width: 11 }];
 
   for (const p of periods) {
-    const ps: XLSX.WorkSheet = {};
-    ps['A1'] = textCell(`${t.periodLabel} ${p.n} · ${p.start} – ${p.end}`, TITLE_FILL, TITLE_FONT);
-    ps['A2'] = textCell(t.daysLabel);
-    ps['B2'] = numCell(p.days, TITLE_FILL, BOLD);
+    const ps = wb.addWorksheet(`P${p.n}`);
+    ps.mergeCells('A1:H1');
+    const pt = ps.getCell('A1');
+    pt.value = `${t.periodLabel} ${p.n} · ${p.start} – ${p.end}`;
+    paint(pt, TITLE_FILL, { bold: true, size: 14 });
+    ps.getRow(1).height = 26;
+    const dl = ps.getCell('A2');
+    dl.value = t.daysLabel;
+    paint(dl, TITLE_FILL, { bold: true });
+    const dv = ps.getCell('B2');
+    dv.value = p.days;
+    paint(dv, TITLE_FILL, { bold: true });
+    ps.getRow(2).height = 20;
     const M = p.marks;
-    const rows: [string, number][] = [
-      [t.attendanceLabel, M.StudentDays > 0 ? M.Presences / M.StudentDays : 0],
-      ['Presente', M.Presences],
-      ['Inasistencia', M.Absences],
-      ['Con permiso', M.Excused],
-      ['Evasión', M.Evasions],
-      ['Atraso', M.Lates]
+    const rows: Array<[string, number, boolean]> = [
+      [t.attendanceLabel, M.StudentDays > 0 ? M.Presences / M.StudentDays : 0, true],
+      ['Presente', M.Presences, false],
+      ['Inasistencia', M.Absences, false],
+      ['Con permiso', M.Excused, false],
+      ['Evasión', M.Evasions, false],
+      ['Atraso', M.Lates, false]
     ];
-    rows.forEach(([label, v], i) => {
+    rows.forEach(([label, v, pct], i) => {
       const r = 4 + i;
-      ps[`A${r}`] = textCell(label, undefined, i === 0 ? BOLD : undefined);
-      ps[`B${r}`] = i === 0 ? numCell(v, undefined, BOLD, '0%') : numCell(v);
+      const a = ps.getCell(`A${r}`);
+      a.value = label;
+      paint(a, undefined, pct ? { bold: true } : undefined);
+      const b = ps.getCell(`B${r}`);
+      b.value = v;
+      if (pct) b.numFmt = '0%';
+      paint(b, undefined, pct ? { bold: true } : undefined);
     });
-    ps['A9'] = textCell(t.warningsLabel, undefined, BOLD);
-    ps['A10'] = textCell(t.mildLabel);
-    ps['B10'] = numCell(p.warnings.Mild);
-    ps['A11'] = textCell(t.moderateLabel);
-    ps['B11'] = numCell(p.warnings.Moderate);
-    ps['A12'] = textCell(t.severeLabel);
-    ps['B12'] = numCell(p.warnings.Severe);
+    const wlabel = ps.getCell('A9');
+    wlabel.value = t.warningsLabel;
+    paint(wlabel, undefined, { bold: true });
+    const wrows: Array<[string, number]> = [
+      [t.mildLabel, p.warnings.Mild],
+      [t.moderateLabel, p.warnings.Moderate],
+      [t.severeLabel, p.warnings.Severe]
+    ];
+    wrows.forEach(([label, v], i) => {
+      const r = 10 + i;
+      const a = ps.getCell(`A${r}`);
+      a.value = label;
+      paint(a);
+      const b = ps.getCell(`B${r}`);
+      b.value = v;
+      paint(b);
+    });
     const sh = 14;
-    [t.salonLabel, t.daysLabel, 'Presente', 'Inasistencia', 'Con permiso', 'Evasión', 'Atraso', t.attendanceLabel].forEach((h, i) => {
-      ps[`${colName(i)}${sh}`] = textCell(h, HEADER_FILL, BOLD);
-    });
+    [t.salonLabel, t.daysLabel, 'Presente', 'Inasistencia', 'Con permiso', 'Evasión', 'Atraso', t.attendanceLabel].forEach(
+      (h, i) => {
+        const cell = ps.getCell(sh, i + 1);
+        cell.value = h;
+        const metric = i >= 2 && i <= 6;
+        const fills = [HEADER_FILL, HEADER_FILL, COL_PRESENT, COL_ABSENT, COL_PERMISSION, COL_EVASION, COL_LATE, HEADER_FILL];
+        paint(cell, fills[i], metric ? METRIC_INK : HEADER_FONT);
+      }
+    );
+    ps.getRow(sh).height = 26;
+    const scol = [undefined, undefined, COL_PRESENT, COL_ABSENT, COL_PERMISSION, COL_EVASION, COL_LATE, undefined];
     p.salons.forEach((s, k) => {
       const r = sh + 1 + k;
-      ps[`A${r}`] = textCell(s.Label);
-      ps[`B${r}`] = numCell(s.Days);
-      ps[`C${r}`] = numCell(s.Presences);
-      ps[`D${r}`] = numCell(s.Absences);
-      ps[`E${r}`] = numCell(s.Excused);
-      ps[`F${r}`] = numCell(s.Evasions);
-      ps[`G${r}`] = numCell(s.Lates);
+      const vals: Array<string | number> = [s.Label, s.Days, s.Presences, s.Absences, s.Excused, s.Evasions, s.Lates, 0];
+      vals.forEach((v, i) => {
+        const cell = ps.getCell(r, i + 1);
+        cell.value = v;
+        paint(cell, scol[i] as ExcelJS.Fill | undefined);
+      });
       const tot = s.Presences + s.Absences + s.Excused + s.Evasions + s.Lates;
-      ps[`H${r}`] = formulaCell(tot > 0 ? s.Presences / tot : 0, `C${r}/SUM(C${r}:G${r})`, undefined, undefined, '0%');
+      const pct = ps.getCell(r, 8);
+      pct.value = { formula: `C${r}/SUM(C${r}:G${r})`, result: tot > 0 ? s.Presences / tot : 0 };
+      pct.numFmt = '0%';
+      paint(pct, undefined, { bold: true });
+      ps.getRow(r).height = 20;
     });
-    ps['!ref'] = `A1:H${sh + p.salons.length}`;
-    ps['!cols'] = [{ wch: 14 }, { wch: 8 }, { wch: 10 }, { wch: 13 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
-    ps['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
-    XLSX.utils.book_append_sheet(wb, ps, `P${p.n}`);
+    ps.columns = [
+      { width: 15 }, { width: 9 }, { width: 11 }, { width: 14 }, { width: 13 }, { width: 11 }, { width: 11 }, { width: 13 }
+    ];
   }
-  download(file, wb);
+  await download(file, wb);
 }

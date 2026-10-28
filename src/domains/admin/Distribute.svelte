@@ -54,6 +54,12 @@
   let srcGroupID = '';
   let targetGrade = 1;
   let salonCount = 2;
+  // doneIDs: ya matriculados en el año destino (fuera del pendiente).
+  // hydratedFor: clave grado-año cuya ubicación ya se restauró; solo
+  // entonces persist() guarda placed (si no, un cambio de grado
+  // sobrescribiría lo guardado del otro con datos ajenos).
+  let doneIDs: Set<string> = new Set();
+  let hydratedFor = '';
   let selected: string | null = null;
   let suggestMode: 'balanced' | 'split' = 'balanced';
   let salonMin = 10;
@@ -76,6 +82,9 @@
     .sort((a, b) => `${a.surnames} ${a.names}`.localeCompare(`${b.surnames} ${b.names}`, 'es'));
   $: q = search.trim().toLowerCase();
   $: pool = Object.values(choices).filter((c) => {
+    // Los ya matriculados en el destino salen del pendiente: el sistema
+    // recuerda dónde están y no se les vuelve a pedir ubicación.
+    if (doneIDs.has(c.studentID)) return false;
     const target = c.decision === 'promote' ? c.fromGrade + 1 : c.decision === 'repeat' ? c.fromGrade : -1;
     if (target !== targetGrade) return false;
     if (q && !`${c.surnames} ${c.names}`.toLowerCase().includes(q)) return false;
@@ -126,6 +135,10 @@
     }
   }
 
+  function placementKey(): string {
+    return `grado.distrib.placed.${destYear}.${targetGrade}`;
+  }
+
   function persist() {
     try {
       localStorage.setItem(`grado.distrib.salons.${destYear}.${targetGrade}`, String(salonCount));
@@ -133,7 +146,9 @@
       localStorage.setItem(`grado.distrib.mode.${destYear}.${targetGrade}`, suggestMode);
       localStorage.setItem(`grado.distrib.min.${destYear}.${targetGrade}`, String(salonMin));
       localStorage.setItem(`grado.distrib.max.${destYear}.${targetGrade}`, String(salonMax));
-      localStorage.setItem(`grado.distrib.placed.${destYear}.${targetGrade}`, JSON.stringify(placed));
+      if (hydratedFor === placementKey()) {
+        localStorage.setItem(placementKey(), JSON.stringify(placed));
+      }
     } catch {
       /* sin almacenamiento: la sesión sigue funcionando */
     }
@@ -141,16 +156,36 @@
 
   function restorePlaced() {
     try {
-      const raw = localStorage.getItem(`grado.distrib.placed.${destYear}.${targetGrade}`);
-      if (!raw) return;
+      const raw = localStorage.getItem(placementKey());
+      if (!raw) {
+        hydratedFor = placementKey();
+        return;
+      }
       const saved = JSON.parse(raw) as Record<string, number>;
       const next: Record<string, number> = {};
       for (const [id, col] of Object.entries(saved)) {
         if (Number.isInteger(col) && col >= 0 && col < salonCount) next[id] = col as number;
       }
       placed = next;
+      hydratedFor = placementKey();
     } catch {
-      /* arranca vacío */
+      hydratedFor = placementKey();
+    }
+  }
+
+  // Recalcula quiénes ya quedaron matriculados en el destino: su
+  // decisión registrada trae salón del año destino y salen del pendiente.
+  async function refreshDone() {
+    try {
+      const dest = await destSalons();
+      const ids = new Set(dest.map((g) => g.GroupID));
+      const done = new Set<string>();
+      for (const [key, r] of Object.entries(recorded)) {
+        if (r.toGroupID && ids.has(r.toGroupID)) done.add(key.split('|')[0]);
+      }
+      doneIDs = done;
+    } catch {
+      doneIDs = new Set();
     }
   }
 
@@ -174,10 +209,12 @@
   $: if (state === 'ready' && !gradeInit) {
     gradeInit = true;
     void (async () => {
+      hydratedFor = '';
       loadGradeConfig(true);
       await tick();
       autoMinMax();
       restorePlaced();
+      await refreshDone();
     })();
   }
 
@@ -222,6 +259,7 @@
 
   function onGradeChange(g: number) {
     if (!Number.isInteger(g) || g < 1 || g > 11) return;
+    hydratedFor = '';
     targetGrade = g;
     selected = null;
     search = '';
@@ -231,6 +269,7 @@
       await tick();
       autoMinMax();
       restorePlaced();
+      await refreshDone();
     })();
   }
 
@@ -521,12 +560,25 @@
           saveError = $t.common.loadError;
           break;
         }
+        recorded[key] = { decision: want, toGroupID: want === 'graduate' ? null : toGroupID };
         done += 1;
       }
+      // Sin borrado: lo confirmado sale del pendiente (recorded trae
+      // destino) y se queda visible en su salón. Lo no ubicado se
+      // conserva tal cual para seguir después o al volver.
+      const destIDs = new Set(salons);
+      const doneSet = new Set(doneIDs);
+      for (const [key, r] of Object.entries(recorded)) {
+        if (r.toGroupID && destIDs.has(r.toGroupID)) doneSet.add(key.split('|')[0]);
+      }
+      doneIDs = doneSet;
+      const kept: Record<string, number> = {};
+      for (const [id, col] of Object.entries(placed)) {
+        if (!doneSet.has(id)) kept[id] = col;
+      }
+      placed = kept;
       notify($t.cierre.distConfirmed(done));
-      placed = {};
       selected = null;
-      await load();
     } catch (err) {
       saveError = err instanceof ApiError ? err.message : $t.common.loadError;
     } finally {
@@ -639,7 +691,11 @@
         <input type="search" placeholder={$t.cierre.distSearch} aria-label={$t.cierre.distSearch} bind:value={search} />
       </label>
       {#if pool.length === 0}
-        <EmptyState icon="users" title={$t.cierre.distEmptyPool} body={$t.cierre.distEmptyPoolBody} />
+        {#if doneIDs.size > 0}
+          <p class="note" role="status">{$t.cierre.distAllDone(doneIDs.size)}</p>
+        {:else}
+          <EmptyState icon="users" title={$t.cierre.distEmptyPool} body={$t.cierre.distEmptyPoolBody} />
+        {/if}
       {:else}
         <div class="board">
           <section class="col pool" aria-label={$t.cierre.distPool}>

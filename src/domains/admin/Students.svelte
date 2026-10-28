@@ -371,7 +371,7 @@
           notify($t.admin.exportEmpty);
           return;
         }
-        exportStudentsWorkbook(`grado-estudiantes-${year}.xlsx`, sheets, {
+        await exportStudentsWorkbook(`grado-estudiantes-${year}.xlsx`, sheets, {
           ...text,
           title: $t.admin.studentExcelTitle(year)
         });
@@ -380,7 +380,7 @@
           const rep = await guarded(() => classReport(g.GroupID));
           if (!rep) continue;
           const safe = g.ClassLabel.replace(/[\\/:*?"<>|]/g, '-');
-          exportStudentsWorkbook(`grado-estudiantes-${safe}-${year}.xlsx`, [{
+          await exportStudentsWorkbook(`grado-estudiantes-${safe}-${year}.xlsx`, [{
             label: g.ClassLabel,
             days: rep.Sessions,
             students: rep.Students.map((s) => ({
