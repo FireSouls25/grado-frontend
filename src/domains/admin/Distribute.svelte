@@ -460,8 +460,13 @@
     }
   }
 
-  function deal(list: typeof pool, cols: number[], max: number): Record<string, number> {
+  function deal(list: typeof pool, cols: number[], max: number, base?: Record<string, number>): Record<string, number> {
     const counts = new Map<number, number>(cols.map((c) => [c, 0]));
+    if (base) {
+      for (const col of Object.values(base)) {
+        if (counts.has(col)) counts.set(col, (counts.get(col) ?? 0) + 1);
+      }
+    }
     const out: Record<string, number> = {};
     let idx = 0;
     for (const c of list) {
@@ -502,40 +507,52 @@
         notify(suggestNote);
         return;
       }
-      const byName = (a: (typeof pool)[number], b: (typeof pool)[number]) =>
+      // Los ya ubicados (matrícula en el destino) se quedan donde están:
+      // la sugerencia solo reparte a los pendientes.
+      const colOfDest = new Map(destCache.map((g) => [g.GroupID, g.GroupNo - 1]));
+      const fixed: Record<string, number> = {};
+      const free = pool.filter((c) => {
+        const r = recorded[c.studentID + '|' + c.fromGroupID];
+        const col = r?.toGroupID ? colOfDest.get(r.toGroupID) : undefined;
+        if (col === undefined) return true;
+        fixed[c.studentID] = col;
+        return false;
+      });
+      const byName = (a: (typeof free)[number], b: (typeof free)[number]) =>
         `${a.surnames} ${a.names}`.localeCompare(`${b.surnames} ${b.names}`, 'es');
       let assignment: Record<string, number>;
       let summary = '';
       if (suggestMode === 'balanced') {
-        const ordered = [...pool].sort((a, b) => riskOf(b.studentID).risk - riskOf(a.studentID).risk);
+        const ordered = [...free].sort((a, b) => riskOf(b.studentID).risk - riskOf(a.studentID).risk);
         const cols = Array.from({ length: salonCount }, (_, i) => i);
         const fwd = deal(
           ordered.filter((_, i) => i % 2 === 0),
           cols,
-          hi
+          hi,
+          fixed
         );
-        const bwd = deal(ordered.filter((_, i) => i % 2 !== 0), [...cols].reverse(), hi);
+        const bwd = deal(ordered.filter((_, i) => i % 2 !== 0), [...cols].reverse(), hi, { ...fixed, ...fwd });
         assignment = { ...fwd };
         for (const [k, v] of Object.entries(bwd)) assignment[k] = v;
-        const risks = pool.map((c) => riskOf(c.studentID).risk);
+        const risks = free.map((c) => riskOf(c.studentID).risk);
         const avg = risks.reduce((n, r) => n + r, 0) / Math.max(1, risks.length);
         summary = $t.cierre.distBalancedNote(avg);
       } else {
-        const good = pool.filter((c) => !riskOf(c.studentID).bad).sort(byName);
-        const bad = pool.filter((c) => riskOf(c.studentID).bad).sort(byName);
+        const good = free.filter((c) => !riskOf(c.studentID).bad).sort(byName);
+        const bad = free.filter((c) => riskOf(c.studentID).bad).sort(byName);
         if (good.length === 0 || bad.length === 0) {
-          assignment = deal([...pool].sort(byName), Array.from({ length: salonCount }, (_, i) => i), hi);
+          assignment = deal([...free].sort(byName), Array.from({ length: salonCount }, (_, i) => i), hi, fixed);
           summary = $t.cierre.distSplitFallback;
         } else {
-          const kGood = Math.min(salonCount - 1, Math.max(1, Math.round((salonCount * good.length) / pool.length)));
-          const g = deal(good, Array.from({ length: kGood }, (_, i) => i), hi);
-          const b = deal(bad, Array.from({ length: salonCount - kGood }, (_, i) => i + kGood), hi);
+          const kGood = Math.min(salonCount - 1, Math.max(1, Math.round((salonCount * good.length) / Math.max(1, free.length))));
+          const g = deal(good, Array.from({ length: kGood }, (_, i) => i), hi, fixed);
+          const b = deal(bad, Array.from({ length: salonCount - kGood }, (_, i) => i + kGood), hi, { ...fixed, ...g });
           assignment = { ...g };
           for (const [k, v] of Object.entries(b)) assignment[k] = v;
           summary = $t.cierre.distSplitNote(good.length, bad.length);
         }
       }
-      placed = assignment;
+      placed = { ...fixed, ...assignment };
       selected = null;
       suggestNote = summary;
     } finally {
