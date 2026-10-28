@@ -60,6 +60,9 @@ export const es = {
     noGroupBody: (year: number) => `Crea los salones de ${year} primero.`,
     noDestTitle: 'Sin año siguiente',
     noDestBody: (year: number) => `Crea los salones de ${year} para ubicar a quienes promueven o repiten.`,
+    noNextYearTitle: 'Sin año siguiente creado',
+    noNextYearBody: (year: number) => `Crea primero el año ${year} en Años lectivos y luego sus salones.`,
+    goYears: 'Ir a años lectivos',
     summaryRoster: 'en nómina',
     summaryCritical: 'en situación crítica',
     summaryByCause: (rate: number, grave: number, fault: number) =>

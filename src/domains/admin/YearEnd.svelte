@@ -62,6 +62,7 @@
   let rows: Row[] = [];
   let destGroups: YearGroup[] = [];
   let nextYearExists = false;
+  let nextYearInCatalog = false;
   let lastPeriodActive = false;
 
   $: decidedCount = rows.filter((r) => r.decided || r.done).length;
@@ -142,6 +143,7 @@
       groups = gs;
       destGroups = dest;
       nextYearExists = dest.length > 0;
+      nextYearInCatalog = years.some((y) => y.Year === year + 1);
       if (groups.length > 0) picked = groups[0];
       checkLastPeriod();
       state = 'ready';
@@ -354,7 +356,28 @@
       {:else if state === 'loading'}
         <Skeleton rows={5} />
       {:else if !nextYearExists || destGroups.length === 0}
-        <EmptyState icon="list" title={$t.cierre.noDestTitle} body={$t.cierre.noDestBody(year + 1)} />
+        {#if nextYearInCatalog}
+          <EmptyState
+            icon="list"
+            title={$t.cierre.noDestTitle}
+            body={$t.cierre.noDestBody(year + 1)}
+            actionLabel={$t.common.retry}
+            onAction={() => loadGroups()}
+          />
+        {:else}
+          <EmptyState
+            icon="list"
+            title={$t.cierre.noNextYearTitle}
+            body={$t.cierre.noNextYearBody(year + 1)}
+            actionLabel={$t.common.retry}
+            onAction={() => loadGroups()}
+          />
+        {/if}
+        <div class="rowbtns">
+          <button type="button" class="mini" on:click={() => push('/admin/anos')}>
+            {$t.cierre.goYears}
+          </button>
+        </div>
       {:else if picked}
         <div class="summary" role="status">
           <span><strong>{rows.length}</strong> {$t.cierre.summaryRoster}</span>
@@ -447,7 +470,8 @@
   }
   .banner {
     background: var(--accent-soft);
-    color: var(--accent-ink);
+    color: var(--ink);
+    border: 1px solid var(--line);
     border-radius: var(--radius-chip);
     padding: 10px 14px;
     font-weight: 600;
@@ -497,6 +521,12 @@
     gap: 8px;
     flex-wrap: wrap;
     align-items: flex-start;
+  }
+  .rowbtns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
   }
   .row-head .muted {
     display: block;
