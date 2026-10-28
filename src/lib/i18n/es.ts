@@ -63,6 +63,8 @@ export const es = {
     noNextYearTitle: 'Sin año siguiente creado',
     noNextYearBody: (year: number) => `Crea primero el año ${year} en Años lectivos y luego sus salones.`,
     goYears: 'Ir a años lectivos',
+    copyGroups: (year: number) => `Copiar salones al ${year}`,
+    copiedOk: (n: number) => (n === 0 ? 'Los salones ya existían.' : n === 1 ? '1 salón copiado.' : `${n} salones copiados.`),
     summaryRoster: 'en nómina',
     summaryCritical: 'en situación crítica',
     summaryByCause: (rate: number, grave: number, fault: number) =>

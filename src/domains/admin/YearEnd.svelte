@@ -20,6 +20,7 @@
     recordPromotion,
     promotionsForGroup,
     closeYear,
+    createClassGroup,
     type YearGroup,
     type Promotion,
     type PromotionDecision
@@ -34,6 +35,8 @@
   let picked: YearGroup | null = null;
   let years: { ID: string; Year: number; EndDate: string; Closed: boolean; PeriodRanges: { Start: string; End: string }[] }[] = [];
   let closing = false;
+  let copying = false;
+  let copyFeedback = '';
   let closeSaving = false;
   let closeError = '';
   let earlyOverride = false;
@@ -267,6 +270,34 @@
     }
   }
 
+  // Copia los salones del año actual al siguiente: es el paso que
+  // falta cuando el año existe pero nació vacío. Los que ya existan se
+  // omiten (el backend responde 400 por duplicado).
+  async function copyGroups() {
+    if (copying) return;
+    copyFeedback = '';
+    copying = true;
+    try {
+      let created = 0;
+      for (const g of groups) {
+        try {
+          const rec = await guarded(() =>
+            createClassGroup({ year: year + 1, grade: g.Grade, groupNo: g.GroupNo })
+          );
+          if (rec) created += 1;
+        } catch {
+          /* duplicado u otro 400: se omite y se sigue */
+        }
+      }
+      copyFeedback = $t.cierre.copiedOk(created);
+      await loadGroups();
+    } catch (err) {
+      copyFeedback = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      copying = false;
+    }
+  }
+
   function changeYear(delta: number) {
     year += delta;
     void loadGroups();
@@ -374,10 +405,16 @@
           />
         {/if}
         <div class="rowbtns">
+          {#if nextYearInCatalog && groups.length > 0}
+            <button type="button" class="mini primary" disabled={copying} on:click={copyGroups}>
+              {copying ? $t.common.retrying : $t.cierre.copyGroups(year)}
+            </button>
+          {/if}
           <button type="button" class="mini" on:click={() => push('/admin/anos')}>
             {$t.cierre.goYears}
           </button>
         </div>
+        {#if copyFeedback}<p class="muted" role="status">{copyFeedback}</p>{/if}
       {:else if picked}
         <div class="summary" role="status">
           <span><strong>{rows.length}</strong> {$t.cierre.summaryRoster}</span>
