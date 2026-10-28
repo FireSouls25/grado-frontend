@@ -135,12 +135,6 @@
   // otorgan la secretaría y el admin en las pantallas de corrección.
   type RollMark = '' | 'absence' | 'late';
 
-  function currentOf(id: string): RollMark {
-    if (present.has(id)) return '';
-    if (late.has(id)) return 'late';
-    return 'absence';
-  }
-
   function pick(id: string, mark: RollMark) {
     if (mark === '') present.add(id);
     else present.delete(id);
@@ -326,7 +320,9 @@
           </div>
           <ul class="ledger">
             {#each roster as r (r.StudentID)}
-              {@const cur = currentOf(r.StudentID)}
+              {@const inPresent = present.has(r.StudentID)}
+              {@const isLate = late.has(r.StudentID)}
+              {@const cur = inPresent ? '' : isLate ? 'late' : 'absence'}
               <li>
                 <span class="who">
                   <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
