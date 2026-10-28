@@ -25,6 +25,7 @@
 
   let groups: YearGroup[] = [];
   let alerted: Set<string> = new Set();
+  let alertCounts: Record<string, number> = {};
   let loaded = false;
   let failed = false;
   let loadError: unknown = null;
@@ -124,6 +125,9 @@
     try {
       const open = (await guarded(() => listAcademicAlerts())) ?? [];
       alerted = new Set(open.map((a) => a.StudentID));
+      const counts: Record<string, number> = {};
+      for (const a of open) counts[a.StudentID] = (counts[a.StudentID] ?? 0) + 1;
+      alertCounts = counts;
     } catch {
       alerted = new Set();
     }
@@ -413,8 +417,9 @@
                 <span class="who">
                   <span class="namerow"><strong>{s.Surnames} {s.Names}</strong>
                   {#if alerted.has(s.StudentID)}
-                    <span class="alertbadge" title={$t.academicAlert.hasOpen} aria-label={$t.academicAlert.hasOpen}>
+                    <span class="alertbadge" title={$t.academicAlert.hasOpen(alertCounts[s.StudentID] ?? 0)} aria-label={$t.academicAlert.hasOpen(alertCounts[s.StudentID] ?? 0)}>
                       <Icon name="warn" />
+                      <strong>{alertCounts[s.StudentID] ?? 0}</strong>
                     </span>
                   {/if}
                   </span>

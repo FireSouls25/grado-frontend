@@ -100,7 +100,7 @@ export const es = {
     confirmSure: '¿Seguro? Esta acción congela el año.',
     confirmYes: 'Sí, cerrar ahora',
     closedOk: 'Año cerrado. Los registros quedaron congelados.',
-    reopenAction: 'Reabrir año (emergencia)',
+    reopenAction: 'Reabrir año',
     reopenTitle: 'Reapertura de emergencia',
     reopenSure: '¿Seguro? Se reactivan listas, marcas y llamados del año.',
     reopenConfirm: 'Sí, reabrir',
@@ -410,7 +410,7 @@ export const es = {
     reviewedLabel: 'revisada',
     reviewAction: 'Marcar revisada',
     reviewedOk: 'Alerta marcada como revisada.',
-    hasOpen: 'Tiene alerta académica abierta',
+    hasOpen: (n: number) => (n === 1 ? '1 alerta académica abierta' : `${n} alertas académicas abiertas`),
   },
   warnings: {
     title: 'Llamados de atención',
