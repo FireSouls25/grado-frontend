@@ -21,9 +21,11 @@ export interface SalonSheet {
   students: StudentRow[];
 }
 
-const HEADER_FILL = { patternType: 'solid', fgColor: { rgb: 'FFD9C7A7' } };
-const TITLE_FILL = { patternType: 'solid', fgColor: { rgb: 'FFF3E8D8' } };
-const TOTAL_FILL = { patternType: 'solid', fgColor: { rgb: 'FFEFE3D2' } };
+const HEADER_FILL = { patternType: 'solid', fgColor: { rgb: 'FFC98F5F' } };
+const HEADER_FONT = { bold: true, color: { rgb: 'FFFFFFFF' } };
+const TITLE_FILL = { patternType: 'solid', fgColor: { rgb: 'FFF6ECDC' } };
+const TOTAL_FILL = { patternType: 'solid', fgColor: { rgb: 'FFF0DCC0' } };
+const BAND_FILL = { patternType: 'solid', fgColor: { rgb: 'FFFBF4E9' } };
 const THIN_BORDER = {
   top: { style: 'thin', color: { rgb: 'FFB9A68A' } },
   bottom: { style: 'thin', color: { rgb: 'FFB9A68A' } },
@@ -34,7 +36,13 @@ const BOLD = { bold: true };
 const TITLE_FONT = { bold: true, sz: 14 };
 
 function styleCell(cell: XLSX.CellObject, fill?: unknown, font?: unknown) {
-  cell.s = { ...(cell.s ?? {}), border: THIN_BORDER, ...(fill ? { fill } : {}), ...(font ? { font } : {}) };
+  cell.s = {
+    ...(cell.s ?? {}),
+    border: THIN_BORDER,
+    alignment: { wrapText: true, vertical: 'center' },
+    ...(fill ? { fill } : {}),
+    ...(font ? { font } : {})
+  };
   return cell;
 }
 
@@ -96,7 +104,7 @@ export function salonSheet(salon: SalonSheet, t: {
   ws['A2'] = textCell(`${t.daysLabel}: ${salon.days}`, TITLE_FILL);
   const headRow = 3;
   H.forEach((h, i) => {
-    ws[`${colName(i)}${headRow}`] = textCell(h, HEADER_FILL, BOLD);
+    ws[`${colName(i)}${headRow}`] = textCell(h, HEADER_FILL, HEADER_FONT);
   });
   const first = headRow + 1;
   students.forEach((s, k) => {
@@ -112,7 +120,14 @@ export function salonSheet(salon: SalonSheet, t: {
     ws[`G${r}`] = numCell(s.evasions);
     ws[`H${r}`] = numCell(s.lates);
     ws[`I${r}`] = numCell(s.sessions);
-    ws[`J${r}`] = formulaCell(rate, `D${r}/SUM(D${r}:H${r})`, undefined, undefined, '0%');
+    const band = k % 2 === 1 ? BAND_FILL : undefined;
+    ws[`J${r}`] = formulaCell(rate, `D${r}/SUM(D${r}:H${r})`, band, undefined, '0%');
+    if (band) {
+      for (const c of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']) {
+        const cell = ws[`${c}${r}`];
+        if (cell) styleCell(cell, BAND_FILL);
+      }
+    }
   });
   const last = first + students.length;
   ws[`A${last}`] = textCell('', TOTAL_FILL);
@@ -140,7 +155,10 @@ export function salonSheet(salon: SalonSheet, t: {
     '0%'
   );
   ws['!ref'] = `A1:J${last}`;
-  ws['!cols'] = [{ wch: 4 }, { wch: 24 }, { wch: 24 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 12 }];
+  ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 30 }, { wch: 11 }, { wch: 14 }, { wch: 13 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 13 }];
+  const heights: XLSX.RowInfo[] = [{ hpt: 26 }, { hpt: 20 }, { hpt: 24 }];
+  for (let r = first; r <= last; r++) heights[r - 1] = { hpt: r === last ? 22 : 20 };
+  ws['!rows'] = heights;
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }];
   return ws;
 }

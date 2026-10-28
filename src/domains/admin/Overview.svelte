@@ -76,6 +76,10 @@
   }
 
   const RATE_FLOOR = 85;
+  // La tasa solo alarma con muestra suficiente: el primer día con una
+  // falta daría 100% de inasistencia y es muy temprano para llamar.
+  // Los conteos absolutos (3+ faltas/evasiones) sí alertan siempre.
+  const RATE_MIN_DAYS = 4;
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;
@@ -293,7 +297,7 @@
         sessions: s.sessions,
         rate: s.sessions > 0 ? Math.round((s.presences / s.sessions) * 100) : 0
       }))
-      .filter((r) => r.sessions > 0 && (r.rate < RATE_FLOOR || r.absences + r.evasions >= 3))
+      .filter((r) => r.sessions > 0 && ((r.sessions >= RATE_MIN_DAYS && r.rate < RATE_FLOOR) || r.absences + r.evasions >= 3))
       .sort((a, b) => a.rate - b.rate);
     await loadSecondary();
     await loadTeacherExtras();
@@ -709,9 +713,7 @@
     : summary
       ? summary.WarningsLast7d.Severe
       : warnings.filter((w) => w.Gravity === 'severe').length;
-  $: hasGravity = summary
-    ? summary.WarningsLast7d.Mild + summary.WarningsLast7d.Moderate + summary.WarningsLast7d.Severe > 0
-    : warnings.length > 0;
+  $: hasGravity = gravityCounts[0] + gravityCounts[1] + gravityCounts[2] > 0;
 
   $: donut = makeDonut($theme, donutTotals, hasDonut);
   $: gravityBars = makeGravityBars($theme, gravityCounts, hasGravity);
@@ -1036,7 +1038,7 @@
                         >
                           <span class="rank">{String(i + 1).padStart(2, '0')}</span>
                           <span class="avatar" aria-hidden="true">{initials(row.name)}</span>
-                          <span class="who"><strong>{row.name}</strong></span>
+                          <span class="who"><strong>{row.name}</strong><small>{$t.admin.riskDays(row.sessions)}</small></span>
                           <span class="countchip">{row.absences} {$t.admin.colAbsences}</span>
                           <span class="countchip" class:alert={row.evasions > 0}>{row.evasions} {$t.admin.colEvasions}</span>
                           <span class="rateblock">
@@ -1586,15 +1588,15 @@
     width: 100%;
     display: grid;
     grid-template-columns: 30px 36px minmax(0, 1fr) auto;
-    gap: 10px;
+    gap: 14px;
     align-items: center;
     text-align: left;
     border: 1px solid var(--line);
     border-radius: 14px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
     background: var(--surface);
-    min-height: 68px;
+    min-height: 76px;
   }
   .prow.on {
     border-color: var(--ink);

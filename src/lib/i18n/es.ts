@@ -826,8 +826,6 @@ export const es = {
     groupStudents: (count: number) =>
       count === 1 ? '1 estudiante' : `${count} estudiantes`,
     rosterHint: 'Toca un salón para ver su lista de estudiantes.',
-    exportCsv: 'Exportar CSV',
-    exported: 'Archivo CSV descargado.',
     scheduleGroupLabel: 'Salón',
     scheduleGroupPlaceholder: 'Elige un salón…',
     scheduleYearLabel: 'Año',
@@ -1001,6 +999,7 @@ export const es = {
     salonBelow: (count: number) =>
       count === 1 ? '1 salón bajo el umbral de 85%' : `${count} salones bajo el umbral de 85%`,
     riskTitle: 'Estudiantes en riesgo',
+    riskDays: (n: number) => (n === 1 ? '1 día con lista' : `${n} días con lista`),
     riskCount: (count: number) =>
       count === 1 ? '1 en lista' : `${count} en lista`,
     riskEmpty: 'Sin estudiantes en riesgo todavía.',
@@ -1041,8 +1040,10 @@ export const es = {
     exportTotal: 'Total',
     exportedOk: 'Excel descargado.',
     exportEmpty: 'No hay datos para exportar.',
-    exportAllExcel: 'Exportar Excel (todos)',
-    exportSalonExcel: (label: string) => `Exportar Excel (${label})`,
+    exportExcel: 'Exportar Excel',
+    exportGeneral: 'General (todos)',
+    exportGeneralHint: 'Todos los salones en un solo archivo.',
+    exportExcelGo: 'Descargar',
     studentExcelTitle: (year: number) => `Estudiantes ${year}`,
     studentExcelHeaders: () => [
       'Nº',

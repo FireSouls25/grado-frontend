@@ -222,50 +222,6 @@
   // Exportación a CSV: secretaría pide la lista en Excel, no una captura de
   // pantalla. Se arma en el cliente con lo que ya está en memoria (sin
   // endpoint nuevo) y se descarga como archivo.
-  function csvCell(value: string | number): string {
-    const raw = String(value ?? '');
-    return /[";\r\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
-  }
-
-  function exportCsv() {
-    if (visibleRoster.length === 0) return;
-    const header = [
-      $t.admin.colStudent,
-      $t.admin.colSalon,
-      $t.admin.colAbsences,
-      $t.admin.colPermission,
-      $t.admin.colEvasions,
-      $t.admin.colRate
-    ];
-    const rows = visibleRoster.map((s) =>
-      [
-        `${s.Surnames}, ${s.Names}`,
-        s.group,
-        s.Absences,
-        s.Excused,
-        s.Evasions,
-        `${s.rate}%`
-      ]
-        .map(csvCell)
-        .join(';')
-    );
-    const csv = [header.map(csvCell).join(';'), ...rows].join('\r\n');
-    // BOM para que Excel reconozca UTF-8 y no rompa los acentos.
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    // Sanea el salón para que nunca rompa el nombre de archivo.
-    const scope = (picked ? picked.ClassLabel : 'todos').replace(/[\\/:*?"<>|]/g, '-');
-    link.href = url;
-    link.download = `asistencia-${scope}-${year}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    // Revoca diferido: inmediato puede cancelar la descarga en Safari/Firefox.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    feedback = $t.admin.exported;
-  }
-
   $: allRoster = groups.flatMap((g) =>
     (reports[g.GroupID]?.Students ?? []).map((s) => ({
       ...s,
@@ -360,44 +316,86 @@
   onMount(load);
 
   let exporting = false;
+  let exportOpen = false;
+  let exportAll = true;
+  let exportPicked: Record<string, boolean> = {};
 
-  // Excel por salón o todos: nombres en orden de lista, métricas del
-  // reporte real y fórmulas en % y totales. Respeta el salón elegido si
-  // hay uno; si no, exporta todos los salones del año.
+  function toggleExportGroup(gid: string) {
+    exportPicked = { ...exportPicked, [gid]: !exportPicked[gid] };
+    if (exportPicked[gid]) exportAll = false;
+  }
+
+  function toggleExportAll() {
+    exportAll = !exportAll;
+    if (exportAll) exportPicked = {};
+  }
+
+  // Un solo botón de Excel con selector: General mete todos los salones
+  // en un archivo; cada salón marcado sale en su propio archivo.
   async function exportExcel() {
     if (exporting) return;
+    const selected = exportAll ? groups : groups.filter((g) => exportPicked[g.GroupID]);
+    if (selected.length === 0) {
+      notify($t.admin.exportEmpty);
+      return;
+    }
     exporting = true;
     try {
-      const targets = picked ? [picked] : groups;
-      const sheets = [];
-      for (const g of targets) {
-        const rep = await guarded(() => classReport(g.GroupID));
-        if (!rep) continue;
-        sheets.push({
-          label: g.ClassLabel,
-          days: rep.Sessions,
-          students: rep.Students.map((s) => ({
-            surnames: s.Surnames,
-            names: s.Names,
-            presences: s.Presences,
-            absences: s.Absences,
-            excused: s.Excused,
-            evasions: s.Evasions,
-            lates: s.Lates,
-            sessions: s.Sessions
-          }))
-        });
-      }
-      if (sheets.length === 0) {
-        notify($t.admin.exportEmpty);
-        return;
-      }
-      exportStudentsWorkbook(`grado-estudiantes-${year}.xlsx`, sheets, {
-        title: $t.admin.studentExcelTitle(year),
+      const text = {
         daysLabel: $t.admin.daysCalled,
         headers: $t.admin.studentExcelHeaders(),
         totalLabel: $t.admin.exportTotal
-      });
+      };
+      if (exportAll) {
+        const sheets = [];
+        for (const g of selected) {
+          const rep = await guarded(() => classReport(g.GroupID));
+          if (!rep) continue;
+          sheets.push({
+            label: g.ClassLabel,
+            days: rep.Sessions,
+            students: rep.Students.map((s) => ({
+              surnames: s.Surnames,
+              names: s.Names,
+              presences: s.Presences,
+              absences: s.Absences,
+              excused: s.Excused,
+              evasions: s.Evasions,
+              lates: s.Lates,
+              sessions: s.Sessions
+            }))
+          });
+        }
+        if (sheets.length === 0) {
+          notify($t.admin.exportEmpty);
+          return;
+        }
+        exportStudentsWorkbook(`grado-estudiantes-${year}.xlsx`, sheets, {
+          ...text,
+          title: $t.admin.studentExcelTitle(year)
+        });
+      } else {
+        for (const g of selected) {
+          const rep = await guarded(() => classReport(g.GroupID));
+          if (!rep) continue;
+          const safe = g.ClassLabel.replace(/[\\/:*?"<>|]/g, '-');
+          exportStudentsWorkbook(`grado-estudiantes-${safe}-${year}.xlsx`, [{
+            label: g.ClassLabel,
+            days: rep.Sessions,
+            students: rep.Students.map((s) => ({
+              surnames: s.Surnames,
+              names: s.Names,
+              presences: s.Presences,
+              absences: s.Absences,
+              excused: s.Excused,
+              evasions: s.Evasions,
+              lates: s.Lates,
+              sessions: s.Sessions
+            }))
+          }], { ...text, title: `${$t.admin.studentExcelTitle(year)} · ${g.ClassLabel}` });
+        }
+      }
+      exportOpen = false;
       notify($t.admin.exportedOk);
     } finally {
       exporting = false;
@@ -431,14 +429,35 @@
       <button type="button" class="new ghost-new" on:click={() => push('/admin/estudiantes/historial')}>
         {$t.troll.shistory.action}
       </button>
-      <button type="button" class="new ghost-new" disabled={exporting} on:click={exportExcel}>
-        {exporting ? $t.common.retrying : picked ? $t.admin.exportSalonExcel(picked.ClassLabel) : $t.admin.exportAllExcel}
+      <button type="button" class="new ghost-new" on:click={() => (exportOpen = !exportOpen)} aria-expanded={exportOpen}>
+        {$t.admin.exportExcel}
       </button>
     </div>
     {#if picked}
       <button type="button" class="back back-top" on:click={() => (picked = null)}>‹ {$t.admin.backSalons}</button>
     {/if}
   </div>
+
+  {#if exportOpen}
+    <div class="sheet exportbox" role="group" aria-label={$t.admin.exportExcel}>
+      <label class="check">
+        <input type="checkbox" checked={exportAll} on:change={toggleExportAll} />
+        <span><strong>{$t.admin.exportGeneral}</strong><small>{$t.admin.exportGeneralHint}</small></span>
+      </label>
+      {#each groups as g (g.GroupID)}
+        <label class="check">
+          <input type="checkbox" checked={!!exportPicked[g.GroupID]} on:change={() => toggleExportGroup(g.GroupID)} />
+          <span>{g.ClassLabel}</span>
+        </label>
+      {/each}
+      <div class="rowbtns">
+        <button type="button" class="mini" on:click={() => (exportOpen = false)}>{$t.common.cancel}</button>
+        <button type="button" class="primary" disabled={exporting} on:click={exportExcel}>
+          {exporting ? $t.common.retrying : $t.admin.exportExcelGo}
+        </button>
+      </div>
+    </div>
+  {/if}
 
   <div class="sheet">
 
@@ -494,11 +513,7 @@
     <section class="card" aria-label={$t.admin.reportTitle}>
       <div class="card-head">
         <h2>{picked ? $t.admin.groupDetailTitle(picked.ClassLabel, picked.SchoolYear) : $t.admin.globalRoster}</h2>
-        {#if visibleRoster.length > 0}
-          <button type="button" class="mini" on:click={exportCsv}>
-            <Icon name="list" /> {$t.admin.exportCsv}
-          </button>
-        {/if}
+
       </div>
       {#if loadingReports}
         <p class="muted">{$t.admin.loadingRoster}</p>
@@ -771,6 +786,17 @@
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .exportbox {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .exportbox .check span small {
+    display: block;
+    color: var(--muted);
+    font-weight: 400;
   }
   .formsub {
     margin: 8px 0 0;
