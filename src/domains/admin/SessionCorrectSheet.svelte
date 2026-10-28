@@ -68,7 +68,7 @@
     perm = { ...perm, [studentID]: !permOf(studentID, cur) };
   }
 
-  $: anyPermOn = students.some((s) => permOf(s.id, s.current));
+  $: anyPermOn = students.some((s) => (perm[s.id] ?? s.current === 'absence-permission'));
 
   async function save() {
     error = '';
@@ -108,25 +108,25 @@
           <span class="name">{s.name}</span>
         </span>
         <span class="seg" role="group" aria-label={s.name}>
-          <button type="button" class:present={segOf(s.id, s.current) === ''} aria-pressed={segOf(s.id, s.current) === ''} on:click={() => pick(s.id, '')}>
+          <button type="button" class:present={(sel[s.id] ?? baseOf(s.current)) === ''} aria-pressed={(sel[s.id] ?? baseOf(s.current)) === ''} on:click={() => pick(s.id, '')}>
             {$t.roster.present}
           </button>
-          <button type="button" class:absent={segOf(s.id, s.current) === 'absence'} aria-pressed={segOf(s.id, s.current) === 'absence'} on:click={() => pick(s.id, 'absence')}>
+          <button type="button" class:absent={(sel[s.id] ?? baseOf(s.current)) === 'absence'} aria-pressed={(sel[s.id] ?? baseOf(s.current)) === 'absence'} on:click={() => pick(s.id, 'absence')}>
             {$t.roster.absentShort}
           </button>
-          <button type="button" class:evasion={segOf(s.id, s.current) === 'evasion'} aria-pressed={segOf(s.id, s.current) === 'evasion'} on:click={() => pick(s.id, 'evasion')}>
+          <button type="button" class:evasion={(sel[s.id] ?? baseOf(s.current)) === 'evasion'} aria-pressed={(sel[s.id] ?? baseOf(s.current)) === 'evasion'} on:click={() => pick(s.id, 'evasion')}>
             {$t.roster.evasion}
           </button>
-          <button type="button" class:late={segOf(s.id, s.current) === 'late'} aria-pressed={segOf(s.id, s.current) === 'late'} on:click={() => pick(s.id, 'late')}>
+          <button type="button" class:late={(sel[s.id] ?? baseOf(s.current)) === 'late'} aria-pressed={(sel[s.id] ?? baseOf(s.current)) === 'late'} on:click={() => pick(s.id, 'late')}>
             {$t.roster.late}
           </button>
         </span>
         <button
           type="button"
           class="permbtn"
-          class:on={permOf(s.id, s.current)}
-          aria-pressed={permOf(s.id, s.current)}
-          disabled={segOf(s.id, s.current) !== 'absence' && !permOf(s.id, s.current)}
+          class:on={(perm[s.id] ?? s.current === 'absence-permission')}
+          aria-pressed={(perm[s.id] ?? s.current === 'absence-permission')}
+          disabled={(sel[s.id] ?? baseOf(s.current)) !== 'absence' && !(perm[s.id] ?? s.current === 'absence-permission')}
           title={$t.troll.shistory.permissionHint}
           on:click={() => togglePerm(s.id)}
         >
