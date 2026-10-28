@@ -969,6 +969,55 @@ export interface DashboardSummary {
 
 // Agregado real del backend (`?year=` obligatorio). Todo campo puede
 // venir vacío: la consola pinta vacíos honestos, nunca ceros falsos.
+export interface OverviewPeriod {
+  N: number;
+  Start: string;
+  End: string;
+}
+
+export interface OverviewMarks {
+  Presences: number;
+  Absences: number;
+  Excused: number;
+  Evasions: number;
+  Lates: number;
+  StudentDays: number;
+}
+
+export interface OverviewWarnings {
+  Mild: number;
+  Moderate: number;
+  Severe: number;
+}
+
+export interface OverviewSalon {
+  Label: string;
+  Days: number;
+  Presences: number;
+  Absences: number;
+  Excused: number;
+  Evasions: number;
+  Lates: number;
+  StudentDays: number;
+  Rate: number;
+}
+
+export interface YearOverview {
+  Year: number;
+  Period: number;
+  Periods: OverviewPeriod[];
+  Days: string[];
+  Marks: OverviewMarks;
+  Warnings: OverviewWarnings;
+  Salons: OverviewSalon[];
+}
+
+export async function statisticsOverview(year: number, period = 0): Promise<YearOverview> {
+  return api.get<YearOverview>(
+    `/v1/statistics/overview?year=${year}${period > 0 ? `&period=${period}` : ''}`
+  );
+}
+
 export async function dashboardSummary(year: number): Promise<DashboardSummary> {
   const d = await api.get<DashboardSummary>(`/v1/dashboard/summary?year=${year}`);
   if (!d) throw missing('Resumen');

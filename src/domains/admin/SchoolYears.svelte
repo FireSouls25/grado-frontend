@@ -513,8 +513,16 @@
               <label>{$t.admin.yearsPeriods}
                 <input type="number" min="1" max="6" bind:value={editForm.periods} disabled={editStarted || y.Closed} />
               </label>
-              <label>{$t.admin.yearsStart}<input type="date" bind:value={editForm.start} disabled /></label>
-              <label>{$t.admin.yearsEnd}<input type="date" bind:value={editForm.end} disabled /></label>
+              <label>{$t.admin.yearsStart}<input
+                type="date"
+                bind:value={editForm.start}
+                disabled={editStarted || y.Closed}
+              /></label>
+              <label>{$t.admin.yearsEnd}<input
+                type="date"
+                bind:value={editForm.end}
+                disabled={editStarted || y.Closed}
+              /></label>
             </div>
             {#if editStarted && !y.Closed}
               <p class="muted">{$t.admin.yearsStartedNote}</p>

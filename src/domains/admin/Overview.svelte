@@ -30,14 +30,17 @@
     scheduleEntries,
     listSubjects,
     subjectAssignments,
+    statisticsOverview,
     type TeacherSummary,
     type YearGroup,
     type RecentWarning,
     type AcademicAlert,
-    type DashboardSummary
+    type DashboardSummary,
+    type YearOverview
   } from './api';
   import { notify } from '$lib/ui/notice';
   import Dropdown from '$lib/ui/Dropdown.svelte';
+  import { exportYearWorkbook, type PeriodExport } from './excel';
   $: roles = $profile.me?.roles ?? [];
 
   // Consola del administrador (identidad docs/diseno.md, referencia
@@ -98,6 +101,9 @@
     sessions: number;
   }[] = [];
   let donutScope = '';
+  let period = 0;
+  let overview: YearOverview | null = null;
+  let overviewKnown = false;
   let weekTotals = { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0 };
   let weekKnown = false;
   let teacherMonth = { present: 0, absent: 0, late: 0, known: false };
@@ -201,6 +207,8 @@
     salonRates = [];
     salonTotals = [];
     donutScope = '';
+    overview = null;
+    overviewKnown = false;
     weekKnown = false;
     risk = [];
     reportCount = 0;
@@ -432,6 +440,108 @@
     } catch {
       warnings = [];
     }
+    await loadOverview();
+  }
+
+  $: periodOptions = [
+    { value: '0', label: $t.admin.periodAll },
+    ...(overview?.Periods ?? []).map((x) => ({
+      value: String(x.N),
+      label: $t.admin.periodOption(x.N, shortDay(x.Start), shortDay(x.End))
+    }))
+  ];
+
+  function shortDay(iso: string): string {
+    const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  }
+
+  function dayChip(iso: string): string {
+    const d = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return iso;
+    const s = d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
+    return s.replace(/\.\s*/g, ' ').trim();
+  }
+
+  $: periodCaps = (() => {
+    if (period === 0) return $t.admin.periodAll;
+    const x = overview?.Periods.find((p) => p.N === period);
+    return x ? `${shortDay(x.Start)} – ${shortDay(x.End)}` : `${$t.admin.periodWord} ${period}`;
+  })();
+
+  async function changePeriod(n: number) {
+    if (!Number.isInteger(n) || n < 0) return;
+    period = n;
+    donutScope = '';
+    await loadOverview();
+  }
+
+  let exporting = false;
+
+  async function exportYear() {
+    if (exporting) return;
+    exporting = true;
+    try {
+      const all = await guarded(() => statisticsOverview(year, 0));
+      if (!all) return;
+      const periods: PeriodExport[] = [];
+      for (const x of all.Periods) {
+        const one = await guarded(() => statisticsOverview(year, x.N));
+        if (!one) continue;
+        periods.push({
+          n: x.N,
+          start: shortDay(x.Start),
+          end: shortDay(x.End),
+          days: one.Days.length,
+          marks: one.Marks,
+          warnings: one.Warnings,
+          salons: one.Salons
+        });
+      }
+      if (periods.length === 0) {
+        periods.push({
+          n: 0,
+          start: '',
+          end: '',
+          days: all.Days.length,
+          marks: all.Marks,
+          warnings: all.Warnings,
+          salons: all.Salons
+        });
+      }
+      exportYearWorkbook(`grado-ano-${year}.xlsx`, year, periods, {
+        summaryTitle: $t.admin.exportYearTitle(year),
+        yearLabel: $t.admin.yearLabel,
+        periodLabel: $t.admin.periodWord,
+        rangeLabel: $t.admin.exportRange,
+        daysLabel: $t.admin.daysCalled,
+        attendanceLabel: $t.admin.exportAttendance,
+        warningsLabel: $t.admin.warningsTitle,
+        mildLabel: $t.roster.warnGravityMild,
+        moderateLabel: $t.roster.warnGravityModerate,
+        severeLabel: $t.roster.warnGravitySevere,
+        salonLabel: $t.admin.exportSalon,
+        totalLabel: $t.admin.exportTotal
+      });
+      notify($t.admin.exportedOk);
+    } finally {
+      exporting = false;
+    }
+  }
+
+  // Agregado real del año o periodo: días con llamada, marcas, llamados
+  // y salones. Todo lo que los gráficos muestran sale de aquí.
+  async function loadOverview() {
+    overviewKnown = false;
+    try {
+      overview = (await guarded(() => statisticsOverview(year, period))) ?? null;
+    } catch {
+      overview = null;
+    } finally {
+      overviewKnown = true;
+      donutScope = '';
+    }
   }
 
   function buildTasks() {
@@ -555,58 +665,59 @@
 
   $: scopeOptions = [
     { value: '', label: $t.admin.donutGlobal },
-    ...salonTotals.map((s) => ({ value: s.gid, label: s.label }))
+    ...(overview?.Salons ?? []).map((s) => ({ value: s.Label, label: s.Label }))
   ];
   $: scopedTotals = (() => {
+    const marks = overview?.Marks;
     if (!donutScope) {
-      return salonTotals.reduce(
-        (acc, s) => ({
-          presences: acc.presences + s.presences,
-          absences: acc.absences + s.absences,
-          excused: acc.excused + s.excused,
-          evasions: acc.evasions + s.evasions,
-          lates: acc.lates + s.lates
-        }),
-        { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0 }
-      );
+      return marks
+        ? { presences: marks.Presences, absences: marks.Absences, excused: marks.Excused, evasions: marks.Evasions, lates: marks.Lates }
+        : { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0 };
     }
-    const s = salonTotals.find((x) => x.gid === donutScope);
+    const s = overview?.Salons.find((x) => x.Label === donutScope);
     return s
-      ? { presences: s.presences, absences: s.absences, excused: s.excused, evasions: s.evasions, lates: s.lates }
+      ? { presences: s.Presences, absences: s.Absences, excused: s.Excused, evasions: s.Evasions, lates: s.Lates }
       : { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0 };
   })();
-  $: scopedZero =
-    scopedTotals.presences + scopedTotals.absences + scopedTotals.excused + scopedTotals.evasions + scopedTotals.lates === 0;
-  // Sin llamadas por salón todavía, el global recurre a los últimos 7
-  // días para no pintar vacío teniendo datos reales.
-  $: useWeekFallback = donutScope === '' && scopedZero && weekKnown;
-  $: donutTotals = useWeekFallback ? weekTotals : scopedTotals;
+  $: donutTotals = scopedTotals;
   $: marksTotal = donutTotals.presences + donutTotals.absences + donutTotals.excused + donutTotals.evasions + donutTotals.lates;
   $: hasDonut = marksTotal > 0;
   $: donutRate = hasDonut ? Math.round((donutTotals.presences / marksTotal) * 100) : 0;
 
-  $: warningsWeek = summary
-    ? summary.WarningsLast7d.Mild + summary.WarningsLast7d.Moderate + summary.WarningsLast7d.Severe
-    : null;
-  $: graveCount = summary
-    ? summary.WarningsLast7d.Severe
-    : warnings.filter((w) => w.Gravity === 'severe').length;
-  $: warningsKnown = summary ? true : warnings.length > 0;
-  $: gravityCounts = summary
-    ? [summary.WarningsLast7d.Mild, summary.WarningsLast7d.Moderate, summary.WarningsLast7d.Severe]
-    : [
-        warnings.filter((w) => w.Gravity === 'mild').length,
-        warnings.filter((w) => w.Gravity === 'moderate').length,
-        warnings.filter((w) => w.Gravity === 'severe').length
-      ];
+  $: overviewWarnings = overview?.Warnings;
+  $: gravityCounts = overviewWarnings
+    ? [overviewWarnings.Mild, overviewWarnings.Moderate, overviewWarnings.Severe]
+    : summary
+      ? [summary.WarningsLast7d.Mild, summary.WarningsLast7d.Moderate, summary.WarningsLast7d.Severe]
+      : [
+          warnings.filter((w) => w.Gravity === 'mild').length,
+          warnings.filter((w) => w.Gravity === 'moderate').length,
+          warnings.filter((w) => w.Gravity === 'severe').length
+        ];
+  $: warningsKnown = overviewKnown
+    ? true
+    : summary
+      ? true
+      : warnings.length > 0;
+  $: warningsWeek = overviewWarnings
+    ? overviewWarnings.Mild + overviewWarnings.Moderate + overviewWarnings.Severe
+    : (summary
+      ? summary.WarningsLast7d.Mild + summary.WarningsLast7d.Moderate + summary.WarningsLast7d.Severe
+      : null);
+  $: graveCount = overviewWarnings
+    ? overviewWarnings.Severe
+    : summary
+      ? summary.WarningsLast7d.Severe
+      : warnings.filter((w) => w.Gravity === 'severe').length;
   $: hasGravity = summary
     ? summary.WarningsLast7d.Mild + summary.WarningsLast7d.Moderate + summary.WarningsLast7d.Severe > 0
     : warnings.length > 0;
-  $: hasSalonRates = salonRates.length > 0;
 
   $: donut = makeDonut($theme, donutTotals, hasDonut);
   $: gravityBars = makeGravityBars($theme, gravityCounts, hasGravity);
-  $: salonBars = makeSalonBars($theme, salonRates);
+  $: overviewRates = (overview?.Salons ?? []).map((s) => ({ label: s.Label, rate: s.Rate }));
+  $: salonBars = makeSalonBars($theme, overviewKnown ? overviewRates : salonRates);
+  $: hasSalonRates = (overviewKnown ? overviewRates : salonRates).length > 0;
 
   function makeDonut(
     _theme: Theme,
@@ -704,6 +815,15 @@
               />
               <kbd title={$t.admin.consoleSearchLabel}>/</kbd>
             </label>
+            <Dropdown
+              label={$t.admin.periodScopeLabel}
+              value={String(period)}
+              options={periodOptions}
+              on:select={(e) => changePeriod(Number(e.detail))}
+            />
+            <button type="button" class="mini-act" disabled={exporting} on:click={exportYear}>
+              {exporting ? $t.common.retrying : $t.admin.exportYear}
+            </button>
           </div>
         </div>
       </div>
@@ -786,9 +906,6 @@
                       on:select={(e) => (donutScope = String(e.detail))}
                     />
                   </div>
-                  {#if useWeekFallback}
-                    <p class="muted-note">{$t.admin.donutWeekNote}</p>
-                  {/if}
                   <div class="donut-wrap">
                     <Chart option={donut} empty={!hasDonut} emptyLabel={hasDonut ? $t.admin.attendanceTitle : ''} height={220} />
                     {#if hasDonut}<span class="donut-center">{donutRate}%</span>{/if}
@@ -821,8 +938,27 @@
                 {#if hasSalonRates}
                   <p class="insight">
                     <span class="ibadge"><Icon name="pin" /></span>
-                    {$t.admin.salonBelow(salonRates.filter((s) => s.rate < RATE_FLOOR).length)}
+                    {$t.admin.salonBelow((overviewKnown ? overviewRates : salonRates).filter((s) => s.rate < RATE_FLOOR).length)}
                   </p>
+                {/if}
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h2>{$t.admin.daysCalledTitle(overview?.Days.length ?? 0)}</h2>
+                  <span class="caps">{periodCaps}</span>
+                </div>
+                {#if !overviewKnown}
+                  <Skeleton rows={2} />
+                {:else if !overview || overview.Days.length === 0}
+                  <p class="muted-note">{$t.admin.daysCalledEmpty}</p>
+                {:else}
+                  <p class="muted-note">{$t.admin.daysCalledBasis(overview.Marks.StudentDays)}</p>
+                  <div class="daychips">
+                    {#each overview.Days as d (d)}
+                      <span class="chip">{dayChip(d)}</span>
+                    {/each}
+                  </div>
                 {/if}
               </div>
 
@@ -1094,11 +1230,14 @@
   .content {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
+    gap: 28px;
     align-items: start;
   }
   .feed {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
   }
   .sheet {
     background: var(--surface);
@@ -1112,7 +1251,7 @@
     color: var(--ink-soft);
     font-size: 0.84rem;
     font-weight: 500;
-    margin: 22px 0 10px;
+    margin: 28px 0 12px;
   }
   .cat-kicker:first-child {
     margin-top: 0;
@@ -1120,7 +1259,8 @@
   .alerts {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 16px;
+    margin-bottom: 4px;
   }
   .stat {
     background: var(--card);
@@ -1265,8 +1405,8 @@
   .kpis {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    margin-top: 10px;
+    gap: 14px;
+    margin-top: 16px;
   }
   .kpi {
     background: var(--card);
@@ -1290,18 +1430,36 @@
   .gfx {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 10px;
-    margin-bottom: 18px;
+    gap: 20px;
+    margin-bottom: 24px;
   }
   .ratepanel {
-    margin-top: 8px;
+    margin-top: 0;
   }
   .panel {
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: 16px;
-    padding: 20px 18px;
+    padding: 22px 20px;
     min-width: 0;
+    margin-bottom: 24px;
+  }
+  .daychips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    max-height: 168px;
+    overflow-y: auto;
+  }
+  .daychips .chip {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: capitalize;
   }
   .panel-head {
     display: flex;

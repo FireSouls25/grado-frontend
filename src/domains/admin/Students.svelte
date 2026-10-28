@@ -17,6 +17,7 @@
   import { profile } from '$lib/shell/profile';
   import { canManageUsers } from '$lib/access';
   import { mapSettled } from '$lib/async';
+  import { exportStudentsWorkbook } from './excel';
   import { foldSearch } from '$lib/search';
 
   const currentYear = new Date().getFullYear();
@@ -357,6 +358,51 @@
   import { onMount } from 'svelte';
   $: roles = $profile.me?.roles ?? [];
   onMount(load);
+
+  let exporting = false;
+
+  // Excel por salón o todos: nombres en orden de lista, métricas del
+  // reporte real y fórmulas en % y totales. Respeta el salón elegido si
+  // hay uno; si no, exporta todos los salones del año.
+  async function exportExcel() {
+    if (exporting) return;
+    exporting = true;
+    try {
+      const targets = picked ? [picked] : groups;
+      const sheets = [];
+      for (const g of targets) {
+        const rep = await guarded(() => classReport(g.GroupID));
+        if (!rep) continue;
+        sheets.push({
+          label: g.ClassLabel,
+          days: rep.Sessions,
+          students: rep.Students.map((s) => ({
+            surnames: s.Surnames,
+            names: s.Names,
+            presences: s.Presences,
+            absences: s.Absences,
+            excused: s.Excused,
+            evasions: s.Evasions,
+            lates: s.Lates,
+            sessions: s.Sessions
+          }))
+        });
+      }
+      if (sheets.length === 0) {
+        notify($t.admin.exportEmpty);
+        return;
+      }
+      exportStudentsWorkbook(`grado-estudiantes-${year}.xlsx`, sheets, {
+        title: $t.admin.studentExcelTitle(year),
+        daysLabel: $t.admin.daysCalled,
+        headers: $t.admin.studentExcelHeaders(),
+        totalLabel: $t.admin.exportTotal
+      });
+      notify($t.admin.exportedOk);
+    } finally {
+      exporting = false;
+    }
+  }
 </script>
 
 <!-- El año se controla solo desde la barra de la página: el stepper de la
@@ -384,6 +430,9 @@
       </button>
       <button type="button" class="new ghost-new" on:click={() => push('/admin/estudiantes/historial')}>
         {$t.troll.shistory.action}
+      </button>
+      <button type="button" class="new ghost-new" disabled={exporting} on:click={exportExcel}>
+        {exporting ? $t.common.retrying : picked ? $t.admin.exportSalonExcel(picked.ClassLabel) : $t.admin.exportAllExcel}
       </button>
     </div>
     {#if picked}
