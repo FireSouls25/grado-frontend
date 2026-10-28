@@ -54,6 +54,7 @@
     id: string;
     name: string;
     absences: number;
+    excused: number;
     evasions: number;
     lates: number;
     sessions: number;
@@ -292,6 +293,7 @@
         id,
         name: `${s.surnames}, ${s.names}`.trim().replace(/^,/, '').trim() || id,
         absences: s.absences,
+        excused: s.excused,
         evasions: s.evasions,
         lates: s.lates,
         sessions: s.sessions,
@@ -1038,7 +1040,7 @@
                         >
                           <span class="rank">{String(i + 1).padStart(2, '0')}</span>
                           <span class="avatar" aria-hidden="true">{initials(row.name)}</span>
-                          <span class="who"><strong>{row.name}</strong><small>{$t.admin.riskDays(row.sessions)}</small></span>
+                          <span class="who"><strong>{row.name}</strong><small>{$t.admin.riskDays(row.sessions)}{row.excused > 0 ? ` · ${row.excused} ${$t.admin.colPermissionLong.toLowerCase()}` : ''}{row.lates > 0 ? ` · ${row.lates} ${$t.admin.colLatesLong.toLowerCase()}` : ''}</small></span>
                           <span class="countchip">{row.absences} {$t.admin.colAbsences}</span>
                           <span class="countchip" class:alert={row.evasions > 0}>{row.evasions} {$t.admin.colEvasions}</span>
                           <span class="rateblock">

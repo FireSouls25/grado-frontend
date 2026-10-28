@@ -317,6 +317,7 @@
 
   let exporting = false;
   let exportOpen = false;
+  $: totalExportStudents = groups.reduce((n, g) => n + (reports[g.GroupID]?.Students.length ?? 0), 0);
   let exportAll = true;
   let exportPicked: Record<string, boolean> = {};
 
@@ -438,28 +439,35 @@
     {/if}
   </div>
 
-  {#if exportOpen}
-    <div class="sheet exportbox" role="group" aria-label={$t.admin.exportExcel}>
-      <label class="check">
-        <input type="checkbox" checked={exportAll} on:change={toggleExportAll} />
-        <span><strong>{$t.admin.exportGeneral}</strong><small>{$t.admin.exportGeneralHint}</small></span>
-      </label>
-      {#each groups as g (g.GroupID)}
-        <label class="check">
-          <input type="checkbox" checked={!!exportPicked[g.GroupID]} on:change={() => toggleExportGroup(g.GroupID)} />
-          <span>{g.ClassLabel}</span>
-        </label>
-      {/each}
-      <div class="rowbtns">
-        <button type="button" class="mini" on:click={() => (exportOpen = false)}>{$t.common.cancel}</button>
-        <button type="button" class="primary" disabled={exporting} on:click={exportExcel}>
-          {exporting ? $t.common.retrying : $t.admin.exportExcelGo}
-        </button>
-      </div>
-    </div>
-  {/if}
-
   <div class="sheet">
+
+  <Sheet open={exportOpen} title={$t.admin.exportExcel} onClose={() => (exportOpen = false)}>
+    <p class="muted">{$t.admin.exportPickHint}</p>
+    <ul class="xlist">
+      <li>
+        <label class="xrow">
+          <input type="checkbox" checked={exportAll} on:change={toggleExportAll} />
+          <span class="xmain"><strong>{$t.admin.exportGeneral}</strong><small>{$t.admin.exportGeneralHint}</small></span>
+          <span class="xcount">{$t.admin.groupStudents(totalExportStudents)}</span>
+        </label>
+      </li>
+      {#each groups as g (g.GroupID)}
+        <li>
+          <label class="xrow">
+            <input type="checkbox" checked={exportAll || !!exportPicked[g.GroupID]} disabled={exportAll} on:change={() => toggleExportGroup(g.GroupID)} />
+            <span class="xmain"><strong>{g.ClassLabel}</strong></span>
+            <span class="xcount">{$t.admin.groupStudents(reports[g.GroupID]?.Students.length ?? 0)}</span>
+          </label>
+        </li>
+      {/each}
+    </ul>
+    <div class="rowbtns">
+      <button type="button" class="mini" on:click={() => (exportOpen = false)}>{$t.common.cancel}</button>
+      <button type="button" class="primary" disabled={exporting} on:click={exportExcel}>
+        {exporting ? $t.common.retrying : $t.admin.exportExcelGo}
+      </button>
+    </div>
+  </Sheet>
 
   {#if failed}
     <ErrorState error={loadError} onRetry={load} />
@@ -787,16 +795,51 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  .exportbox {
+  .xlist {
+    list-style: none;
+    margin: 12px 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin-bottom: 16px;
   }
-  .exportbox .check span small {
-    display: block;
+  .xrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 12px 14px;
+    min-height: 56px;
+    cursor: pointer;
+  }
+  .xrow input {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--accent);
+    flex: none;
+  }
+  .xmain {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .xmain small {
     color: var(--muted);
     font-weight: 400;
+    font-size: 0.8rem;
+  }
+  .xcount {
+    margin-left: auto;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.8rem;
+    border-radius: var(--radius-pill);
+    padding: 4px 12px;
+    white-space: nowrap;
   }
   .formsub {
     margin: 8px 0 0;

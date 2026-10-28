@@ -1013,6 +1013,7 @@ export const es = {
     colPermissionLong: 'Con permiso',
     colEvasionsLong: 'Evasiones',
     colRate: 'Tasa',
+    colLatesLong: 'Atrasos',
     rateBelow: (delta: number) => `${delta} del 85%`,
     rateAbove: (delta: number) => `+${delta} sobre 85%`,
     openFile: 'Abrir ficha',
@@ -1044,6 +1045,7 @@ export const es = {
     exportGeneral: 'General (todos)',
     exportGeneralHint: 'Todos los salones en un solo archivo.',
     exportExcelGo: 'Descargar',
+    exportPickHint: 'Marca lo que quieres llevar en el Excel.',
     studentExcelTitle: (year: number) => `Estudiantes ${year}`,
     studentExcelHeaders: () => [
       'Nº',
