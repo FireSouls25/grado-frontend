@@ -49,5 +49,6 @@ export const routes = {
   '/admin/llamados': admin(() => import('./domains/admin/Warnings.svelte')),
   '/admin/anos': admin(() => import('./domains/admin/SchoolYears.svelte')),
   '/admin/cierre': admin(() => import('./domains/admin/YearEnd.svelte')),
+  '/admin/cierre/salones': admin(() => import('./domains/admin/Distribute.svelte')),
   '*': Login
 };

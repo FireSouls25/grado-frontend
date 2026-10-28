@@ -38,7 +38,7 @@
 
   // Una sola fuente para las dos navegaciones (lateral en escritorio,
   // barra horizontal en móvil): el mismo destino y el mismo estado.
-  // Años y cierre son solo admin: la secretaría ve el resto igual.
+  // Años es solo admin; el cierre lo ve también secretaría (sin cerrar).
   $: items = [
     { key: 'resumen' as Key, href: '/admin', icon: 'book' as IconName, label: $t.admin.viewOverview },
     { key: 'docentes' as Key, href: '/admin/docentes', icon: 'users' as IconName, label: $t.nav.teachers },
@@ -47,10 +47,10 @@
     { key: 'llamados' as Key, href: '/admin/llamados', icon: 'warn' as IconName, label: $t.admin.navWarnings },
     ...(canManageUsers($profile.me?.roles)
       ? [
-          { key: 'anos' as Key, href: '/admin/anos', icon: 'cap' as IconName, label: $t.admin.navYears },
-          { key: 'cierre' as Key, href: '/admin/cierre', icon: 'check' as IconName, label: $t.admin.navCierre }
+          { key: 'anos' as Key, href: '/admin/anos', icon: 'cap' as IconName, label: $t.admin.navYears }
         ]
-      : [])
+      : []),
+    { key: 'cierre' as Key, href: '/admin/cierre', icon: 'check' as IconName, label: $t.admin.navCierre }
   ];
 </script>
 

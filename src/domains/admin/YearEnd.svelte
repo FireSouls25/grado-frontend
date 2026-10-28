@@ -9,6 +9,8 @@
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import AdminShell from './AdminShell.svelte';
   import { guarded, goBack } from '$lib/nav';
+  import { profile } from '$lib/shell/profile';
+  import { canManageUsers } from '$lib/access';
   import { notify } from '$lib/ui/notice';
   import { ApiError } from '$lib/api/types';
   import { t } from '$lib/i18n';
@@ -107,7 +109,8 @@
   $: yearEndLabel = yearEnd
     ? yearEnd.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
-  $: closeAllowed = !yearClosed && (yearEnded || earlyOverride);
+  $: staffAdmin = canManageUsers($profile.me?.roles ?? []);
+  $: closeAllowed = !yearClosed && (yearEnded || earlyOverride) && staffAdmin;
 
   async function confirmClose() {
     if (!yearRec || closeSaving) return;
@@ -331,6 +334,9 @@
       <div class="statuscard" class:closed={yearClosed}>
         <div class="row-head">
           <h2>{yearClosed ? $t.cierre.statusClosed : $t.cierre.statusOpen} · {year}</h2>
+          <button type="button" class="mini" on:click={() => push('/admin/cierre/salones')}>
+            {$t.cierre.distTitle}
+          </button>
           {#if closeAllowed && !closing}
             <button type="button" class="mini danger" on:click={() => { closing = true; closeError = ''; }}>
               {$t.cierre.confirmAction}

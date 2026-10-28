@@ -29,6 +29,11 @@ export function canWriteWarnings(roles: string[] | undefined | null): boolean {
   return isAdmin(roles) || isTeacher(roles);
 }
 
+/** Distribuir salones del año siguiente: admin y secretaría. */
+export function canPromote(roles: string[] | undefined | null): boolean {
+  return isAdmin(roles) || isSecretary(roles);
+}
+
 /** Corregir asistencia: docentes, admin y secretaría. */
 export function canWriteMarks(roles: string[] | undefined | null): boolean {
   return isAdmin(roles) || isTeacher(roles) || isSecretary(roles);
