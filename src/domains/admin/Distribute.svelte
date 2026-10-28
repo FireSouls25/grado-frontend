@@ -19,6 +19,7 @@
     promotionsForGroup,
     recordPromotion,
     createClassGroup,
+    studentReport,
     type YearGroup,
     type PromotionDecision
   } from './api';
@@ -54,6 +55,12 @@
   let targetGrade = 1;
   let salonCount = 2;
   let selected: string | null = null;
+  let suggestMode: 'balanced' | 'split' = 'balanced';
+  let salonMin = 10;
+  let salonMax = 35;
+  let suggesting = false;
+  let suggestNote = '';
+  let stats: Record<string, { risk: number; bad: boolean }> = {};
   let placed: Record<string, number> = {};
   let dragOverCol: number | null = null;
   let saving = false;
@@ -88,12 +95,20 @@
     return grade === 11 ? $t.cierre.distGraduate : $t.cierre.distPass;
   }
 
-  function loadPersisted() {
+  // Recuerda la última elección por año y grado: al cambiar de grado
+  // se recupera su número de salones, modo y límites.
+  function loadGradeConfig() {
     try {
-      const n = Number(localStorage.getItem(`grado.distrib.salons.${destYear}.${targetGrade}`));
-      if (Number.isInteger(n) && n >= 1 && n <= 8) salonCount = n;
       const g = Number(localStorage.getItem(`grado.distrib.grade.${destYear}`));
       if (Number.isInteger(g) && g >= 1 && g <= 11) targetGrade = g;
+      const n = Number(localStorage.getItem(`grado.distrib.salons.${destYear}.${targetGrade}`));
+      if (Number.isInteger(n) && n >= 1 && n <= 8) salonCount = n;
+      const mo = localStorage.getItem(`grado.distrib.mode.${destYear}.${targetGrade}`);
+      if (mo === 'balanced' || mo === 'split') suggestMode = mo;
+      const lo = Number(localStorage.getItem(`grado.distrib.min.${destYear}.${targetGrade}`));
+      if (Number.isInteger(lo) && lo >= 1 && lo <= 200) salonMin = lo;
+      const hi = Number(localStorage.getItem(`grado.distrib.max.${destYear}.${targetGrade}`));
+      if (Number.isInteger(hi) && hi >= 1 && hi <= 200) salonMax = hi;
     } catch {
       /* sin almacenamiento: valores por defecto */
     }
@@ -103,15 +118,25 @@
     try {
       localStorage.setItem(`grado.distrib.salons.${destYear}.${targetGrade}`, String(salonCount));
       localStorage.setItem(`grado.distrib.grade.${destYear}`, String(targetGrade));
+      localStorage.setItem(`grado.distrib.mode.${destYear}.${targetGrade}`, suggestMode);
+      localStorage.setItem(`grado.distrib.min.${destYear}.${targetGrade}`, String(salonMin));
+      localStorage.setItem(`grado.distrib.max.${destYear}.${targetGrade}`, String(salonMax));
     } catch {
       /* sin almacenamiento: la sesión sigue funcionando */
     }
   }
 
+  $: if (state === 'ready') {
+    targetGrade;
+    loadGradeConfig();
+  }
+
   $: {
-    // Recuerda la última elección por año y grado.
     salonCount;
     targetGrade;
+    salonMin;
+    salonMax;
+    suggestMode;
     if (state === 'ready') persist();
   }
 
@@ -200,33 +225,170 @@
     else dragOverCol = null;
   }
 
+  async function destSalons(): Promise<YearGroup[]> {
+    const dest = (await guarded(() => groupsByYear(destYear))) ?? [];
+    return dest.filter((g) => g.Grade === targetGrade).sort((a, b) => a.GroupNo - b.GroupNo);
+  }
+
+  // Crear salones es un paso aparte: la sugerencia y la confirmación
+  // nunca inventan salones solas.
+  async function createSalons() {
+    if (saving) return;
+    saveError = '';
+    saving = true;
+    try {
+      const have = await destSalons();
+      let created = 0;
+      for (let i = 1; i <= salonCount; i++) {
+        if (have.some((g) => g.GroupNo === i)) continue;
+        const rec = await guarded(() =>
+          createClassGroup({ year: destYear, grade: targetGrade, groupNo: i })
+        );
+        if (!rec) {
+          saveError = $t.common.loadError;
+          return;
+        }
+        created += 1;
+      }
+      notify(created === 0 ? $t.cierre.distSalonsExist : $t.cierre.distSalonsCreated(created));
+      await load();
+    } catch (err) {
+      saveError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      saving = false;
+    }
+  }
+
+  type Risk = { risk: number; bad: boolean };
+
+  function riskOf(id: string): Risk {
+    return stats[id] ?? { risk: 0, bad: false };
+  }
+
+  // Heurística documentada: riesgo = tasa de inasistencia + 0.1 por cada
+  // Tipo 3; malo = algún Tipo 3 o asistencia < 75%.
+  async function loadStats(): Promise<boolean> {
+    try {
+      const settled = await mapSettled(pool, 4, async (c) => {
+        const known = stats[c.studentID];
+        if (known) return { id: c.studentID, ...known };
+        const r = await guarded(() => studentReport(c.studentID));
+        const total =
+          (r?.Presences ?? 0) + (r?.Absences ?? 0) + (r?.Excused ?? 0) + (r?.Evasions ?? 0) + (r?.Lates ?? 0);
+        const rate = total > 0 ? (r?.Presences ?? 0) / total : 1;
+        const severe = r?.WarningsSevere ?? 0;
+        return { id: c.studentID, risk: 1 - rate + 0.1 * severe, bad: severe > 0 || rate < 0.75 };
+      });
+      const next: Record<string, Risk> = { ...stats };
+      settled.forEach((res) => {
+        if (res.status === 'fulfilled' && res.value) {
+          next[res.value.id] = { risk: res.value.risk, bad: res.value.bad };
+        }
+      });
+      stats = next;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function deal(list: typeof pool, cols: number[], max: number): Record<string, number> {
+    const counts = new Map<number, number>(cols.map((c) => [c, 0]));
+    const out: Record<string, number> = {};
+    let idx = 0;
+    for (const c of list) {
+      let tries = 0;
+      while ((counts.get(cols[idx % cols.length]) ?? 0) >= max && tries < cols.length) {
+        idx++;
+        tries++;
+      }
+      let col = cols[idx % cols.length];
+      if ((counts.get(col) ?? 0) >= max) {
+        col = [...counts.entries()].sort((a, b) => a[1] - b[1])[0][0];
+      }
+      out[c.studentID] = col;
+      counts.set(col, (counts.get(col) ?? 0) + 1);
+      idx++;
+    }
+    return out;
+  }
+
+  async function suggest() {
+    if (suggesting || pool.length === 0) return;
+    suggesting = true;
+    suggestNote = '';
+    try {
+      if (!(await loadStats())) {
+        suggestNote = $t.common.loadError;
+        return;
+      }
+      const lo = Math.max(1, Math.min(salonMin, salonMax));
+      const hi = Math.max(1, Math.max(salonMin, salonMax));
+      if (pool.length > salonCount * hi) {
+        suggestNote = $t.cierre.distTooMany(pool.length, salonCount * hi);
+        return;
+      }
+      if (pool.length < salonCount * lo) {
+        suggestNote = $t.cierre.distTooFew(pool.length, salonCount * lo);
+        return;
+      }
+      const byName = (a: (typeof pool)[number], b: (typeof pool)[number]) =>
+        `${a.surnames} ${a.names}`.localeCompare(`${b.surnames} ${b.names}`, 'es');
+      let assignment: Record<string, number>;
+      let summary = '';
+      if (suggestMode === 'balanced') {
+        const ordered = [...pool].sort((a, b) => riskOf(b.studentID).risk - riskOf(a.studentID).risk);
+        const cols = Array.from({ length: salonCount }, (_, i) => i);
+        const fwd = deal(
+          ordered.filter((_, i) => i % 2 === 0),
+          cols,
+          hi
+        );
+        const bwd = deal(ordered.filter((_, i) => i % 2 !== 0), [...cols].reverse(), hi);
+        assignment = { ...fwd };
+        for (const [k, v] of Object.entries(bwd)) assignment[k] = v;
+        const risks = pool.map((c) => riskOf(c.studentID).risk);
+        const avg = risks.reduce((n, r) => n + r, 0) / Math.max(1, risks.length);
+        summary = $t.cierre.distBalancedNote(avg);
+      } else {
+        const good = pool.filter((c) => !riskOf(c.studentID).bad).sort(byName);
+        const bad = pool.filter((c) => riskOf(c.studentID).bad).sort(byName);
+        if (good.length === 0 || bad.length === 0) {
+          assignment = deal([...pool].sort(byName), Array.from({ length: salonCount }, (_, i) => i), hi);
+          summary = $t.cierre.distSplitFallback;
+        } else {
+          const kGood = Math.min(salonCount - 1, Math.max(1, Math.round((salonCount * good.length) / pool.length)));
+          const g = deal(good, Array.from({ length: kGood }, (_, i) => i), hi);
+          const b = deal(bad, Array.from({ length: salonCount - kGood }, (_, i) => i + kGood), hi);
+          assignment = { ...g };
+          for (const [k, v] of Object.entries(b)) assignment[k] = v;
+          summary = $t.cierre.distSplitNote(good.length, bad.length);
+        }
+      }
+      placed = assignment;
+      selected = null;
+      suggestNote = summary;
+    } finally {
+      suggesting = false;
+    }
+  }
+
   async function confirm() {
     if (saving) return;
     saveError = '';
     saving = true;
     try {
-      // Los salones existen o se crean numerados 1..N.
-      const destGroups = await guarded(() => groupsByYear(destYear));
-      if (!destGroups) return;
-      const have = destGroups
-        .filter((g) => g.Grade === targetGrade)
-        .sort((a, b) => a.GroupNo - b.GroupNo);
+      // Confirmar no crea salones: usa los que ya existen (botón aparte).
+      const have = await destSalons();
       const salons: string[] = [];
       for (let i = 1; i <= salonCount; i++) {
         const found = have.find((g) => g.GroupNo === i);
-        if (found) {
-          salons.push(found.GroupID);
-          continue;
-        }
-        const created = await guarded(() =>
-          createClassGroup({ year: destYear, grade: targetGrade, groupNo: i })
-        );
-        if (!created) {
-          saveError = $t.common.loadError;
+        if (!found) {
+          saveError = $t.cierre.distNeedSalons;
           saving = false;
           return;
         }
-        salons.push(created.GroupID);
+        salons.push(found.GroupID);
       }
       // Cada ubicado queda con decisión y matrícula donde se decidió;
       // lo idéntico a lo ya guardado se omite para no duplicar.
@@ -340,6 +502,31 @@
           <button type="button" aria-label="+" disabled={salonCount >= 8} on:click={() => (salonCount = Math.min(8, salonCount + 1))}>›</button>
         </div>
       </div>
+      <div class="suggestbox">
+        <div class="seg" role="group" aria-label={$t.cierre.distModeLabel}>
+          <button type="button" class:on={suggestMode === 'balanced'} aria-pressed={suggestMode === 'balanced'} on:click={() => (suggestMode = 'balanced')}>
+            {$t.cierre.distModeBalanced}
+          </button>
+          <button type="button" class:on={suggestMode === 'split'} aria-pressed={suggestMode === 'split'} on:click={() => (suggestMode = 'split')}>
+            {$t.cierre.distModeSplit}
+          </button>
+        </div>
+        <label class="minmax">
+          <span>{$t.cierre.distMin}</span>
+          <input type="number" min="1" max="200" bind:value={salonMin} />
+        </label>
+        <label class="minmax">
+          <span>{$t.cierre.distMax}</span>
+          <input type="number" min="1" max="200" bind:value={salonMax} />
+        </label>
+        <button type="button" class="mini" disabled={suggesting || pool.length === 0} on:click={suggest}>
+          {suggesting ? $t.common.retrying : $t.cierre.distSuggest}
+        </button>
+        <button type="button" class="mini" disabled={saving} on:click={createSalons}>
+          {$t.cierre.distCreate}
+        </button>
+      </div>
+      {#if suggestNote}<p class="note" role="status">{suggestNote}</p>{/if}
       <label class="search">
         <Icon name="search" />
         <input type="search" placeholder={$t.cierre.distSearch} aria-label={$t.cierre.distSearch} bind:value={search} />
@@ -596,6 +783,66 @@
     font-weight: 600;
     font-size: 0.78rem;
     background: var(--surface);
+  }
+  .mini:disabled {
+    opacity: 0.6;
+  }
+  .suggestbox {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: end;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 12px 14px;
+  }
+  .suggestbox .seg {
+    display: flex;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 4px;
+  }
+  .suggestbox .seg button {
+    min-height: 40px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .suggestbox .seg button.on {
+    background: var(--accent);
+    color: #fff;
+  }
+  .minmax {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+  .minmax input {
+    width: 76px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 8px 10px;
+    min-height: 44px;
+    font-size: 0.88rem;
+    color: var(--ink);
+  }
+  .note {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 8px 12px;
   }
   .col ul {
     list-style: none;
