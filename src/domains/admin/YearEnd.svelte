@@ -9,6 +9,7 @@
   import Dropdown from '$lib/ui/Dropdown.svelte';
   import AdminShell from './AdminShell.svelte';
   import { guarded, goBack } from '$lib/nav';
+  import { notify } from '$lib/ui/notice';
   import { ApiError } from '$lib/api/types';
   import { t } from '$lib/i18n';
   import {
@@ -18,6 +19,7 @@
     studentReport,
     recordPromotion,
     promotionsForGroup,
+    closeYear,
     type YearGroup,
     type Promotion,
     type PromotionDecision
@@ -30,7 +32,11 @@
   let year = currentYear;
   let groups: YearGroup[] = [];
   let picked: YearGroup | null = null;
-  let years: { Year: number; PeriodRanges: { Start: string; End: string }[] }[] = [];
+  let years: { ID: string; Year: number; EndDate: string; Closed: boolean; PeriodRanges: { Start: string; End: string }[] }[] = [];
+  let closing = false;
+  let closeSaving = false;
+  let closeError = '';
+  let earlyOverride = false;
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let loadError: unknown = null;
@@ -67,9 +73,53 @@
   async function loadYears() {
     try {
       const data = await guarded(() => listYears());
-      if (data) years = data.map((y) => ({ Year: y.Year, PeriodRanges: y.PeriodRanges ?? [] }));
+      if (data) {
+        years = data.map((y) => ({
+          ID: y.ID,
+          Year: y.Year,
+          EndDate: y.EndDate ?? '',
+          Closed: !!y.Closed,
+          PeriodRanges: y.PeriodRanges ?? []
+        }));
+      }
     } catch {
       years = [];
+    }
+  }
+
+  async function groupsOrEmpty(y: number): Promise<YearGroup[]> {
+    try {
+      return (await guarded(() => groupsByYear(y))) ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  $: yearRec = years.find((y) => y.Year === year) ?? null;
+  $: yearClosed = yearRec?.Closed ?? false;
+  $: yearEnd = yearRec?.EndDate ? new Date(`${yearRec.EndDate.slice(0, 10)}T12:00:00`) : null;
+  $: yearEnded = yearEnd !== null && new Date() >= yearEnd;
+  $: closeBlocked = !yearClosed && !yearEnded && !earlyOverride;
+  $: yearEndLabel = yearEnd
+    ? yearEnd.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+  $: closeAllowed = !yearClosed && (yearEnded || earlyOverride);
+
+  async function confirmClose() {
+    if (!yearRec || closeSaving) return;
+    closeError = '';
+    closeSaving = true;
+    try {
+      await guarded(() => closeYear(yearRec.ID));
+      closing = false;
+      earlyOverride = false;
+      notify($t.cierre.closedOk);
+      await loadYears();
+      await loadGroups();
+    } catch (err) {
+      closeError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      closeSaving = false;
     }
   }
 
@@ -88,17 +138,10 @@
     picked = null;
     rows = [];
     try {
-      const [gs, dest] = await Promise.all([
-        guarded(() => groupsByYear(year)),
-        guarded(() => groupsByYear(year + 1))
-      ]);
-      if (gs === null || dest === null) {
-        state = 'error';
-        return;
-      }
+      const [gs, dest] = await Promise.all([groupsOrEmpty(year), groupsOrEmpty(year + 1)]);
       groups = gs;
       destGroups = dest;
-      nextYearExists = true;
+      nextYearExists = dest.length > 0;
       if (groups.length > 0) picked = groups[0];
       checkLastPeriod();
       state = 'ready';
@@ -251,6 +294,47 @@
   </div>
 
   <div class="sheet">
+    {#if yearRec}
+      <div class="statuscard" class:closed={yearClosed}>
+        <div class="row-head">
+          <h2>{yearClosed ? $t.cierre.statusClosed : $t.cierre.statusOpen} · {year}</h2>
+          {#if closeAllowed && !closing}
+            <button type="button" class="mini danger" on:click={() => { closing = true; closeError = ''; }}>
+              {$t.cierre.confirmAction}
+            </button>
+          {/if}
+        </div>
+        {#if yearClosed}
+          <p class="muted"><strong>{$t.cierre.lockedTitle}</strong></p>
+          <p class="muted">{$t.cierre.lockedBody}</p>
+        {:else if !yearEnded}
+          <p class="muted"><strong>{$t.cierre.notYetTitle}.</strong> {$t.cierre.notYetBody(yearEndLabel)}</p>
+          <label class="override">
+            <input type="checkbox" bind:checked={earlyOverride} />
+            <span>{$t.cierre.overrideLabel}</span>
+          </label>
+          <p class="muted">{$t.cierre.previewNote}</p>
+        {:else}
+          <p class="muted"><strong>{$t.cierre.confirmTitle}.</strong></p>
+          <p class="muted">{$t.cierre.confirmBody}</p>
+        {/if}
+        {#if closing && closeAllowed}
+          <div class="confirmbox" role="alertdialog" aria-label={$t.cierre.confirmTitle}>
+            <p><strong>{$t.cierre.confirmSure}</strong></p>
+            <p class="muted">{$t.cierre.confirmBody}</p>
+            {#if closeError}<p class="error" role="alert">{closeError}</p>{/if}
+            <div class="rowbtns">
+              <button type="button" class="mini" disabled={closeSaving} on:click={() => (closing = false)}>
+                {$t.common.cancel}
+              </button>
+              <button type="button" class="mini primary" disabled={closeSaving} on:click={confirmClose}>
+                {closeSaving ? '…' : $t.cierre.confirmYes}
+              </button>
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
     {#if state === 'loading' && rows.length === 0}
       <Skeleton rows={5} />
     {:else if state === 'error' && rows.length === 0}
@@ -336,9 +420,11 @@
                   {/each}
                 </select>
               {/if}
-              <button type="button" class="mini" disabled={row.saving} on:click={() => saveRow(row)}>
-                {row.saving ? $t.common.retrying : $t.common.save}
-              </button>
+              {#if !yearClosed}
+                <button type="button" class="mini" disabled={row.saving} on:click={() => saveRow(row)}>
+                  {row.saving ? $t.common.retrying : $t.common.save}
+                </button>
+              {/if}
             </div>
             {#if row.error}<p class="error" role="alert">{row.error}</p>{/if}
           </section>
@@ -478,5 +564,64 @@
     color: var(--danger);
     font-size: 0.9rem;
     font-weight: 600;
+  }
+  .statuscard {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    padding: 16px 18px;
+    margin-bottom: 12px;
+  }
+  .statuscard.closed {
+    border-color: var(--g-grave-ink);
+  }
+  .statuscard .row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .statuscard .row-head h2 {
+    font-size: 1rem;
+    margin: 0;
+  }
+  .mini.danger {
+    background: var(--g-grave-bg);
+    border-color: transparent;
+    color: var(--g-grave-ink);
+  }
+  .mini.primary {
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
+  }
+  .override {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin: 8px 0 0;
+  }
+  .override input {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    accent-color: var(--accent);
+  }
+  .confirmbox {
+    margin-top: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-chip);
+    padding: 12px 14px;
+  }
+  .rowbtns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
   }
 </style>

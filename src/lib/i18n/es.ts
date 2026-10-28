@@ -78,7 +78,24 @@ export const es = {
     graduateOnly11: 'Solo en grado 11',
     destLabel: 'Salón destino',
     destPlaceholder: 'Elige destino…',
-    destRequired: 'Elige el salón destino.'
+    destRequired: 'Elige el salón destino.',
+    statusOpen: 'Año abierto',
+    statusClosed: 'Año cerrado',
+    lockedTitle: 'Año cerrado: registros congelados',
+    lockedBody:
+      'Ya no se pueden pasar listas, modificar marcas ni registrar llamados de este año. Las promociones registradas quedan como historial. Para operar, la secretaría o el admin deben trabajar sobre el año lectivo vigente.',
+    notYetTitle: 'Cierre aún no disponible',
+    notYetBody: (end: string) =>
+      `El año lectivo termina el ${end}. El cierre se habilita al finalizar el año; mientras tanto puedes adelantar las decisiones de promoción como vista previa.`,
+    overrideLabel: 'Entiendo: es un cierre anticipado o una prueba, habilitar de todos modos',
+    confirmTitle: 'Cerrar el año lectivo',
+    confirmBody:
+      'Al cerrar, nadie podrá pasar lista, modificar marcas ni registrar llamados de este año. Las promociones ya guardadas se conservan. Esta acción no se puede deshacer desde la consola.',
+    confirmAction: 'Cerrar año',
+    confirmSure: '¿Seguro? Esta acción congela el año.',
+    confirmYes: 'Sí, cerrar ahora',
+    closedOk: 'Año cerrado. Los registros quedaron congelados.',
+    previewNote: 'Vista previa: las decisiones de abajo no cierran el año, solo adelantan el trabajo.'
   },
   recovery: {
     title: 'Recuperar contraseña',
