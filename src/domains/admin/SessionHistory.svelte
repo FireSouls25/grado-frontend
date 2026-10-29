@@ -8,6 +8,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
+  import Icon from '$lib/ui/Icon.svelte';
   import SessionCorrectSheet from './SessionCorrectSheet.svelte';
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
@@ -225,9 +226,7 @@
 <AdminShell active="estudiantes" {year}>
   <TopBar title={$t.troll.shistory.title} showBack onBack={() => goBack('/admin/estudiantes')}><TopActions /></TopBar>
 
-  <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-    <h1 class="title">{$t.troll.shistory.title}</h1>
+  <div class="sheet-filters">
     <div class="filters">
       <Dropdown
         label={$t.troll.shistory.salonLabel}
@@ -291,7 +290,7 @@
                 <span class="chip eva">{card.Evasion}</span>
                 <span class="chip warn">{card.Late}</span>
               </span>
-              <span class="chev" aria-hidden="true">{expanded === card.ID ? '▾' : '▸'}</span>
+              <span class="chev" class:open={expanded === card.ID} aria-hidden="true"><Icon name="next" /></span>
             </button>
             {#if expanded === card.ID}
               <div class="cbody">
@@ -360,16 +359,15 @@
 </AdminShell>
 
 <style>
-  .pagehead {
+  .sheet-filters {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sheet);
+    padding: 14px 16px;
     margin-bottom: 12px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .title {
-    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
   .filters {
     display: grid;
@@ -386,14 +384,11 @@
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 16px 16px 130px;
-  }
-  @media (min-width: 700px) {
-    .sheet {
-      padding: 20px 20px 130px;
-    }
+    border-radius: var(--radius-sheet);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
   .muted {
     color: var(--muted);
@@ -410,10 +405,9 @@
   .cards .card {
     padding: 0;
     overflow: hidden;
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
   }
   .chead {
     width: 100%;
@@ -430,25 +424,26 @@
     flex-direction: column;
   }
   .cdate strong {
-    font-size: 1.25rem;
+    font-size: 1rem;
+    font-weight: 600;
     text-transform: capitalize;
   }
   .cdate small {
     color: var(--muted);
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.78rem;
+    font-weight: 500;
   }
   .csum {
     display: flex;
     gap: 6px;
   }
   .chip {
-    min-width: 40px;
+    min-width: 34px;
     text-align: center;
     border-radius: 999px;
-    padding: 6px 12px;
-    font-size: 0.9rem;
-    font-weight: 800;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
   .chip.ok {
@@ -501,8 +496,19 @@
     font-weight: 800;
   }
   .chev {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--muted);
-    font-size: 0.9rem;
+  }
+  .chev :global(svg) {
+    width: 16px;
+    height: 16px;
+    transform: rotate(90deg);
+    transition: transform var(--t-fast) var(--ease-out);
+  }
+  .chev.open :global(svg) {
+    transform: rotate(-90deg);
   }
   .cbody {
     border-top: 1px solid var(--line);

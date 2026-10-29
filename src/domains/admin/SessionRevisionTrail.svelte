@@ -3,6 +3,7 @@
   // de llamadas y en el resumen del estudiante. Con studentName filtra
   // a ese estudiante y oculta la pastilla de nombre (ya está en contexto).
   import { t } from '$lib/i18n';
+  import Icon from '$lib/ui/Icon.svelte';
   import type { SessionRevisionRow } from './api';
 
   export let revisions: SessionRevisionRow[] = [];
@@ -52,7 +53,7 @@
           <span class="change">
             {#if r.From}
               <span class={`mk ${markClass(r.From)}`}>{markName(r.From)}</span>
-              <span class="swap" aria-hidden="true">›</span>
+              <span class="swap" aria-hidden="true"><Icon name="next" /></span>
             {:else}
               <span class="first">{$t.admin.markPresent}</span>
             {/if}
@@ -169,10 +170,13 @@
     border-radius: 999px;
     background: var(--accent-soft);
     color: var(--accent);
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
+  }
+  .swap :global(svg) {
+    width: 12px;
+    height: 12px;
   }
   .first {
     font-size: 0.75rem;

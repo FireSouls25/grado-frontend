@@ -141,18 +141,7 @@
 
 <TeacherShell active="agenda">
   <div class="warning">
-  <TopBar title={$t.app.name} showBack onBack={() => goBack(detailHref())}><TopActions /></TopBar>
-
-  <div class="pagehead">
-    <p class="crumbs">
-      {$t.warning.breadcrumbHome} <span>›</span>
-      {$t.warning.breadcrumbAgenda} <span>›</span>
-      {$t.warning.breadcrumbDetail} <span>›</span>
-      <strong>{$t.warning.breadcrumbHere}</strong>
-    </p>
-    <p class="eyebrow">{$t.warning.eyebrow}</p>
-    <h1 class="title">{$t.warning.title}</h1>
-  </div>
+  <TopBar title={$t.warning.title} subtitle={originLabel} showBack onBack={() => goBack(detailHref())}><TopActions /></TopBar>
 
   <div class="sheet">
     {#if loading}
@@ -247,8 +236,8 @@
           {/if}
 
           <div class="actions">
-            <button type="button" class="ghost" on:click={() => push(detailHref())}>{$t.warning.cancel}</button>
-            <button type="button" class="primary" disabled={!valid || saving} on:click={save}>
+            <button type="button" class="btn" on:click={() => push(detailHref())}>{$t.warning.cancel}</button>
+            <button type="button" class="btn btn-primary" disabled={!valid || saving} on:click={save}>
               {saving ? $t.warning.saving : $t.warning.save}
             </button>
           </div>
@@ -263,38 +252,15 @@
 <style>
   .warning {
     margin: 0 auto;
-    max-width: 1400px;
+    max-width: 1440px;
     min-width: 0;
     color: var(--ink);
-  }
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .crumbs {
-    color: var(--muted);
-    font-size: 0.8rem;
-    margin-bottom: 6px;
-  }
-  .crumbs strong {
-    color: var(--ink);
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .title {
-    font-size: 2rem;
-    letter-spacing: -0.03em;
-    font-weight: 550;
-    line-height: 1.05;
   }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 20px 18px 40px;
+    border-radius: var(--radius-sheet);
+    padding: 18px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -311,20 +277,12 @@
     border-radius: var(--radius-card);
     padding: 20px 18px;
   }
-  .tag {
-    color: var(--muted);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
   .origin h2 {
-    font-size: 1.3rem;
-    letter-spacing: -0.02em;
-    padding-bottom: 14px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    padding-bottom: 10px;
     border-bottom: 1px solid var(--line);
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     overflow-wrap: anywhere;
   }
   .note {
@@ -337,8 +295,9 @@
   .ibadge {
     width: 26px;
     height: 26px;
-    border-radius: 8px;
-    background: var(--tint);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
     color: var(--ink-soft);
     display: inline-flex;
     align-items: center;
@@ -371,16 +330,15 @@
     width: 100%;
     appearance: none;
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 13px 44px 13px 16px;
-    font-size: 0.88rem;
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    padding: 0 40px 0 12px;
+    font-size: 0.85rem;
     color: var(--ink);
-    min-height: 44px;
+    min-height: var(--control-height);
   }
   .select-wrap select:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: 0;
+    outline: none;
     border-color: var(--accent);
   }
   .chev {
@@ -395,17 +353,17 @@
   .seg {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    background: var(--surface);
+    gap: 4px;
+    background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 6px;
+    border-radius: var(--radius-control);
+    padding: 4px;
   }
   .sevpill {
-    min-height: 44px;
-    border-radius: 8px;
+    min-height: 36px;
+    border-radius: 6px;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--muted);
     display: inline-flex;
     align-items: center;
@@ -475,19 +433,18 @@
   }
   .form textarea {
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 14px 16px;
-    font-size: 0.88rem;
-    line-height: 1.6;
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    line-height: 1.5;
     width: 100%;
     resize: vertical;
-    min-height: 130px;
+    min-height: 120px;
     color: var(--ink);
   }
   .form textarea:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: 0;
+    outline: none;
     border-color: var(--accent);
   }
   .flash {
@@ -505,55 +462,25 @@
   .link {
     align-self: flex-start;
     color: var(--accent);
-    font-weight: 700;
-    font-size: 0.88rem;
-    padding: 10px 0;
-    min-height: 44px;
+    font-weight: 600;
+    font-size: 0.84rem;
+    padding: 6px 0;
   }
   .link:hover {
     text-decoration: underline;
   }
   .actions {
     display: flex;
-    flex-direction: column-reverse;
     gap: 8px;
-    margin-top: 4px;
-  }
-  .ghost {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    color: var(--ink);
-    font-weight: 700;
-    font-size: 0.88rem;
-    border-radius: var(--radius-chip);
-    padding: 12px 22px;
-    min-height: 44px;
-  }
-  .primary {
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 700;
-    font-size: 0.88rem;
-    border-radius: var(--radius-chip);
-    padding: 12px 24px;
-    min-height: 44px;
-  }
-  .primary:disabled {
-    opacity: 0.6;
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
   @media (min-width: 720px) {
-    .title {
-      font-size: 2.4rem;
-    }
-    .sheet {
-      padding: 24px 26px 60px;
-    }
     .grid {
-      grid-template-columns: 300px minmax(0, 1fr);
-    }
-    .actions {
-      flex-direction: row;
-      justify-content: flex-end;
+      grid-template-columns: 280px minmax(0, 1fr);
     }
   }
 </style>

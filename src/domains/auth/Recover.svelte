@@ -129,7 +129,6 @@
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
     padding: 22px;
     display: flex;
     flex-direction: column;

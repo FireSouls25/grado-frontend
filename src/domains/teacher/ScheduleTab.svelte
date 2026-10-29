@@ -81,12 +81,7 @@
 
 <TeacherShell active="horario">
   <div class="page">
-  <TopBar title={$t.schedule.title}><TopActions /></TopBar>
-
-  <div class="pagehead">
-    <p class="eyebrow">{$t.schedule.eyebrow}</p>
-    <h1 class="title">{$t.schedule.title}</h1>
-  </div>
+  <TopBar title={$t.schedule.title} subtitle={$t.schedule.eyebrow}><TopActions /></TopBar>
 
   <div class="sheet">
     {#if state === 'loading'}
@@ -117,7 +112,7 @@
                       <span class="factpill"><Icon name="list" /> {entry.ClassLabel}</span>
                     </div>
                   </div>
-                  <button type="button" class="open" on:click={() => openClass(entry)}>
+                  <button type="button" class="btn btn-sm" on:click={() => openClass(entry)}>
                     {$t.schedule.openList}
                   </button>
                 </li>
@@ -139,30 +134,14 @@
     min-width: 0;
     color: var(--ink);
   }
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .title {
-    font-size: 2rem;
-    letter-spacing: -0.03em;
-    font-weight: 550;
-    line-height: 1.05;
-    font-variant-numeric: tabular-nums;
-  }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 20px 18px 40px;
+    border-radius: var(--radius-sheet);
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
   }
   .dayblock {
     background: var(--card);
@@ -171,9 +150,9 @@
     padding: 16px 16px 8px;
   }
   .daylabel {
-    font-size: 0.84rem;
-    font-weight: 550;
-    color: var(--ink-soft);
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--ink);
     text-transform: capitalize;
     margin-bottom: 4px;
   }
@@ -242,33 +221,21 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: var(--tint);
-    border-radius: var(--radius-pill);
-    padding: 4px 11px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 10px;
     font-weight: 600;
   }
   .factpill :global(svg) {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
   }
-  .open {
+  .timeline li .btn {
     grid-column: 2;
     justify-self: start;
-    border-radius: var(--radius-chip);
-    padding: 9px 18px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-weight: 700;
-    font-size: 0.85rem;
-    min-height: 44px;
   }
   @media (min-width: 720px) {
-    .title {
-      font-size: 2.4rem;
-    }
-    .sheet {
-      padding: 24px 26px 60px;
-    }
     .timeline li {
       grid-template-columns: 24px minmax(0, 1fr) auto;
       align-items: center;
@@ -276,7 +243,7 @@
     .rail {
       grid-row: auto;
     }
-    .open {
+    .timeline li .btn {
       grid-column: auto;
     }
   }

@@ -2,6 +2,21 @@
 node_modules/
 dist/
 
+# Configuración local y secretos: nunca al repositorio.
+.env
+
+# Referencias visuales locales (imágenes de diseño).
+reference/
+
+# Herramientas del agente de codificación: nunca al repositorio.
+.agents/
+.pi/
+skills-lock.json
+
+# Artefactos generados de Tauri.
+src-tauri/gen/
+src-tauri/target/
+
 # Sistema operativo
 .DS_Store
 Thumbs.db

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
+  import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
   import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -43,11 +44,6 @@
   import { exportYearWorkbook, type PeriodExport } from './excel';
   $: roles = $profile.me?.roles ?? [];
 
-  // Consola del administrador (identidad docs/diseno.md, referencia
-  // proto/ConsolaAdmin.svelte): encabezado en crema sobre lámina blanca,
-  // rail de Pendientes y tabs segmentados. Solo datos de endpoints reales;
-  // lo que aún da 404 pinta vacío honesto, nunca datos falsos.
-
   type Sev = 'leve' | 'medio' | 'grave';
 
   interface RiskRow {
@@ -67,20 +63,14 @@
     sev: Sev;
     title: string;
     meta: string;
-    /** Ir directo a la pantalla que lo configura; null = sin destino. */
     href: string | null;
     actionLabel: string | null;
-    /** Teléfono para llamar (tel:); null = sin llamada. */
     call: string | null;
-    /** Id de alerta para marcar revisada inline; null = sin revisión. */
     reviewId: string | null;
     done: boolean;
   }
 
   const RATE_FLOOR = 85;
-  // La tasa solo alarma con muestra suficiente: el primer día con una
-  // falta daría 100% de inasistencia y es muy temprano para llamar.
-  // Los conteos absolutos (3+ faltas/evasiones) sí alertan siempre.
   const RATE_MIN_DAYS = 4;
 
   const currentYear = new Date().getFullYear();
@@ -134,11 +124,7 @@
 
   let search = '';
   let searchEl: HTMLInputElement | null = null;
-  let selectedStudent: string | null = null;
   let tasks: Task[] = [];
-
-  const gravityToSev = (gravity: RecentWarning['Gravity']): Sev =>
-    gravity === 'severe' ? 'grave' : gravity === 'moderate' ? 'medio' : 'leve';
 
   const initials = (name: string) =>
     name
@@ -168,8 +154,6 @@
         guarded(() => groupsByYear(year))
       ]);
       if (teacherData === null || groupData === null) {
-        // Sin identidad o sin permiso la guarda navega; si seguimos aquí,
-        // pinta vacío honesto en vez de cargar para siempre.
         teacherList = [];
         teachersKnown = true;
         groups = [];
@@ -219,16 +203,11 @@
     risk = [];
     reportCount = 0;
     reportsKnown = false;
-    // Los salones vienen del endpoint real (/v1/classes?year): cada grupo
-    // aporta su reporte por ID. Sin grupos no hay reportes que sumar.
     const byStudent = new Map<
       string,
       { names: string; surnames: string; presences: number; absences: number; excused: number; evasions: number; lates: number; sessions: number }
     >();
     const labelOf = new Map(groups.map((g) => [g.GroupID, g.ClassLabel]));
-    // En paralelo con tope: un salon sin reporte es vacio honesto y no
-    // frena a los demas. En serie eran N viajes encadenados por cada carga;
-    // sin tope serían N viajes a la vez contra el servidor.
     const settled = await mapSettled(groups, 5, (g) => classReport(g.GroupID));
     settled.forEach((result) => {
       if (result.status !== 'fulfilled') return;
@@ -283,9 +262,6 @@
     });
     reportsKnown = true;
     salonRates.sort((a, b) => a.rate - b.rate);
-    // Los pushes mutan sin reasignar: en modo legacy eso no invalida los
-    // derivados ($:), así que se reasigna para que el donut, el ranking
-    // por salón y el filtro por alcance se enteren.
     salonTotals = [...salonTotals];
     salonRates = [...salonRates];
     totals = { ...totals };
@@ -309,10 +285,11 @@
     buildTasks();
   }
 
-  const clock = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+  const clock = (n: number) => {
+    const mins = n % 60;
+    return `${Math.floor(n / 60)}:${mins < 10 ? '0' + mins : mins}`;
+  };
 
-  // Clases de hoy en lectura: qué salones, qué materias y quién las da.
-  // Sin bloques pinta "no hay ninguno", nunca el texto del backend.
   async function loadToday() {
     todayClasses = [];
     todayKnown = false;
@@ -344,10 +321,6 @@
     }
   }
 
-  // Estadística docente y pendientes configurables: todo de endpoints
-  // reales (asistencia mensual por docente, horario por docente, catálogo
-  // de materias con asignaciones y ficha del estudiante para el teléfono
-  // del acudiente). En paralelo con tope; lo que falle pinta vacío.
   async function reviewAlert(id: string) {
     try {
       await reviewAcademicAlert(id);
@@ -369,9 +342,9 @@
       .filter((g) => !directed.has(g.ClassLabel))
       .map((g) => ({ gid: g.GroupID, label: g.ClassLabel }));
     const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const from = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
-    const to = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const fmtTwo = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    const from = `${now.getFullYear()}-${fmtTwo(now.getMonth() + 1)}-01`;
+    const to = `${now.getFullYear()}-${fmtTwo(now.getMonth() + 1)}-${fmtTwo(now.getDate())}`;
     const [hist, sched] = await Promise.all([
       mapSettled(teacherList, 4, (x) => teacherHistory(x.ID, from, to)),
       mapSettled(teacherList, 4, (x) => scheduleEntries({ teacherID: x.ID }))
@@ -538,8 +511,6 @@
     }
   }
 
-  // Agregado real del año o periodo: días con llamada, marcas, llamados
-  // y salones. Todo lo que los gráficos muestran sale de aquí.
   async function loadOverview() {
     overviewKnown = false;
     try {
@@ -554,7 +525,6 @@
 
   function buildTasks() {
     const next: Task[] = [];
-    // Riesgo de asistencia: llamar al acudiente y abrir el resumen.
     for (const row of risk.slice(0, 5)) {
       const grave = row.rate < 75 || row.evasions >= 2;
       next.push({
@@ -702,22 +672,9 @@
           warnings.filter((w) => w.Gravity === 'moderate').length,
           warnings.filter((w) => w.Gravity === 'severe').length
         ];
-  $: warningsKnown = overviewKnown
-    ? true
-    : summary
-      ? true
-      : warnings.length > 0;
-  $: warningsWeek = overviewWarnings
-    ? overviewWarnings.Mild + overviewWarnings.Moderate + overviewWarnings.Severe
-    : (summary
-      ? summary.WarningsLast7d.Mild + summary.WarningsLast7d.Moderate + summary.WarningsLast7d.Severe
-      : null);
-  $: graveCount = overviewWarnings
-    ? overviewWarnings.Severe
-    : summary
-      ? summary.WarningsLast7d.Severe
-      : warnings.filter((w) => w.Gravity === 'severe').length;
-  $: hasGravity = gravityCounts[0] + gravityCounts[1] + gravityCounts[2] > 0;
+  $: warningsKnown = overviewKnown ? true : summary ? true : warnings.length > 0;
+  $: totalWarnings = gravityCounts[0] + gravityCounts[1] + gravityCounts[2];
+  $: hasGravity = totalWarnings > 0;
 
   $: donut = makeDonut($theme, donutTotals, hasDonut);
   $: gravityBars = makeGravityBars($theme, gravityCounts, hasGravity);
@@ -734,15 +691,15 @@
       series: [
         {
           type: 'pie',
-          radius: ['58%', '80%'],
+          radius: ['60%', '80%'],
           label: { show: false },
           data: has
             ? [
-                { value: marks.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#4e8a3c') } },
-                { value: marks.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#c0392b') } },
-                { value: marks.excused, name: $t.admin.markPermission, itemStyle: { color: cssVar('--m-permission', '#2f6db3') } },
-                { value: marks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#8377a8') } },
-                { value: marks.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#9a7b12') } }
+                { value: marks.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#1e7b4f') } },
+                { value: marks.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#b83a2a') } },
+                { value: marks.excused, name: $t.admin.markPermission, itemStyle: { color: cssVar('--m-permission', '#1b6c80') } },
+                { value: marks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#733952') } },
+                { value: marks.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#a86f0c') } }
               ]
             : []
         }
@@ -752,22 +709,24 @@
 
   function makeGravityBars(_theme: Theme, counts: number[], has: boolean) {
     return {
+      grid: { top: 16, right: 12, bottom: 28, left: 36 },
       xAxis: {
         type: 'category',
         data: [$t.roster.warnGravityMild, $t.roster.warnGravityModerate, $t.roster.warnGravitySevere]
       },
-      yAxis: { type: 'value' },
+      yAxis: { type: 'value', minInterval: 1 },
       series: [
         {
           type: 'bar',
+          barMaxWidth: 42,
           data: has
             ? [
-                { value: counts[0], itemStyle: { color: cssVar('--g-leve-ink', '#1f8fc4') } },
-                { value: counts[1], itemStyle: { color: cssVar('--g-medio-ink', '#93700f') } },
-                { value: counts[2], itemStyle: { color: cssVar('--g-grave-ink', '#cf4444') } }
+                { value: counts[0], itemStyle: { color: cssVar('--g-leve-ink', '#115373') } },
+                { value: counts[1], itemStyle: { color: cssVar('--g-medio-ink', '#7c4d08') } },
+                { value: counts[2], itemStyle: { color: cssVar('--g-grave-ink', '#9e1c22') } }
               ]
             : [],
-          itemStyle: { borderRadius: [8, 8, 0, 0] }
+          itemStyle: { borderRadius: [4, 4, 0, 0] }
         }
       ]
     };
@@ -775,21 +734,23 @@
 
   function makeSalonBars(_theme: Theme, rates: { label: string; rate: number }[]) {
     return {
+      grid: { top: 16, right: 12, bottom: 28, left: 36 },
       xAxis: { type: 'category', data: rates.map((s) => s.label) },
       yAxis: { type: 'value', max: 100 },
       series: [
         {
           type: 'bar',
+          barMaxWidth: 36,
           data: rates.map((s) => ({
             value: s.rate,
             itemStyle: {
               color:
                 s.rate < RATE_FLOOR
-                  ? cssVar('--g-grave-ink', '#cf4444')
-                  : cssVar('--ink', '#201d18')
+                  ? cssVar('--g-grave-ink', '#9e1c22')
+                  : cssVar('--accent', '#1b6c80')
             }
           })),
-          itemStyle: { borderRadius: [8, 8, 0, 0] }
+          itemStyle: { borderRadius: [4, 4, 0, 0] }
         }
       ]
     };
@@ -798,158 +759,161 @@
   $: statTeachers = summary?.Totals.Teachers ?? (teachersKnown ? teacherList.length : null);
   $: statStudents = summary?.Totals.Students ?? null;
   $: statGroups = summary?.Totals.Groups ?? (groupsKnown ? (groups.length > 0 ? groups.length : null) : null);
-  $: statWarnings = warningsWeek ?? (warningsKnown ? graveCount : null);
 </script>
 
 <AdminShell active="resumen" {year} onYear={changeYear}>
-    <main class="main">
-      <div class="pagehead">
-        <div class="titlebar">
-          <h1 class="title">{consoleTitle}</h1>
-          <div class="topactions"><TopActions /></div>
-        </div>
-        <div class="controlbar">
-          <div class="controls">
-            <label class="search">
-              <Icon name="search" />
-              <input
-                type="search"
-                placeholder={$t.admin.consoleSearch}
-                aria-label={$t.admin.consoleSearchLabel}
-                bind:value={search}
-                bind:this={searchEl}
-              />
-              <kbd title={$t.admin.consoleSearchLabel}>/</kbd>
-            </label>
-            <Dropdown
-              label={$t.admin.periodScopeLabel}
-              value={String(period)}
-              options={periodOptions}
-              on:select={(e) => changePeriod(Number(e.detail))}
-            />
-            <button type="button" class="mini-act" disabled={exporting} on:click={exportYear}>
-              {exporting ? $t.common.retrying : $t.admin.exportYear}
-            </button>
-          </div>
-        </div>
+  <main class="main">
+    <TopBar title={$t.admin.viewOverview} subtitle={consoleTitle}>
+      <TopActions />
+    </TopBar>
+
+    <div class="controlbar">
+      <label class="search">
+        <Icon name="search" />
+        <input
+          type="search"
+          placeholder={$t.admin.consoleSearch}
+          aria-label={$t.admin.consoleSearchLabel}
+          bind:value={search}
+          bind:this={searchEl}
+        />
+        <kbd title={$t.admin.consoleSearchLabel}>/</kbd>
+      </label>
+      <div class="period-drop">
+        <Dropdown
+          label={$t.admin.periodScopeLabel}
+          hideLabel
+          value={String(period)}
+          options={periodOptions}
+          on:select={(e) => changePeriod(Number(e.detail))}
+        />
       </div>
+      <button type="button" class="btn btn-primary" disabled={exporting} on:click={exportYear}>
+        {exporting ? $t.common.retrying : $t.admin.exportYear}
+      </button>
+    </div>
 
-      <div class="content">
-        <div class="feed">
-          <div class="sheet">
-            {#if state === 'loading'}
-              <Skeleton rows={6} />
-            {:else if state === 'error'}
-              <ErrorState error={loadError} onRetry={load} />
-            {:else}
-              <p class="cat-kicker">{$t.admin.consoleEyebrow}</p>
-              <div class="alerts">
-                <div class="stat">
-                  <div class="stat-in">
-                    <small>{$t.admin.attRisk}</small>
-                    <strong>{reportsKnown ? risk.length : '—'}</strong>
-                    <span>{$t.admin.attRiskDetail}</span>
-                  </div>
-                  <div class="stat-ft">
-                    <span class="ibadge"><Icon name="warn" /></span>
-                    <span>{RATE_FLOOR}%</span>
-                    {#if risk.length > 0}
-                      <button type="button" class="mini-act" on:click={scrollToLedger}>{$t.admin.attActionList}</button>
-                    {:else}
-                      <span class="soon">{$t.admin.soon}</span>
-                    {/if}
-                  </div>
-                </div>
-                <div class="stat">
-                  <div class="stat-in">
-                    <small>{$t.admin.attListed}</small>
-                    <strong>{reportsKnown ? reportCount : '—'}</strong>
-                    <span>{$t.admin.attListedDetail}</span>
-                  </div>
-                  <div class="stat-ft">
-                    <span class="ibadge"><Icon name="calendar" /></span>
-                    <span>{groupsKnown ? $t.admin.salonsCount(groups.length) : $t.admin.attNoData}</span>
-                    {#if reportCount > 0}
-                      <button type="button" class="mini-act" on:click={() => push('/admin/estudiantes')}>{$t.admin.attActionList}</button>
-                    {:else}
-                      <span class="soon">{$t.admin.soon}</span>
-                    {/if}
-                  </div>
-                </div>
-                <div class="stat">
-                  <div class="stat-in">
-                    <small>{$t.admin.warningsTitle}</small>
-                    <strong>{warningsKnown ? gravityCounts[0] + gravityCounts[1] + gravityCounts[2] : '—'}</strong>
-                    <span>{warningsKnown ? $t.admin.warningsBreakdown(gravityCounts[2], gravityCounts[1], gravityCounts[0]) : $t.admin.attNoData}</span>
-                  </div>
-                  <div class="stat-ft">
-                    <span class="ibadge"><Icon name="warn" /></span>
-                    <span>{statWarnings ?? '—'}</span>
-                    {#if warningsKnown && gravityCounts[0] + gravityCounts[1] + gravityCounts[2] > 0}
-                      <button type="button" class="mini-act" on:click={() => push('/admin/llamados')}>{$t.admin.attActionList}</button>
-                    {:else}
-                      <span class="soon">{$t.admin.soon}</span>
-                    {/if}
-                  </div>
+    <div class="content">
+      <div class="feed">
+        <div class="sheet">
+          {#if state === 'loading'}
+            <Skeleton rows={6} />
+          {:else if state === 'error'}
+            <ErrorState error={loadError} onRetry={load} />
+          {:else}
+            <section class="kpi-strip" aria-label={$t.admin.viewOverview}>
+              <div class="kpi-cell">
+                <span class="kpi-label">{$t.admin.attRisk}</span>
+                <strong class="kpi-val" class:alert={reportsKnown && risk.length > 0}>
+                  {reportsKnown ? risk.length : '—'}
+                </strong>
+                <div class="kpi-foot">
+                  <span>{$t.admin.attRiskDetail}</span>
+                  {#if risk.length > 0}
+                    <button type="button" class="kpi-link" on:click={scrollToLedger}>{$t.admin.attActionList}</button>
+                  {/if}
                 </div>
               </div>
 
-              <div class="kpis" aria-label={$t.admin.consoleEyebrow}>
-                <div class="kpi"><small>{$t.admin.statsStudents}</small><strong>{statStudents ?? '—'}</strong></div>
-                <div class="kpi"><small>{$t.admin.statsTeachers}</small><strong>{statTeachers ?? '—'}</strong></div>
-                <div class="kpi"><small>{$t.admin.statsGroups}</small><strong>{statGroups ?? '—'}</strong></div>
-                <div class="kpi"><small>{$t.admin.statsWarnings}</small><strong>{statWarnings ?? '—'}</strong></div>
+              <div class="kpi-cell">
+                <span class="kpi-label">{$t.admin.attListed}</span>
+                <strong class="kpi-val">
+                  {reportsKnown ? reportCount : '—'}{#if statGroups !== null}<small>/{statGroups}</small>{/if}
+                </strong>
+                <div class="kpi-foot">
+                  <span>{$t.admin.attListedDetail}</span>
+                  <button type="button" class="kpi-link" on:click={() => push('/admin/estudiantes')}>{$t.nav.students}</button>
+                </div>
               </div>
 
-              <div class="gfx">
-                <div class="panel">
-                  <div class="panel-head">
-                    <h2>{$t.admin.attendanceTitle}</h2>
+              <div class="kpi-cell">
+                <span class="kpi-label">{$t.admin.statsStudents}</span>
+                <strong class="kpi-val">{statStudents ?? '—'}</strong>
+                <div class="kpi-foot">
+                  <span>{groupsKnown ? $t.admin.salonsCount(groups.length) : $t.admin.attNoData}</span>
+                </div>
+              </div>
+
+              <div class="kpi-cell">
+                <span class="kpi-label">{$t.admin.statsTeachers}</span>
+                <strong class="kpi-val">{statTeachers ?? '—'}</strong>
+                <div class="kpi-foot">
+                  <span>{$t.admin.teachersActive}: {teachersKnown ? teacherList.filter((x) => x.Active).length : '—'}</span>
+                  <button type="button" class="kpi-link" on:click={() => push('/admin/docentes')}>{$t.nav.teachers}</button>
+                </div>
+              </div>
+
+              <div class="kpi-cell">
+                <span class="kpi-label">{$t.admin.warningsTitle}</span>
+                <strong class="kpi-val" class:alert={warningsKnown && gravityCounts[2] > 0}>
+                  {warningsKnown ? totalWarnings : '—'}
+                </strong>
+                <div class="kpi-foot">
+                  <span>{warningsKnown ? $t.admin.warningsBreakdown(gravityCounts[2], gravityCounts[1], gravityCounts[0]) : $t.admin.attNoData}</span>
+                  <button type="button" class="kpi-link" on:click={() => push('/admin/llamados')}>{$t.admin.navWarnings}</button>
+                </div>
+              </div>
+            </section>
+
+            <div class="gfx">
+              <section class="panel">
+                <div class="panel-head">
+                  <h2>{$t.admin.attendanceTitle}</h2>
+                  <div class="scope-drop">
                     <Dropdown
                       label={$t.admin.donutScopeLabel}
+                      hideLabel
                       value={donutScope}
                       options={scopeOptions}
                       on:select={(e) => (donutScope = String(e.detail))}
                     />
                   </div>
-                  <div class="donut-wrap">
-                    <Chart option={donut} empty={!hasDonut} emptyLabel={hasDonut ? $t.admin.attendanceTitle : ''} height={220} />
-                    {#if hasDonut}<span class="donut-center">{donutRate}%</span>{/if}
-                  </div>
-                  <div class="legend pills">
-                    <span><i class="sw k-present"></i>{$t.admin.markPresent}</span>
-                    <span><i class="sw k-absent"></i>{$t.admin.markAbsence}</span>
-                    <span><i class="sw k-permission"></i>{$t.admin.markPermission}</span>
-                    <span><i class="sw k-evasion"></i>{$t.admin.markEvasion}</span>
-                    <span><i class="sw k-late"></i>{$t.admin.markLate}</span>
-                  </div>
                 </div>
-                <div class="panel">
-                  <div class="panel-head"><h2>{$t.admin.warningsTitle}</h2></div>
-                  <Chart option={gravityBars} empty={!hasGravity} emptyLabel={hasGravity ? $t.admin.warningsTitle : ''} height={220} />
-                  <div class="legend pills">
-                    <span><i class="sw k-grave"></i>{$t.roster.warnGravitySevere}</span>
-                    <span><i class="sw k-medio"></i>{$t.roster.warnGravityModerate}</span>
-                    <span><i class="sw k-leve"></i>{$t.roster.warnGravityMild}</span>
-                  </div>
+                <div class="donut-wrap">
+                  <Chart option={donut} empty={!hasDonut} emptyLabel={hasDonut ? $t.admin.attendanceTitle : ''} height={200} />
+                  {#if hasDonut}<span class="donut-center">{donutRate}%</span>{/if}
                 </div>
-              </div>
+                <div class="legend pills">
+                  <span><i class="sw k-present"></i>{$t.admin.markPresent} <strong>{donutTotals.presences}</strong></span>
+                  <span><i class="sw k-absent"></i>{$t.admin.markAbsence} <strong>{donutTotals.absences}</strong></span>
+                  <span><i class="sw k-permission"></i>{$t.admin.markPermission} <strong>{donutTotals.excused}</strong></span>
+                  <span><i class="sw k-evasion"></i>{$t.admin.markEvasion} <strong>{donutTotals.evasions}</strong></span>
+                  <span><i class="sw k-late"></i>{$t.admin.markLate} <strong>{donutTotals.lates}</strong></span>
+                </div>
+              </section>
 
-              <div class="panel ratepanel">
+              <section class="panel">
+                <div class="panel-head">
+                  <h2>{$t.admin.warningsTitle}</h2>
+                  <button type="button" class="btn btn-sm" on:click={() => push('/admin/llamados')}>
+                    {$t.admin.attActionList}
+                  </button>
+                </div>
+                <Chart option={gravityBars} empty={!hasGravity} emptyLabel={hasGravity ? $t.admin.warningsTitle : ''} height={200} />
+                <div class="legend pills">
+                  <span><i class="sw k-grave"></i>{$t.roster.warnGravitySevere} <strong>{gravityCounts[2]}</strong></span>
+                  <span><i class="sw k-medio"></i>{$t.roster.warnGravityModerate} <strong>{gravityCounts[1]}</strong></span>
+                  <span><i class="sw k-leve"></i>{$t.roster.warnGravityMild} <strong>{gravityCounts[0]}</strong></span>
+                </div>
+              </section>
+            </div>
+
+            <div class="pair-grid">
+              <section class="panel">
                 <div class="panel-head">
                   <h2>{$t.admin.salonRateTitle}</h2>
                   <span class="caps">{$t.admin.salonRateCaption}</span>
                 </div>
-                <Chart option={salonBars} empty={!hasSalonRates} emptyLabel={hasSalonRates ? $t.admin.salonRateTitle : ''} height={220} />
+                <Chart option={salonBars} empty={!hasSalonRates} emptyLabel={hasSalonRates ? $t.admin.salonRateTitle : ''} height={200} />
                 {#if hasSalonRates}
                   <p class="insight">
-                    <span class="ibadge"><Icon name="pin" /></span>
-                    {$t.admin.salonBelow((overviewKnown ? overviewRates : salonRates).filter((s) => s.rate < RATE_FLOOR).length)}
+                    <Icon name="pin" />
+                    <span>{$t.admin.salonBelow((overviewKnown ? overviewRates : salonRates).filter((s) => s.rate < RATE_FLOOR).length)}</span>
                   </p>
                 {/if}
-              </div>
+              </section>
 
-              <div class="panel">
+              <section class="panel">
                 <div class="panel-head">
                   <h2>{$t.admin.daysCalledTitle(overview?.Days.length ?? 0)}</h2>
                   <span class="caps">{periodCaps}</span>
@@ -962,16 +926,91 @@
                   <p class="muted-note">{$t.admin.daysCalledBasis(overview.Marks.StudentDays)}</p>
                   <div class="daychips">
                     {#each overview.Days as d (d)}
-                      <span class="chip">{dayChip(d)}</span>
+                      <span class="daychip">{dayChip(d)}</span>
                     {/each}
                   </div>
                 {/if}
-              </div>
+              </section>
+            </div>
 
-              <div class="panel">
+            <section class="panel" id="riesgo">
+              <div class="panel-head">
+                <h2>{$t.admin.riskTitle}</h2>
+                <span class="count">{$t.admin.riskCount(visibleRisk.length)}</span>
+              </div>
+              {#if visibleRisk.length === 0}
+                <EmptyState
+                  icon="users"
+                  title={q ? $t.admin.riskNoMatch : $t.admin.riskEmpty}
+                  body={$t.admin.attNoData}
+                />
+              {:else}
+                <div class="table-wrap">
+                  <div class="prow-head" aria-hidden="true">
+                    <span>#</span>
+                    <span>{$t.admin.colStudent}</span>
+                    <span class="num-col">{$t.admin.colAbsences}</span>
+                    <span class="num-col">{$t.admin.colEvasions}</span>
+                    <span class="num-col">{$t.admin.colRate}</span>
+                    <span class="act-col">{$t.a11y.actions}</span>
+                  </div>
+                  <ul class="prows">
+                    {#each visibleRisk as row, i (row.id)}
+                      <li class="prow">
+                        <span class="rank">{i + 1}</span>
+                        <div class="who-cell">
+                          <span class="avatar" aria-hidden="true">{initials(row.name)}</span>
+                          <span class="who">
+                            <strong>{row.name}</strong>
+                            <small>
+                              {$t.admin.riskDays(row.sessions)}{row.excused > 0 ? ` · ${row.excused} ${$t.admin.colPermissionLong.toLowerCase()}` : ''}{row.lates > 0 ? ` · ${row.lates} ${$t.admin.colLatesLong.toLowerCase()}` : ''}
+                            </small>
+                          </span>
+                        </div>
+                        <span class="num-cell">{row.absences}</span>
+                        <span class="num-cell" class:alert={row.evasions > 0}>{row.evasions}</span>
+                        <div class="rateblock">
+                          <div class="rate-top">
+                            <strong class:low={row.rate < RATE_FLOOR}>{row.rate}%</strong>
+                            <small>
+                              {row.rate - RATE_FLOOR >= 0
+                                ? $t.admin.rateAbove(row.rate - RATE_FLOOR)
+                                : $t.admin.rateBelow(row.rate - RATE_FLOOR)}
+                            </small>
+                          </div>
+                          <span class="rbar stack" role="img" aria-label={`${row.presences} ${$t.admin.markPresent} · ${row.absences} ${$t.admin.markAbsence} · ${row.lates} ${$t.admin.markLate}`}>
+                            {#if row.presences > 0}<span class="sg-present" style={`width:${(row.presences / row.sessions) * 100}%`}></span>{/if}
+                            {#if row.excused > 0}<span class="sg-permission" style={`width:${(row.excused / row.sessions) * 100}%`}></span>{/if}
+                            {#if row.lates > 0}<span class="sg-late" style={`width:${(row.lates / row.sessions) * 100}%`}></span>{/if}
+                            {#if row.absences > 0}<span class="sg-absent" style={`width:${(row.absences / row.sessions) * 100}%`}></span>{/if}
+                            {#if row.evasions > 0}<span class="sg-evasion" style={`width:${(row.evasions / row.sessions) * 100}%`}></span>{/if}
+                          </span>
+                        </div>
+                        <div class="row-actions">
+                          {#if guardianPhones[row.id]}
+                            <a class="btn btn-sm btn-primary" href={`tel:${guardianPhones[row.id]}`}>{$t.admin.callAction}</a>
+                          {/if}
+                          <button type="button" class="btn btn-sm" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.id)}/resumen`)}>
+                            {$t.admin.openSummary}
+                          </button>
+                          <button type="button" class="btn btn-sm" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.id)}`)}>
+                            {$t.admin.openFile}
+                          </button>
+                        </div>
+                      </li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+            </section>
+
+            <div class="pair-grid">
+              <section class="panel">
                 <div class="panel-head">
                   <h2>{$t.admin.teachersPanelTitle}</h2>
-                  <button type="button" class="mini-act" on:click={() => push('/admin/docentes')}>{$t.admin.attActionList}</button>
+                  <button type="button" class="btn btn-sm" on:click={() => push('/admin/docentes')}>
+                    {$t.admin.attActionList}
+                  </button>
                 </div>
                 {#if !teachersKnown}
                   <Skeleton rows={2} />
@@ -980,23 +1019,23 @@
                 {:else}
                   {@const active = teacherList.filter((x) => x.Active).length}
                   {@const directors = teacherList.filter((x) => x.Active && x.HomeroomClassID).length}
-                  <div class="kpis slim" aria-label={$t.admin.teachersPanelTitle}>
-                    <div class="kpi"><small>{$t.admin.teachersActive}</small><strong>{active}</strong></div>
-                    <div class="kpi"><small>{$t.admin.teachersInactive}</small><strong>{teacherList.length - active}</strong></div>
-                    <div class="kpi"><small>{$t.admin.teachersDirectors}</small><strong>{directors}</strong></div>
-                    <div class="kpi"><small>{$t.admin.teachersUnassigned}</small><strong>{unassignedTeachers.length}</strong></div>
+                  <div class="mini-kpis" aria-label={$t.admin.teachersPanelTitle}>
+                    <div><small>{$t.admin.teachersActive}</small><strong>{active}</strong></div>
+                    <div><small>{$t.admin.teachersInactive}</small><strong>{teacherList.length - active}</strong></div>
+                    <div><small>{$t.admin.teachersDirectors}</small><strong>{directors}</strong></div>
+                    <div><small>{$t.admin.teachersUnassigned}</small><strong>{unassignedTeachers.length}</strong></div>
                   </div>
                   {#if teacherMonth.known && teacherMonth.present + teacherMonth.absent + teacherMonth.late > 0}
-                    <div class="kpis slim">
-                      <div class="kpi"><small>{$t.admin.markPresent}</small><strong>{teacherMonth.present}</strong></div>
-                      <div class="kpi"><small>{$t.admin.markAbsence}</small><strong>{teacherMonth.absent}</strong></div>
-                      <div class="kpi"><small>{$t.admin.markLate}</small><strong>{teacherMonth.late}</strong></div>
+                    <div class="mini-kpis three">
+                      <div><small>{$t.admin.markPresent}</small><strong>{teacherMonth.present}</strong></div>
+                      <div><small>{$t.admin.markAbsence}</small><strong>{teacherMonth.absent}</strong></div>
+                      <div><small>{$t.admin.markLate}</small><strong>{teacherMonth.late}</strong></div>
                     </div>
                     <p class="muted-note">{$t.admin.teachersMonth}</p>
                   {/if}
                   {#if unassignedTeachers.length > 0}
                     <ul class="trows">
-                      {#each unassignedTeachers.slice(0, 5) as x (x.id)}
+                      {#each unassignedTeachers.slice(0, 4) as x (x.id)}
                         <li>
                           <button type="button" on:click={() => push(`/admin/docentes/${encodeURIComponent(x.id)}`)}>
                             <span class="avatar" aria-hidden="true">{initials(x.name)}</span>
@@ -1004,86 +1043,22 @@
                               <strong>{x.name}</strong>
                               <small>{$t.admin.unassignedTeacherMeta}</small>
                             </span>
-                            <span class="go" aria-hidden="true"><Icon name="next" /></span>
+                            <Icon name="next" />
                           </button>
                         </li>
                       {/each}
                     </ul>
                   {/if}
                 {/if}
-              </div>
+              </section>
 
-              <p class="cat-kicker" id="riesgo">{$t.admin.riskTitle}</p>
-              <div class="panel">
+              <section class="panel">
                 <div class="panel-head">
-                  <span class="count">{$t.admin.riskCount(visibleRisk.length)}</span>
+                  <h2>{$t.admin.todayTitle}</h2>
+                  <button type="button" class="btn btn-sm" on:click={() => push('/admin/horario')}>
+                    {$t.admin.seeWeek}
+                  </button>
                 </div>
-                {#if visibleRisk.length === 0}
-                  <EmptyState
-                    icon="users"
-                    title={q ? $t.admin.riskNoMatch : $t.admin.riskEmpty}
-                    body={$t.admin.attNoData}
-                  />
-                {:else}
-                  <ul class="prow-head" aria-hidden="true">
-                    <li>
-                      <span>Nº</span><span class="widespan">{$t.admin.colStudent}</span><span>{$t.admin.colAbsences}</span><span>{$t.admin.colEvasions}</span><span>{$t.admin.colRate}</span>
-                    </li>
-                  </ul>
-                  <ul class="prows">
-                    {#each visibleRisk as row, i (row.id)}
-                      <li>
-                        <button
-                          type="button"
-                          class="prow"
-                          class:on={selectedStudent === row.id}
-                          on:click={() => (selectedStudent = selectedStudent === row.id ? null : row.id)}
-                          aria-expanded={selectedStudent === row.id}
-                        >
-                          <span class="rank">{String(i + 1).padStart(2, '0')}</span>
-                          <span class="avatar" aria-hidden="true">{initials(row.name)}</span>
-                          <span class="who"><strong>{row.name}</strong><small>{$t.admin.riskDays(row.sessions)}{row.excused > 0 ? ` · ${row.excused} ${$t.admin.colPermissionLong.toLowerCase()}` : ''}{row.lates > 0 ? ` · ${row.lates} ${$t.admin.colLatesLong.toLowerCase()}` : ''}</small></span>
-                          <span class="countchip">{row.absences} {$t.admin.colAbsences}</span>
-                          <span class="countchip" class:alert={row.evasions > 0}>{row.evasions} {$t.admin.colEvasions}</span>
-                          <span class="rateblock">
-                            <strong class:low={row.rate < RATE_FLOOR}>{row.rate}%</strong>
-                            <span class="rbar stack" role="img" aria-label={`${row.presences} ✓ · ${row.absences} ✗ · ${row.lates} ⏰ · ${row.excused} P`}>
-                              {#if row.presences > 0}<span class="sg-present" style={`width:${(row.presences / row.sessions) * 100}%`}></span>{/if}
-                              {#if row.excused > 0}<span class="sg-permission" style={`width:${(row.excused / row.sessions) * 100}%`}></span>{/if}
-                              {#if row.lates > 0}<span class="sg-late" style={`width:${(row.lates / row.sessions) * 100}%`}></span>{/if}
-                              {#if row.absences > 0}<span class="sg-absent" style={`width:${(row.absences / row.sessions) * 100}%`}></span>{/if}
-                              {#if row.evasions > 0}<span class="sg-evasion" style={`width:${(row.evasions / row.sessions) * 100}%`}></span>{/if}
-                            </span>
-                            <small>
-                              {row.rate - RATE_FLOOR >= 0
-                                ? $t.admin.rateAbove(row.rate - RATE_FLOOR)
-                                : $t.admin.rateBelow(row.rate - RATE_FLOOR)}
-                            </small>
-                          </span>
-                        </button>
-                        {#if selectedStudent === row.id}
-                          <div class="detail-box">
-                            <span><strong>{row.name}</strong> · {row.rate}% · {year}</span>
-                            <span class="sp"></span>
-                            <button type="button" class="mini-act" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.id)}/resumen`)}>
-                              {$t.admin.openSummary}
-                            </button>
-                            <button type="button" class="mini-act" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.id)}`)}>
-                              {$t.admin.openFile}
-                            </button>
-                            {#if guardianPhones[row.id]}
-                              <a class="mini-act call" href={`tel:${guardianPhones[row.id]}`}>{$t.admin.callAction}</a>
-                            {/if}
-                          </div>
-                        {/if}
-                      </li>
-                    {/each}
-                  </ul>
-                {/if}
-              </div>
-
-              <p class="cat-kicker">{$t.admin.todayTitle}</p>
-              <div class="panel">
                 <div class="weekstrip" aria-label={$t.admin.todayTitle}>
                   {#each $t.admin.scheduleWeekdays as day, di}
                     <span class:today={di === todayIndex}><small>{day}</small></span>
@@ -1095,7 +1070,7 @@
                   <p class="muted-note">{$t.admin.todayNone}</p>
                 {:else}
                   <ul class="todaylist">
-                    {#each todayClasses as c (c.gid + c.start)}
+                    {#each todayClasses.slice(0, 6) as c (c.gid + c.start)}
                       <li>
                         <button
                           type="button"
@@ -1106,121 +1081,101 @@
                             <strong>{c.label}{c.subject ? ` · ${c.subject}` : ''}</strong>
                             {#if c.teacher}<small>{c.teacher}</small>{/if}
                           </span>
-                          <span class="go" aria-hidden="true"><Icon name="next" /></span>
+                          <Icon name="next" />
                         </button>
                       </li>
                     {/each}
                   </ul>
                 {/if}
-              </div>
-            {/if}
-          </div>
+              </section>
+            </div>
+          {/if}
         </div>
+      </div>
 
-        <aside class="railp" aria-label={$t.admin.pendingTitle}>
-          <div class="rail-head">
-            <h2>{$t.admin.pendingTitle}</h2>
-            <span class="pill">{$t.admin.pendingOpen(openTasks)}</span>
-          </div>
-          {#if tasks.length === 0}
-            <p class="fine">{$t.admin.pendingEmpty}</p>
-          {:else}
-            <ul class="todos">
-              {#each tasks as task (task.id)}
-                <li class:done={task.done}>
-                  <button
-                    type="button"
-                    class="box"
-                    role="checkbox"
-                    aria-checked={task.done}
-                    aria-label={task.title}
-                    on:click={() => (task.done = !task.done)}
-                  >
-                    {#if task.done}<Icon name="check" />{/if}
-                  </button>
-                  <div class="todo-main">
-                    <div class="todo-top">
-                      <span class={`sev ${task.sev}`}><i></i>{task.sev}</span>
-                      <div class="todo-t"><strong>{task.title}</strong><small>{task.meta}</small></div>
-                    </div>
-                  {#if !task.done && (task.call || (task.href && task.actionLabel))}
+      <aside class="railp" aria-label={$t.admin.pendingTitle}>
+        <div class="rail-head">
+          <h2>{$t.admin.pendingTitle}</h2>
+          <span class="pill">{$t.admin.pendingOpen(openTasks)}</span>
+        </div>
+        {#if tasks.length === 0}
+          <p class="fine">{$t.admin.pendingEmpty}</p>
+        {:else}
+          <ul class="todos">
+            {#each tasks as task (task.id)}
+              <li class:done={task.done}>
+                <button
+                  type="button"
+                  class="box"
+                  role="checkbox"
+                  aria-checked={task.done}
+                  aria-label={task.title}
+                  on:click={() => (task.done = !task.done)}
+                >
+                  {#if task.done}<Icon name="check" />{/if}
+                </button>
+                <div class="todo-main">
+                  <div class="todo-top">
+                    <span class={`sev ${task.sev}`}><i></i>{task.sev}</span>
+                    <div class="todo-t"><strong>{task.title}</strong><small>{task.meta}</small></div>
+                  </div>
+                  {#if !task.done && (task.call || (task.href && task.actionLabel) || task.reviewId)}
                     <div class="tacts">
                       {#if task.call}
-                        <a class="go call" href={`tel:${task.call}`}>{$t.admin.callAction}</a>
+                        <a class="btn btn-sm btn-primary" href={`tel:${task.call}`}>{$t.admin.callAction}</a>
                       {/if}
                       {#if task.href && task.actionLabel}
-                        <button type="button" class="go" on:click={() => task.href && push(task.href)}>{task.actionLabel}</button>
+                        <button type="button" class="btn btn-sm" on:click={() => task.href && push(task.href)}>{task.actionLabel}</button>
                       {/if}
                       {#if task.reviewId}
-                        <button type="button" class="go" on:click={() => task.reviewId && reviewAlert(task.reviewId)}>{$t.academicAlert.reviewAction}</button>
+                        <button type="button" class="btn btn-sm" on:click={() => task.reviewId && reviewAlert(task.reviewId)}>{$t.academicAlert.reviewAction}</button>
                       {/if}
                     </div>
-                    {/if}
-                  </div>
-                </li>
-              {/each}
-            </ul>
-            <p class="fine">{$t.admin.pendingHint}</p>
-          {/if}
-        </aside>
-      </div>
-    </main>
+                  {/if}
+                </div>
+              </li>
+            {/each}
+          </ul>
+          <p class="fine">{$t.admin.pendingHint}</p>
+        {/if}
+      </aside>
+    </div>
+  </main>
 </AdminShell>
 
 <style>
   .main {
     margin: 0 auto;
-    max-width: 1400px;
+    max-width: 1440px;
     min-width: 0;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .title {
-    font-size: 2rem;
-    letter-spacing: -0.03em;
-    font-weight: 550;
-    line-height: 1.05;
-    margin-bottom: 12px;
-    font-variant-numeric: tabular-nums;
-  }
-  .titlebar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-  .topactions {
-    flex: none;
-    display: flex;
   }
   .controlbar {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: stretch;
-    margin-bottom: 12px;
-  }
-  .controls {
-    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: center;
+    margin-bottom: 14px;
   }
   .search {
     display: flex;
     gap: 8px;
     align-items: center;
     background: var(--surface);
-    border: 1px solid var(--line);
-    box-shadow: var(--shadow);
-    border-radius: 10px;
-    padding: 9px 12px;
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    padding: 0 10px;
     color: var(--muted);
-    min-height: 44px;
-    min-width: 200px;
+    min-height: var(--control-height);
+    flex: 1 1 220px;
+    max-width: 340px;
+  }
+  .search:focus-within {
+    border-color: var(--accent);
+  }
+  .search :global(svg) {
+    width: 16px;
+    height: 16px;
+    flex: none;
   }
   .search input {
     border: 0;
@@ -1232,265 +1187,177 @@
   }
   kbd {
     font-family: inherit;
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     color: var(--muted);
-    background: var(--surface);
+    background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 1px 6px;
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+  .period-drop {
+    min-width: 180px;
+  }
+  .scope-drop {
+    min-width: 140px;
   }
   .content {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
+    gap: 16px;
     align-items: start;
   }
   .feed {
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 28px;
   }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 20px 16px 130px;
-    margin-top: 4px;
-  }
-  .cat-kicker {
-    color: var(--ink-soft);
-    font-size: 0.84rem;
-    font-weight: 500;
-    margin: 28px 0 12px;
-  }
-  .cat-kicker:first-child {
-    margin-top: 0;
-  }
-  .alerts {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-bottom: 4px;
-  }
-  .stat {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    overflow: hidden;
-  }
-  .stat-in {
-    padding: 16px 18px 14px;
+    border-radius: var(--radius-sheet);
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 16px;
   }
-  .stat-in small {
+  /* Divided KPI strip: 5 equal cells in one flat container */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+  .kpi-cell {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .kpi-cell + .kpi-cell {
+    border-left: 1px solid var(--line);
+  }
+  .kpi-label {
     color: var(--muted);
-    font-size: 0.74rem;
+    font-size: 0.78rem;
+    font-weight: 500;
   }
-  .stat-in strong {
-    font-size: 1.6rem;
-    font-weight: 550;
+  .kpi-val {
+    font-size: var(--fs-kpi);
+    font-weight: 600;
+    line-height: 1.15;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
   }
-  .stat-in span {
+  .kpi-val small {
+    font-size: 0.55em;
     color: var(--muted);
-    font-size: 0.78rem;
+    font-weight: 400;
+    margin-left: 2px;
   }
-  .stat-ft {
+  .kpi-val.alert {
+    color: var(--g-grave-ink);
+  }
+  .kpi-foot {
+    margin-top: auto;
+    padding-top: 4px;
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    align-items: center;
-    border-top: 1px solid var(--line);
-    padding: 10px 18px;
-    color: var(--ink-soft);
-    font-size: 0.76rem;
-  }
-  .mini-act {
-    margin-left: auto;
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 700;
-    font-size: 0.74rem;
-    border-radius: 999px;
-    padding: 7px 14px;
-    min-height: 44px;
-    white-space: nowrap;
-  }
-  .soon {
-    margin-left: auto;
-    background: var(--tint);
     color: var(--muted);
-    font-weight: 700;
-    font-size: 0.72rem;
-    border-radius: 999px;
-    padding: 8px 14px;
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
+    font-size: 0.74rem;
+  }
+  .kpi-foot span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kpi-link {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.75rem;
     white-space: nowrap;
     flex: none;
   }
-  .mini-act.call {
-    display: inline-flex;
+  .kpi-link:hover {
+    text-decoration: underline;
+  }
+  @media (max-width: 960px) {
+    .kpi-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .kpi-cell + .kpi-cell {
+      border-left: 0;
+    }
+    .kpi-cell:nth-child(2n) {
+      border-left: 1px solid var(--line);
+    }
+    .kpi-cell:nth-child(n + 3) {
+      border-top: 1px solid var(--line);
+    }
+    .kpi-cell:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
+    }
+  }
+  .gfx {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .pair-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    padding: 18px;
+    min-width: 0;
+  }
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    text-decoration: none;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .panel-head h2 {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .caps,
+  .count {
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
   }
   .muted-note {
     color: var(--muted);
     font-size: 0.8rem;
     margin: 4px 0 8px;
   }
-  .kpis.slim {
-    grid-template-columns: repeat(4, 1fr);
-  }
-  @media (max-width: 700px) {
-    .kpis.slim {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-  .trows {
-    list-style: none;
-    margin: 12px 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .trows button {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    text-align: left;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 10px 14px;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-  }
-  .trows .avatar {
-    flex: none;
-    width: 38px;
-    height: 38px;
-    border-radius: 999px;
-    border: 1px solid var(--ink);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.72rem;
-  }
-  .trows .who {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .trows .who strong {
-    font-size: 0.88rem;
-    overflow-wrap: anywhere;
-  }
-  .trows .who small {
-    color: var(--muted);
-    font-size: 0.78rem;
-  }
-  .tacts {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-  }
-  .go.call {
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    background: var(--accent);
-    border-color: transparent;
-    color: #fff;
-  }
-  .kpis {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-    margin-top: 16px;
-  }
-  .kpi {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .kpi small {
-    color: var(--muted);
-    font-size: 0.74rem;
-  }
-  .kpi strong {
-    font-size: 1.5rem;
-    font-weight: 550;
-    letter-spacing: -0.02em;
-    font-variant-numeric: tabular-nums;
-  }
-  .gfx {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 20px;
-    margin-bottom: 24px;
-  }
-  .ratepanel {
-    margin-top: 0;
-  }
-  .panel {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 22px 20px;
-    min-width: 0;
-    margin-bottom: 24px;
-  }
   .daychips {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
-    max-height: 168px;
+    gap: 6px;
+    margin-top: 8px;
+    max-height: 156px;
     overflow-y: auto;
   }
-  .daychips .chip {
-    background: var(--surface-2);
+  .daychip {
+    background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
-    padding: 6px 12px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-transform: capitalize;
-  }
-  .panel-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-  .panel-head h2 {
-    font-size: 0.95rem;
-    font-weight: 550;
-  }
-  .caps {
-    color: var(--muted);
-    font-size: 0.76rem;
-  }
-  .count {
-    color: var(--muted);
+    border-radius: var(--radius-control);
+    padding: 4px 10px;
     font-size: 0.78rem;
+    font-weight: 500;
+    text-transform: capitalize;
+    font-variant-numeric: tabular-nums;
   }
   .donut-wrap {
     position: relative;
@@ -1501,36 +1368,37 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    font-weight: 550;
+    font-size: 1.4rem;
+    font-weight: 600;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
     pointer-events: none;
   }
-  .legend {
-    display: flex;
-    gap: 14px;
-    margin-top: 10px;
-    color: var(--muted);
-    font-size: 0.76rem;
-  }
   .legend.pills {
-    margin-top: 14px;
+    margin-top: 12px;
+    display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
   .legend.pills span {
     border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 4px 12px 4px 8px;
+    border-radius: var(--radius-control);
+    padding: 4px 10px;
     background: var(--surface);
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    font-size: 0.76rem;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .legend.pills strong {
+    color: var(--ink);
+    font-weight: 600;
   }
   .sw {
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
     border-radius: 999px;
     display: inline-block;
   }
@@ -1561,82 +1429,68 @@
   .insight {
     display: flex;
     gap: 8px;
-    align-items: flex-start;
+    align-items: center;
     color: var(--ink-soft);
     font-size: 0.78rem;
-    margin-top: 14px;
-    padding-top: 12px;
+    margin-top: 12px;
+    padding-top: 10px;
     border-top: 1px solid var(--line);
   }
-  .ibadge {
-    width: 26px;
-    height: 26px;
-    border-radius: 8px;
-    background: var(--tint);
-    color: var(--ink-soft);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-  }
-  .ibadge :global(svg) {
+  .insight :global(svg) {
     width: 15px;
     height: 15px;
+    color: var(--muted);
+    flex: none;
+  }
+  /* Risk table */
+  .table-wrap {
+    overflow-x: auto;
   }
   .prow-head {
-    list-style: none;
-    margin: 0 0 4px;
-    padding: 0;
     display: none;
   }
   .prows {
     list-style: none;
     margin: 0;
     padding: 0;
+    display: flex;
+    flex-direction: column;
   }
   .prow {
-    width: 100%;
     display: grid;
-    grid-template-columns: 30px 36px minmax(0, 1fr) auto;
-    gap: 14px;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 10px 12px;
     align-items: center;
-    text-align: left;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    background: var(--surface);
-    min-height: 76px;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
   }
-  .prow.on {
-    border-color: var(--ink);
-  }
-  .prow .countchip {
-    display: none;
+  .prow:first-child {
+    border-top: 0;
   }
   .rank {
-    background: var(--accent-soft);
-    color: var(--accent);
-    border-radius: 8px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  .prow .avatar {
-    width: 36px;
-    height: 36px;
+  .who-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .avatar {
+    flex: none;
+    width: 32px;
+    height: 32px;
     border-radius: 999px;
-    border: 1px solid var(--ink);
+    background: var(--accent-soft);
+    color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
-    font-size: 0.7rem;
+    font-weight: 600;
+    font-size: 0.72rem;
   }
   .who {
     display: flex;
@@ -1645,35 +1499,49 @@
   }
   .who strong {
     font-size: 0.86rem;
+    font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .salonpill,
-  .countchip {
-    background: var(--tint);
-    border-radius: 999px;
-    padding: 5px 12px;
-    font-size: 0.74rem;
-    font-weight: 600;
-    color: var(--ink-soft);
-    white-space: nowrap;
+  .who small {
+    color: var(--muted);
+    font-size: 0.75rem;
   }
-  .countchip.alert {
-    background: var(--g-grave-bg);
+  .num-cell {
+    display: none;
+    text-align: right;
+    font-weight: 600;
+    font-size: 0.88rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+  }
+  .num-cell.alert {
     color: var(--g-grave-ink);
   }
   .rateblock {
+    grid-column: 2;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
+  }
+  .rate-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
   }
   .rateblock strong {
     font-variant-numeric: tabular-nums;
-    font-size: 0.92rem;
+    font-size: 0.88rem;
   }
   .rateblock strong.low {
     color: var(--g-grave-ink);
+  }
+  .rateblock small {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
   }
   .rbar {
     height: 5px;
@@ -1681,18 +1549,12 @@
     background: var(--tint);
     overflow: hidden;
   }
-  .rbar span {
-    display: block;
-    height: 100%;
-    background: var(--ink);
-    border-radius: 999px;
-  }
   .rbar.stack {
     display: flex;
-    background: var(--tint);
   }
   .rbar.stack span {
-    border-radius: 0;
+    display: block;
+    height: 100%;
     min-width: 2px;
   }
   .rbar .sg-present {
@@ -1710,63 +1572,220 @@
   .rbar .sg-evasion {
     background: var(--m-evasion);
   }
-  .rateblock small {
-    color: var(--muted);
-    font-size: 0.68rem;
-    white-space: nowrap;
-  }
-  .detail-box {
+  .row-actions {
+    grid-column: 2;
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  /* Teachers & Today panels */
+  .mini-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-size: 0.8rem;
-    margin: -2px 0 8px;
+    border-radius: var(--radius-control);
+    margin-bottom: 10px;
   }
-  .detail-box .sp {
+  .mini-kpis.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .mini-kpis > div {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .mini-kpis > div + div {
+    border-left: 1px solid var(--line);
+  }
+  .mini-kpis small {
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+  .mini-kpis strong {
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .trows,
+  .todaylist {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .trows li + li,
+  .todaylist li + li {
+    border-top: 1px solid var(--line);
+  }
+  .trows button,
+  .todaylist button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    padding: 10px 6px;
+    border-radius: 6px;
+  }
+  .trows button:hover,
+  .todaylist button:hover {
+    background: var(--surface);
+  }
+  .trows button :global(svg),
+  .todaylist button :global(svg) {
+    width: 16px;
+    height: 16px;
+    color: var(--muted);
+    flex: none;
+  }
+  .todaylist .hh {
+    flex: none;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .todaylist .wt {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .todaylist .wt strong {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .todaylist .wt small {
+    color: var(--muted);
+    font-size: 0.75rem;
   }
   .weekstrip {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
   }
   .weekstrip span {
-    background: var(--tint);
-    border: 1px solid transparent;
-    border-radius: 10px;
-    padding: 7px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 8px;
     display: flex;
     align-items: center;
-    min-height: 44px;
+    justify-content: center;
   }
   .weekstrip small {
     color: var(--muted);
-    font-size: 0.68rem;
+    font-size: 0.74rem;
+    font-weight: 500;
   }
   .weekstrip span.today {
-    background: var(--ink);
+    background: var(--accent-soft);
+    border-color: var(--accent);
   }
   .weekstrip span.today small {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  /* Side rail: Pendientes */
+  .railp {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sheet);
+    padding: 18px;
+    align-self: start;
+  }
+  .rail-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .rail-head h2 {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .pill {
+    background: var(--tint);
+    color: var(--ink-soft);
+    font-size: 0.74rem;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .todos {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .todos li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+  }
+  .todos li:first-child {
+    border-top: 0;
+  }
+  .box {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: var(--bg);
+    position: relative;
+  }
+  .box::before {
+    content: '';
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1.5px solid var(--control);
+    background: var(--surface);
+    position: absolute;
+  }
+  .box :global(svg) {
+    position: relative;
+    width: 13px;
+    height: 13px;
+  }
+  li.done .box::before {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .todo-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .todo-top {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
   }
   .sev {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     font-size: 0.7rem;
     font-weight: 600;
     text-transform: capitalize;
-    border: 1px solid var(--line);
     border-radius: 999px;
-    padding: 5px 12px 5px 8px;
-    background: var(--surface);
+    padding: 2px 8px;
     white-space: nowrap;
     flex: none;
   }
@@ -1783,103 +1802,10 @@
     color: var(--g-grave-ink);
   }
   .sev i {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 999px;
-  }
-  .sev.leve i {
-    background: var(--g-leve-ink);
-  }
-  .sev.medio i {
-    background: var(--g-medio-ink);
-  }
-  .sev.grave i {
-    background: var(--g-grave-ink);
-  }
-  .railp {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    box-shadow: var(--shadow);
-    padding: 20px;
-    align-self: start;
-  }
-  .rail-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
-  }
-  .rail-head h2 {
-    font-size: 0.95rem;
-    font-weight: 550;
-  }
-  .pill {
-    background: var(--tint);
-    color: var(--ink-soft);
-    font-size: 0.72rem;
-    font-weight: 600;
-    border-radius: 999px;
-    padding: 4px 11px;
-  }
-  .todos {
-    list-style: none;
-    margin: 6px 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .todos li {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    padding: 11px 0;
-    border-top: 1px solid var(--line);
-  }
-  .todos li:first-child {
-    border-top: 0;
-  }
-  .box {
-    flex: none;
-    width: 44px;
-    height: 44px;
-    border-radius: 999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--bg);
-    position: relative;
-  }
-  .box::before {
-    content: '';
-    width: 21px;
-    height: 21px;
-    border-radius: 999px;
-    border: 1.5px solid var(--muted);
-    background: var(--surface);
-    position: absolute;
-  }
-  .box :global(svg) {
-    position: relative;
-    width: 15px;
-    height: 15px;
-  }
-  li.done .box::before {
-    background: var(--ink);
-    border-color: var(--ink);
-  }
-  .todo-main {
-    flex: 1;
-    min-width: 0;
-  }
-  .todo-top {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-  }
-  .todo-top .sev {
-    flex: none;
-    margin-top: 2px;
+    background: currentColor;
   }
   .todo-t {
     flex: 1;
@@ -1889,145 +1815,68 @@
     gap: 1px;
   }
   .todo-t strong {
-    font-size: 0.8rem;
-    font-weight: 550;
+    font-size: 0.82rem;
+    font-weight: 600;
     overflow-wrap: anywhere;
   }
   .todo-t small {
     color: var(--muted);
-    font-size: 0.72rem;
+    font-size: 0.74rem;
     overflow-wrap: anywhere;
   }
   li.done .todo-t strong {
     text-decoration: line-through;
     color: var(--muted);
   }
-  .todos .sev {
-    margin-top: 10px;
-  }
-  .todos .soon {
-    margin-top: 2px;
-  }
-  .go {
-    flex: none;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    color: var(--ink);
-    font-weight: 700;
-    font-size: 0.76rem;
-    white-space: nowrap;
-    border-radius: 9px;
-    padding: 8px 14px;
-    min-height: 44px;
+  .tacts {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
   }
   .fine {
     color: var(--muted);
-    font-size: 0.72rem;
+    font-size: 0.74rem;
     margin-top: 10px;
   }
-  .todaylist {
-    list-style: none;
-    margin: 12px 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .todaylist button {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    text-align: left;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 10px 14px;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-  }
-  .todaylist .hh {
-    flex: none;
-    background: var(--tint);
-    border-radius: 999px;
-    padding: 3px 10px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .todaylist .wt {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .todaylist .wt strong {
-    font-size: 0.88rem;
-    overflow-wrap: anywhere;
-  }
-  .todaylist .wt small {
-    color: var(--muted);
-    font-size: 0.78rem;
-  }
-  @media (min-width: 700px) {
-    .alerts {
-      grid-template-columns: repeat(3, 1fr);
-    }
-    .gfx {
-      grid-template-columns: 1.5fr 1fr;
-    }
-    .kpis {
-      grid-template-columns: repeat(4, 1fr);
-    }
-    .sheet {
-      padding: 24px 26px 130px;
-    }
-    .title {
-      font-size: 2.6rem;
-    }
-    .controlbar {
-      flex-direction: row;
-      justify-content: flex-start;
-      align-items: center;
-      gap: 12px;
-    }
-    .search {
-      min-width: 230px;
-      flex: none;
-    }
-  }
   @media (min-width: 760px) {
+    .gfx {
+      grid-template-columns: 1.3fr 1fr;
+    }
+    .pair-grid {
+      grid-template-columns: 1fr 1fr;
+    }
     .prow-head {
-      display: block;
-      list-style: none;
-      margin: 0 0 4px;
-      padding: 0;
-    }
-    .prow-head li {
       display: grid;
-      grid-template-columns: 34px 40px minmax(0, 1fr) 92px 92px 132px;
-      gap: 10px;
-      padding: 0 12px;
+      grid-template-columns: 28px minmax(0, 1.5fr) 72px 72px 140px auto;
+      gap: 12px;
+      padding: 0 4px 8px;
+      border-bottom: 1px solid var(--line);
       color: var(--muted);
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+      font-size: 0.75rem;
+      font-weight: 500;
     }
-    .prow-head li .widespan {
-      grid-column: span 2;
+    .prow-head .num-col {
+      text-align: right;
+    }
+    .prow-head .act-col {
+      text-align: right;
     }
     .prow {
-      grid-template-columns: 34px 40px minmax(0, 1fr) 92px 92px 132px;
+      grid-template-columns: 28px minmax(0, 1.5fr) 72px 72px 140px auto;
+      padding: 10px 4px;
     }
-    .prow .countchip {
-      display: inline-flex;
+    .num-cell {
+      display: block;
+    }
+    .rateblock,
+    .row-actions {
+      grid-column: auto;
     }
   }
-  @media (min-width: 1220px) {
+  @media (min-width: 1200px) {
     .content {
-      grid-template-columns: minmax(0, 1fr) 400px;
+      grid-template-columns: minmax(0, 1fr) 340px;
     }
     .railp {
       position: sticky;

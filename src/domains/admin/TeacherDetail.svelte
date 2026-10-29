@@ -5,7 +5,6 @@
   import { notify } from '$lib/ui/notice';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import EmptyState from '$lib/ui/EmptyState.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
@@ -16,7 +15,6 @@
   import {
     teacherDetail,
     subjects,
-    subjectAssignments,
     teacherHistory,
     teacherPhoto,
     uploadTeacherPhoto,
@@ -24,20 +22,17 @@
     teacherWarningsMade,
     teacherAccount,
     setUserActive,
-    teachers,
     scheduleEntries,
     groupsByYear,
     updateTeacher,
     type TeacherDetail,
     type Subject,
-    type SubjectAssignment,
     type ScheduleEntry,
-    type TeacherSummary,
     type YearGroup,
     type TeacherHistory,
     type TeacherSessionRow,
     type RecentWarning,
-    type TeacherAccount,
+    type TeacherAccount
   } from './api';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
@@ -54,8 +49,6 @@
   let loadError: unknown = null;
   const currentYear = new Date().getFullYear();
 
-  // Attendance record: month grid with summary counts.
-  // Photo mirrors the student file: data URL or initials.
   let photoUrl: string | null = null;
   let photoError = '';
   let photoInput: HTMLInputElement | null = null;
@@ -102,6 +95,7 @@
       photoError = err instanceof ApiError ? err.message : $t.common.loadError;
     }
   }
+
   let hist: TeacherHistory | null = null;
   let monthCursor = monthStart(new Date());
 
@@ -135,7 +129,6 @@
     void loadHistory();
   }
 
-  // Activity made by the teacher: roll calls taken + llamados issued.
   let sessionsMade: TeacherSessionRow[] = [];
   let warningsMade: RecentWarning[] = [];
 
@@ -210,11 +203,11 @@
   }
 
   function monthRange(d: Date): { from: string; to: string } {
-    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmtTwo = (n: number) => (n < 10 ? `0${n}` : `${n}`);
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
     return {
-      from: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`,
-      to: `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`
+      from: `${d.getFullYear()}-${fmtTwo(d.getMonth() + 1)}-01`,
+      to: `${end.getFullYear()}-${fmtTwo(end.getMonth() + 1)}-${fmtTwo(end.getDate())}`
     };
   }
 
@@ -222,7 +215,6 @@
   $: monthCells = (() => {
     const y = monthCursor.getFullYear();
     const m = monthCursor.getMonth();
-    // es-CO weeks start Monday.
     const lead = (new Date(y, m, 1).getDay() + 6) % 7;
     const days = new Date(y, m + 1, 0).getDate();
     return { lead, days };
@@ -248,9 +240,6 @@
         state = 'error';
         return;
       }
-      // Subjects/Groups come from their own endpoints (/v1/subjects,
-      // /v1/teachers/{id}/assignments): the backend profile carries
-      // neither, so both load independently below.
       detail = { ...data, Subjects: data.Subjects ?? [], Groups: data.Groups ?? [] };
       state = 'ready';
     } catch (err) {
@@ -258,8 +247,6 @@
       state = err instanceof ApiError && isMissing(err) ? 'ready' : 'error';
       return;
     }
-    // Las clases del horario no bloquean la ficha: si fallan,
-    // las tarjetas pintan vacío honesto.
     void loadClasses();
     void loadHistory();
     void loadPhoto();
@@ -267,7 +254,6 @@
     void loadAccount();
   }
 
-  // Login behind the profile: null means no account yet (honest 404).
   let account: TeacherAccount | null = null;
   let accountBusy = false;
   let accountError = '';
@@ -326,8 +312,6 @@
     }
   }
 
-  $: classDayNames = [...$t.admin.scheduleWeekdays, ...$t.admin.scheduleWeekend];
-  $: classDayLabel = (w: number) => classDayNames[w === 0 ? 6 : w - 1] ?? '';
   $: classGroupLabel = (gid: string) =>
     groupsAll.find((g) => g.GroupID === gid)?.ClassLabel ?? gid.slice(0, 8);
   $: subjectMeta = (sid: string) => {
@@ -342,8 +326,6 @@
     ...groupsAll.map((g) => ({ value: g.ClassLabel, label: g.ClassLabel }))
   ];
 
-  // Edición del perfil: el backend aplica solo los campos enviados, así que
-  // aquí se manda exactamente lo que el docente cambió.
   let editing = false;
   let saving = false;
   let editError = '';
@@ -380,8 +362,6 @@
     }
     saving = true;
     try {
-      // Sin optimismo: la ficha solo cambia con lo que el servidor confirma.
-      // Si falla, detail queda intacto y el error se muestra en el formulario.
       const { Homeroom, ...rest } = form;
       const updated = await updateTeacher(id, { ...rest, HomeroomClassID: Homeroom });
       detail = {
@@ -391,7 +371,7 @@
         Groups: updated.Groups ?? detail.Groups
       };
       editing = false;
-      editFeedback = $t.teacherDetail.saved;
+      notify($t.teacherDetail.saved);
     } catch (err) {
       editError = err instanceof ApiError ? err.message : $t.common.loadError;
     } finally {
@@ -399,8 +379,6 @@
     }
   }
 
-  // Retirar es reversible y conserva el historial: por eso "desactivar" y
-  // no "eliminar" (el backend no borra docentes).
   let toggling = false;
   async function toggleActive() {
     if (!detail || toggling) return;
@@ -410,7 +388,7 @@
     try {
       const updated = await updateTeacher(id, { Active: next });
       detail = { ...detail, Active: updated.Active };
-      editFeedback = next ? $t.teacherDetail.reactivated : $t.teacherDetail.retired;
+      notify(next ? $t.teacherDetail.reactivated : $t.teacherDetail.retired);
     } catch (err) {
       editFeedback = err instanceof ApiError ? err.message : $t.common.loadError;
     } finally {
@@ -420,332 +398,350 @@
 </script>
 
 <AdminShell active="docentes" year={currentYear}>
-  <TopBar title={$t.admin.teacherDetailTitle} showBack onBack={() => goBack('/admin/docentes')}>
+  <TopBar
+    title={detail ? `${detail.Surnames}, ${detail.Names}` : $t.admin.teacherDetailTitle}
+    showBack
+    onBack={() => goBack('/admin/docentes')}
+  >
+    {#if detail && canManageUsers(roles)}
+      <button type="button" class="btn" on:click={startEdit}>{$t.teacherDetail.editAction}</button>
+      <button
+        type="button"
+        class={detail.Active ? 'btn btn-danger' : 'btn'}
+        on:click={toggleActive}
+        disabled={toggling}
+      >
+        {detail.Active ? $t.teacherDetail.retireAction : $t.teacherDetail.reactivateAction}
+      </button>
+    {/if}
     <TopActions />
   </TopBar>
 
-  <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-    {#if detail}
-      {#if editFeedback}<p class="flash" role="status">{editFeedback}</p>{/if}
-      {#if canManageUsers(roles)}
-        <div class="toolbar">
-          <button type="button" class="mini" on:click={startEdit}>{$t.teacherDetail.editAction}</button>
-        <button type="button" class="mini" on:click={toggleActive} disabled={toggling}>
-          {detail.Active ? $t.teacherDetail.retireAction : $t.teacherDetail.reactivateAction}
-        </button>
-        </div>
-      {/if}
-    {/if}
-  </div>
+  {#if editFeedback}<p class="flash error" role="alert">{editFeedback}</p>{/if}
 
   <div class="sheet">
-  {#if state === 'loading'}
-    <Skeleton rows={4} />
-  {:else if state === 'error' || !detail}
-    <ErrorState error={loadError} onRetry={load} />
-  {:else}
-    <div class="grid">
-      <aside>
-        <section class="card profile" aria-label={$t.admin.teacherDetailTitle}>
-          <div class="idblock">
-            <div class="photocol">
-              {#if photoUrl}
-                <img class="photo" src={photoUrl} alt={`${detail.Surnames} ${detail.Names}`} />
-              {:else}
-                <span class="avatar big" aria-hidden="true">
-                  {`${detail.Surnames} ${detail.Names}`.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
-                </span>
-              {/if}
-              {#if canManageUsers(roles)}
-                <button type="button" class="link" on:click={() => photoInput?.click()}>
-                  {$t.troll.photoChange}
-                </button>
+    {#if state === 'loading'}
+      <Skeleton rows={4} />
+    {:else if state === 'error' || !detail}
+      <ErrorState error={loadError} onRetry={load} />
+    {:else}
+      <div class="grid">
+        <aside class="side-col">
+          <section class="card profile" aria-label={$t.admin.teacherDetailTitle}>
+            <div class="idblock">
+              <div class="photocol">
                 {#if photoUrl}
-                  <button type="button" class="link danger" on:click={removePhoto}>
-                    {$t.troll.photoRemove}
-                  </button>
+                  <img class="photo" src={photoUrl} alt={`${detail.Surnames} ${detail.Names}`} />
+                {:else}
+                  <span class="avatar big" aria-hidden="true">
+                    {`${detail.Surnames} ${detail.Names}`.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+                  </span>
                 {/if}
-              {/if}
-              <input
-                bind:this={photoInput}
-                type="file"
-                accept="image/*"
-                hidden
-                aria-hidden="true"
-                tabindex="-1"
-                on:change={onPhotoPicked}
-              />
+                {#if canManageUsers(roles)}
+                  <div class="photo-actions">
+                    <button type="button" class="link" on:click={() => photoInput?.click()}>
+                      {$t.troll.photoChange}
+                    </button>
+                    {#if photoUrl}
+                      <button type="button" class="link danger" on:click={removePhoto}>
+                        {$t.troll.photoRemove}
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
+                <input
+                  bind:this={photoInput}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  aria-hidden="true"
+                  tabindex="-1"
+                  on:change={onPhotoPicked}
+                />
+              </div>
+              <div class="idtext">
+                <h2>{detail.Surnames} {detail.Names}</h2>
+                <p class="doc-id">{detail.DocumentID || $t.common.noData}</p>
+                <div class="statusrow">
+                  {#if detail.HomeroomClassID}
+                    <span class="chip chip-sky">{$t.admin.directs(detail.HomeroomClassID)}</span>
+                  {:else}
+                    <span class="chip">{$t.admin.rolePlain}</span>
+                  {/if}
+                  {#if !detail.Active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
+                </div>
+              </div>
             </div>
-            <div>
-              <h2>{detail.Surnames} {detail.Names}</h2>
-              <p>{detail.DocumentID || $t.common.noData}</p>
-            </div>
-          </div>
-          {#if photoError}<p class="flash error" role="alert">{photoError}</p>{/if}
-          <h3 class="sub">{$t.troll.filePersonalTitle}</h3>
-          <dl class="facts">
-            {#if longDate(detail.Birthdate)}
-              <div>
-                <dt>{$t.troll.fileBirthLabel}</dt>
-                <dd>{longDate(detail.Birthdate)}{teacherAge !== null ? ` · ${$t.troll.fileAgeLabel(teacherAge)}` : ''}</dd>
-              </div>
-            {/if}
-            {#if detail.Birthplace}
-              <div>
-                <dt>{$t.studentDetail.birthplaceLabel}</dt>
-                <dd>{detail.Birthplace}</dd>
-              </div>
-            {/if}
-          </dl>
-          <h3 class="sub">{$t.troll.fileContactTitle}</h3>
-          <dl class="facts">
-            {#if detail.Phone}
-              <div>
-                <dt>{$t.admin.formPhone}</dt>
-                <dd>{detail.Phone}</dd>
-              </div>
-            {/if}
-            {#if detail.Address}
-              <div>
-                <dt>{$t.studentDetail.addressLabel}</dt>
-                <dd>{detail.Address}</dd>
-              </div>
-            {/if}
-            {#if detail.Email}
-              <div>
-                <dt>{$t.admin.formEmail}</dt>
-                <dd>{detail.Email}</dd>
-              </div>
-            {/if}
-            {#if detail.Sex === 'female' || detail.Sex === 'male'}
-              <div>
-                <dt>{$t.admin.formSex}</dt>
-                <dd>{detail.Sex === 'female' ? $t.admin.formSexFemale : $t.admin.formSexMale}</dd>
-              </div>
-            {/if}
-          </dl>
-          {#if detail.MedicalConditions}
-            <h3 class="sub">{$t.troll.fileHealthTitle}</h3>
-            <p class="muted">{detail.MedicalConditions}</p>
-          {/if}
-          <div class="statusrow">
-            {#if detail.HomeroomClassID}
-              <span class="chip chip-sky">{$t.admin.directs(detail.HomeroomClassID)}</span>
-            {/if}
-            {#if !detail.Active}<span class="chip chip-pink">{$t.admin.inactive}</span>{/if}
-            {#if canManageUsers(roles)}
-              <button type="button" class="linklike" on:click={startEdit}>
-              {detail.HomeroomClassID ? $t.admin.modifyDirection : $t.admin.assignDirectionLine}
-              </button>
-            {/if}
-          </div>
-        </section>
-        <section class="card" aria-label={$t.admin.accountTitle}>
-          <div class="row-head">
-            <h2>{$t.admin.accountTitle}</h2>
-          </div>
-          {#if account}
-            <dl class="arows">
-              <div>
-                <dt>{$t.admin.formUsername}</dt>
-                <dd>{account.Username}</dd>
-              </div>
-              {#if account.Email}
+
+            {#if photoError}<p class="flash error" role="alert">{photoError}</p>{/if}
+
+            <h3 class="sub">{$t.troll.filePersonalTitle}</h3>
+            <dl class="facts">
+              {#if longDate(detail.Birthdate)}
                 <div>
-                  <dt>{$t.admin.formEmail}</dt>
-                  <dd>{account.Email}</dd>
+                  <dt>{$t.troll.fileBirthLabel}</dt>
+                  <dd>{longDate(detail.Birthdate)}{teacherAge !== null ? ` · ${$t.troll.fileAgeLabel(teacherAge)}` : ''}</dd>
+                </div>
+              {/if}
+              {#if detail.Birthplace}
+                <div>
+                  <dt>{$t.studentDetail.birthplaceLabel}</dt>
+                  <dd>{detail.Birthplace}</dd>
+                </div>
+              {/if}
+              {#if detail.Sex === 'female' || detail.Sex === 'male'}
+                <div>
+                  <dt>{$t.admin.formSex}</dt>
+                  <dd>{detail.Sex === 'female' ? $t.admin.formSexFemale : $t.admin.formSexMale}</dd>
                 </div>
               {/if}
             </dl>
-            {#if accountError}<p class="flash error" role="alert">{accountError}</p>{/if}
-            <div class="statusrow">
-              {#if account.Active}
-                <span class="chip chip-green">{$t.admin.accountActive}</span>
-              {:else}
-                <span class="chip chip-pink">{$t.admin.accountBlocked}</span>
+
+            <h3 class="sub">{$t.troll.fileContactTitle}</h3>
+            <dl class="facts">
+              {#if detail.Phone}
+                <div>
+                  <dt>{$t.admin.formPhone}</dt>
+                  <dd>{detail.Phone}</dd>
+                </div>
               {/if}
-            </div>
-            {#if confirmBlock}
-              <p class="muted">{$t.admin.confirmBlockAccess(account.Username)}</p>
+              {#if detail.Address}
+                <div>
+                  <dt>{$t.studentDetail.addressLabel}</dt>
+                  <dd>{detail.Address}</dd>
+                </div>
+              {/if}
+              {#if detail.Email}
+                <div>
+                  <dt>{$t.admin.formEmail}</dt>
+                  <dd>{detail.Email}</dd>
+                </div>
+              {/if}
+            </dl>
+
+            {#if detail.MedicalConditions}
+              <h3 class="sub">{$t.troll.fileHealthTitle}</h3>
+              <p class="muted">{detail.MedicalConditions}</p>
             {/if}
-            <div class="toolbar">
-              <button type="button" class="mini" on:click={toggleAccount} disabled={accountBusy}>
-                {#if accountBusy}
-                  …
-                {:else if account.Active}
-                  {confirmBlock ? $t.admin.confirmBlock : $t.admin.blockAccess}
+          </section>
+
+          <section class="card" aria-label={$t.admin.accountTitle}>
+            <div class="row-head">
+              <h2>{$t.admin.accountTitle}</h2>
+              {#if account}
+                {#if account.Active}
+                  <span class="chip chip-green">{$t.admin.accountActive}</span>
                 {:else}
-                  {$t.admin.unblockAccess}
+                  <span class="chip chip-pink">{$t.admin.accountBlocked}</span>
                 {/if}
-              </button>
-              {#if confirmBlock}
-                <button type="button" class="mini" on:click={() => (confirmBlock = false)}>
-                  {$t.common.cancel}
-                </button>
               {/if}
             </div>
-          {:else}
-            {#if canManageUsers(roles)}<p class="muted">{$t.admin.accountNone}</p>{/if}
-          {/if}
-        </section>
-      </aside>
-      <div class="main">
+            {#if account}
+              <dl class="facts">
+                <div>
+                  <dt>{$t.admin.formUsername}</dt>
+                  <dd>{account.Username}</dd>
+                </div>
+                {#if account.Email}
+                  <div>
+                    <dt>{$t.admin.formEmail}</dt>
+                    <dd>{account.Email}</dd>
+                  </div>
+                {/if}
+              </dl>
+              {#if accountError}<p class="flash error" role="alert">{accountError}</p>{/if}
+              {#if confirmBlock}
+                <p class="muted confirm-note">{$t.admin.confirmBlockAccess(account.Username)}</p>
+              {/if}
+              <div class="acct-bar">
+                <button
+                  type="button"
+                  class={account.Active ? 'btn btn-sm btn-danger' : 'btn btn-sm'}
+                  on:click={toggleAccount}
+                  disabled={accountBusy}
+                >
+                  {#if accountBusy}
+                    …
+                  {:else if account.Active}
+                    {confirmBlock ? $t.admin.confirmBlock : $t.admin.blockAccess}
+                  {:else}
+                    {$t.admin.unblockAccess}
+                  {/if}
+                </button>
+                {#if confirmBlock}
+                  <button type="button" class="btn btn-sm" on:click={() => (confirmBlock = false)}>
+                    {$t.common.cancel}
+                  </button>
+                {/if}
+              </div>
+            {:else if canManageUsers(roles)}
+              <p class="muted">{$t.admin.accountNone}</p>
+            {/if}
+          </section>
+        </aside>
 
-    <section class="card" aria-label={$t.troll.historyTitle}>
-      <div class="row-head">
-        <h2>{$t.troll.historyTitle}</h2>
-        <div class="monthpick">
-          <Dropdown
-            label={$t.troll.monthLabel}
-            value={String(monthCursor.getMonth())}
-            options={monthOptions}
-            on:select={(e) => setMonth(Number(e.detail))}
-          />
-          <Dropdown
-            label={$t.troll.yearLabel}
-            value={String(monthCursor.getFullYear())}
-            options={yearOptions}
-            on:select={(e) => setYear(Number(e.detail))}
-          />
-        </div>
-      </div>
-      {#if hist}
-        <div class="kpis">
-          <div class="kpi"><small>{$t.troll.presentCount}</small><strong>{hist.Summary.Present}</strong></div>
-          <div class="kpi"><small>{$t.troll.absentCount}</small><strong>{hist.Summary.Absent}</strong></div>
-          <div class="kpi"><small>{$t.troll.lateCount}</small><strong>{hist.Summary.Late}</strong></div>
-        </div>
-        {#if hist.Marks.length === 0}
-          <p class="muted">{$t.troll.historyEmpty}</p>
-        {:else}
-          <div class="cal" role="grid" aria-label={monthLabel(monthCursor)}>
-            {#each ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'] as wd}
-              <span class="wd">{wd}</span>
-            {/each}
-            {#each Array(monthCells.lead) as _}
-              <span class="pad"></span>
-            {/each}
-            {#each Array(monthCells.days) as _, i}
-              {@const key = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`}
-              {@const mark = histByDay.get(key)}
-              <span
-                class="day"
-                class:present={mark?.Status === 'present'}
-                class:absent={mark?.Status === 'absent'}
-                class:late={mark?.Status === 'late'}
-                title={mark ? `${key}${mark.Note ? ` — ${mark.Note}` : ''}` : `${key} · ${$t.troll.legendNone}`}
-              >
-                {i + 1}
-              </span>
-            {/each}
-          </div>
-          <div class="legend">
-            <span class="lg present">{$t.troll.legendPresent}</span>
-            <span class="lg absent">{$t.troll.legendAbsent}</span>
-            <span class="lg late">{$t.troll.legendLate}</span>
-            <span class="lg">{$t.troll.legendNone}</span>
-          </div>
-        {/if}
-      {:else}
-        <p class="muted">{$t.troll.historyEmpty}</p>
-      {/if}
-    </section>
-
-    <section class="card" aria-label={$t.troll.fileSubjectsGroupsTitle}>
-      <h2>{$t.troll.fileSubjectsGroupsTitle}</h2>
-      {#if groupsWithSubjects.length === 0}
-        <p class="muted">{$t.troll.fileSubjectsGroupsEmpty}</p>
-      {:else}
-        <ul class="sgroups">
-          {#each groupsWithSubjects as g (g.label)}
-            <li>
-              <button
-                type="button"
-                class="grow"
-                on:click={() => push(`/admin/estudiantes?salon=${encodeURIComponent(g.gid)}`)}
-              >
-                <strong>{g.label}</strong>
-                <span class="chips">
-                  {#each g.subjects as s (s.id)}
-                    <span class={`chip chip-${paletteFor(s.id)}`}>{s.name}</span>
+        <div class="main">
+          <section class="card" aria-label={$t.troll.historyTitle}>
+            <div class="row-head">
+              <h2>{$t.troll.historyTitle}</h2>
+              <div class="monthpick">
+                <Dropdown
+                  label={$t.troll.monthLabel}
+                  hideLabel
+                  value={String(monthCursor.getMonth())}
+                  options={monthOptions}
+                  on:select={(e) => setMonth(Number(e.detail))}
+                />
+                <Dropdown
+                  label={$t.troll.yearLabel}
+                  hideLabel
+                  value={String(monthCursor.getFullYear())}
+                  options={yearOptions}
+                  on:select={(e) => setYear(Number(e.detail))}
+                />
+              </div>
+            </div>
+            {#if hist}
+              <div class="kpis">
+                <div class="kpi"><small>{$t.troll.presentCount}</small><strong>{hist.Summary.Present}</strong></div>
+                <div class="kpi"><small>{$t.troll.absentCount}</small><strong>{hist.Summary.Absent}</strong></div>
+                <div class="kpi"><small>{$t.troll.lateCount}</small><strong>{hist.Summary.Late}</strong></div>
+              </div>
+              {#if hist.Marks.length === 0}
+                <p class="muted">{$t.troll.historyEmpty}</p>
+              {:else}
+                {@const mNum = monthCursor.getMonth() + 1}
+                {@const mStr = mNum < 10 ? `0${mNum}` : `${mNum}`}
+                <div class="cal" role="grid" aria-label={monthLabel(monthCursor)}>
+                  {#each ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'] as wd}
+                    <span class="wd">{wd}</span>
                   {/each}
-                </span>
-                <span class="go" aria-hidden="true"><Icon name="next" /></span>
+                  {#each Array(monthCells.lead) as _}
+                    <span class="pad"></span>
+                  {/each}
+                  {#each Array(monthCells.days) as _, i}
+                    {@const dNum = i + 1}
+                    {@const dStr = dNum < 10 ? `0${dNum}` : `${dNum}`}
+                    {@const key = `${monthCursor.getFullYear()}-${mStr}-${dStr}`}
+                    {@const mark = histByDay.get(key)}
+                    <span
+                      class="day"
+                      class:present={mark?.Status === 'present'}
+                      class:absent={mark?.Status === 'absent'}
+                      class:late={mark?.Status === 'late'}
+                      title={mark ? `${key}${mark.Note ? ` · ${mark.Note}` : ''}` : `${key} · ${$t.troll.legendNone}`}
+                    >
+                      {dNum}
+                    </span>
+                  {/each}
+                </div>
+                <div class="legend">
+                  <span class="lg present">{$t.troll.legendPresent}</span>
+                  <span class="lg absent">{$t.troll.legendAbsent}</span>
+                  <span class="lg late">{$t.troll.legendLate}</span>
+                  <span class="lg">{$t.troll.legendNone}</span>
+                </div>
+              {/if}
+            {:else}
+              <p class="muted">{$t.troll.historyEmpty}</p>
+            {/if}
+          </section>
+
+          <section class="card" aria-label={$t.troll.fileSubjectsGroupsTitle}>
+            <div class="row-head">
+              <h2>{$t.troll.fileSubjectsGroupsTitle}</h2>
+              <button type="button" class="btn btn-sm" on:click={() => push('/admin/horario')}>
+                {$t.admin.goSchedule}
               </button>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-      <p class="muted">{$t.admin.subjectsFromSchedule}</p>
-    </section>
-    <section class="card" aria-label={$t.troll.fileSessionsTitle}>
-      <div class="row-head">
-        <h2>{$t.troll.fileSessionsTitle}</h2>
-        <span class="count" role="status">{$t.troll.fileSessionsCount(sessionsMade.length)}</span>
+            </div>
+            {#if groupsWithSubjects.length === 0}
+              <p class="muted">{$t.troll.fileSubjectsGroupsEmpty}</p>
+            {:else}
+              <ul class="sgroups">
+                {#each groupsWithSubjects as g (g.label)}
+                  <li>
+                    <button
+                      type="button"
+                      class="grow"
+                      on:click={() => push(`/admin/estudiantes?salon=${encodeURIComponent(g.gid)}`)}
+                    >
+                      <strong>{g.label}</strong>
+                      <span class="chips">
+                        {#each g.subjects as s (s.id)}
+                          <span class={`chip chip-${paletteFor(s.id)}`}>{s.name}</span>
+                        {/each}
+                      </span>
+                      <Icon name="next" />
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+            <p class="muted subnote">{$t.admin.subjectsFromSchedule}</p>
+          </section>
+
+          <section class="card" aria-label={$t.troll.fileSessionsTitle}>
+            <div class="row-head">
+              <h2>{$t.troll.fileSessionsTitle}</h2>
+              <span class="count" role="status">{$t.troll.fileSessionsCount(sessionsMade.length)}</span>
+            </div>
+            {#if sessionsMade.length === 0}
+              <p class="muted">{$t.troll.fileSessionsEmpty}</p>
+            {:else}
+              <ul class="takes">
+                {#each sessionsMade as s (s.ID)}
+                  <li>
+                    <button
+                      type="button"
+                      class="grow"
+                      on:click={() => push(`/admin/estudiantes/historial?sesion=${encodeURIComponent(s.ID)}`)}
+                    >
+                      <span class="rday">{shortDay(s.Date)}</span>
+                      <span class="rtext">
+                        <strong>{s.ClassLabel}{s.Subject ? ` · ${s.Subject}` : ''}</strong>
+                        <small>{$t.troll.takeSummary(s.Students, s.Absences)}</small>
+                      </span>
+                      <Icon name="next" />
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </section>
+
+          <section class="card" aria-label={$t.troll.fileWarningsMadeTitle}>
+            <div class="row-head">
+              <h2>{$t.troll.fileWarningsMadeTitle}</h2>
+              <span class="count" role="status">{$t.troll.fileWarningsMadeCount(warningsMade.length)}</span>
+            </div>
+            {#if warningsMade.length === 0}
+              <p class="muted">{$t.troll.fileWarningsMadeEmpty}</p>
+            {:else}
+              <ul class="takes">
+                {#each warningsMade as w (w.ID)}
+                  <li>
+                    <button
+                      type="button"
+                      class="grow"
+                      on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(w.StudentID)}&nombre=${encodeURIComponent(w.StudentName)}&llamado=${encodeURIComponent(w.ID)}`)}
+                    >
+                      <span class={`sev ${w.Gravity === 'mild' ? 'leve' : w.Gravity === 'moderate' ? 'medio' : 'grave'}`}>
+                        {w.Gravity === 'mild' ? $t.roster.warnGravityMild : w.Gravity === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere}
+                      </span>
+                      <span class="rtext">
+                        <strong>{w.StudentName} · {w.Title}</strong>
+                        <small>{w.ClassLabel} · {momentTs(w.HappenedAt)}</small>
+                      </span>
+                      <Icon name="next" />
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </section>
+        </div>
       </div>
-      {#if sessionsMade.length === 0}
-        <p class="muted">{$t.troll.fileSessionsEmpty}</p>
-      {:else}
-        <ul class="takes">
-          {#each sessionsMade as s (s.ID)}
-            <li>
-              <button
-                type="button"
-                class="grow"
-                on:click={() => push(`/admin/estudiantes/historial?sesion=${encodeURIComponent(s.ID)}`)}
-              >
-                <span class="rday">{shortDay(s.Date)}</span>
-                <span class="rtext">
-                  <strong>{s.ClassLabel}{s.Subject ? ` · ${s.Subject}` : ''}</strong>
-                  <small>
-                    {$t.troll.takeSummary(s.Students, s.Absences)}
-                  </small>
-                </span>
-                <span class="go" aria-hidden="true"><Icon name="next" /></span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
-
-    <section class="card" aria-label={$t.troll.fileWarningsMadeTitle}>
-      <div class="row-head">
-        <h2>{$t.troll.fileWarningsMadeTitle}</h2>
-        <span class="count" role="status">{$t.troll.fileWarningsMadeCount(warningsMade.length)}</span>
-      </div>
-      {#if warningsMade.length === 0}
-        <p class="muted">{$t.troll.fileWarningsMadeEmpty}</p>
-      {:else}
-        <ul class="takes">
-          {#each warningsMade as w (w.ID)}
-            <li>
-              <button
-                type="button"
-                class="grow"
-                on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(w.StudentID)}&nombre=${encodeURIComponent(w.StudentName)}&llamado=${encodeURIComponent(w.ID)}`)}
-              >
-                <span class={`sev ${w.Gravity === 'mild' ? 'leve' : w.Gravity === 'moderate' ? 'medio' : 'grave'}`}>
-                  {w.Gravity === 'mild' ? $t.roster.warnGravityMild : w.Gravity === 'moderate' ? $t.roster.warnGravityModerate : $t.roster.warnGravitySevere}
-                </span>
-                <span class="rtext">
-                  <strong>{w.StudentName} — {w.Title}</strong>
-                  <small>{w.ClassLabel} · {momentTs(w.HappenedAt)}</small>
-                </span>
-                <span class="go" aria-hidden="true"><Icon name="next" /></span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
-
-
-
-      </div>
-    </div>
-  {/if}
+    {/if}
   </div>
 </AdminShell>
 
@@ -761,71 +757,69 @@
     </div>
     <div class="row2">
       <label>{$t.admin.formEmail}<input bind:value={form.Email} inputmode="email" autocomplete="off" /></label>
-      <label
-        >{$t.admin.formSex}
-        <select bind:value={form.Sex}>
-          <option value="">{$t.admin.formSexNone}</option>
-          <option value="female">{$t.admin.formSexFemale}</option>
-          <option value="male">{$t.admin.formSexMale}</option>
-        </select></label
-      >
-      <label>
-        <span>{$t.admin.directionGroupLabel}</span>
-        <Dropdown
-          label={$t.admin.directionGroupLabel}
-          value={form.Homeroom}
-          options={homeroomOptions}
-          on:select={(e) => (form.Homeroom = String(e.detail))}
-        />
-      </label>
+      <Dropdown
+        label={$t.admin.formSex}
+        value={form.Sex}
+        options={[
+          { value: '', label: $t.admin.formSexNone },
+          { value: 'female', label: $t.admin.formSexFemale },
+          { value: 'male', label: $t.admin.formSexMale }
+        ]}
+        on:select={(e) => (form.Sex = String(e.detail))}
+      />
     </div>
+    <Dropdown
+      label={$t.admin.directionGroupLabel}
+      value={form.Homeroom}
+      options={homeroomOptions}
+      on:select={(e) => (form.Homeroom = String(e.detail))}
+    />
     {#if editError}<p class="flash error" role="alert">{editError}</p>{/if}
-    <div class="actions">
-      <button class="ghost" type="button" on:click={() => (editing = false)}>{$t.common.cancel}</button>
-      <button class="primary" type="submit" disabled={saving}>{saving ? '…' : $t.common.save}</button>
+    <div class="form-actions">
+      <button class="btn" type="button" on:click={() => (editing = false)}>{$t.common.cancel}</button>
+      <button class="btn btn-primary" type="submit" disabled={saving}>{saving ? '…' : $t.common.save}</button>
     </div>
   </form>
 </Sheet>
 
 <style>
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 16px 16px 130px;
+    border-radius: var(--radius-sheet);
+    padding: 20px;
   }
-  @media (min-width: 700px) {
-    .sheet {
-      padding: 20px 20px 130px;
+  .grid {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .grid {
+      grid-template-columns: 1fr;
     }
+  }
+  .side-col,
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
   }
   .card {
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
     padding: 18px;
-    margin-bottom: 12px;
-    animation: rise 0.3s ease both;
-  }
-  .profile p {
-    color: var(--muted);
-    font-size: 0.92rem;
   }
   .idblock {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 14px;
-    margin-bottom: 8px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 12px;
   }
   .photocol {
     flex: none;
@@ -834,170 +828,107 @@
     align-items: flex-start;
     gap: 6px;
   }
+  .photo-actions {
+    display: flex;
+    gap: 8px;
+  }
   .photo {
-    width: 88px;
-    height: 88px;
-    border-radius: 28px;
+    width: 68px;
+    height: 68px;
+    border-radius: var(--radius-card);
     object-fit: cover;
     border: 1px solid var(--line);
   }
   .avatar.big {
-    width: 88px;
-    height: 88px;
-    font-size: 1.9rem;
-    border-radius: 28px;
+    width: 68px;
+    height: 68px;
+    font-size: 1.4rem;
+    border-radius: var(--radius-card);
     background: var(--accent-soft);
     color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 800;
+    font-weight: 700;
+  }
+  .idtext {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .idtext h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .doc-id {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .statusrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
   }
   .link {
     color: var(--accent);
-    font-weight: 700;
-    font-size: 0.82rem;
-    min-height: 36px;
-    padding: 4px 0;
-    text-align: left;
+    font-weight: 600;
+    font-size: 0.78rem;
+    padding: 2px 0;
+  }
+  .link:hover {
+    text-decoration: underline;
   }
   .link.danger {
     color: var(--g-grave-ink);
   }
-  .flash.error {
-    background: var(--chip-pink-bg);
-    color: var(--g-grave-ink);
+  .sub {
+    font-size: 0.78rem;
     font-weight: 600;
-    font-size: 0.9rem;
-    border-radius: var(--radius-chip);
-    padding: 10px 14px;
-    margin-bottom: 8px;
+    color: var(--muted);
+    margin: 14px 0 4px;
   }
-  .rday {
+  .facts {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+  }
+  .facts > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .facts > div:last-child {
+    border-bottom: none;
+  }
+  .facts dt {
+    color: var(--muted);
+    font-size: 0.82rem;
     flex: none;
-    background: var(--tint);
-    border-radius: 999px;
-    padding: 3px 10px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--ink-soft);
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink);
+    text-align: right;
+    overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
   }
-  .rtext {
-    flex: 1;
-    min-width: 0;
+  .confirm-note {
+    margin: 8px 0 4px;
+  }
+  .acct-bar {
     display: flex;
-    flex-direction: column;
-  }
-  .rtext strong {
-    font-size: 0.88rem;
-  }
-  .rtext small {
-    color: var(--muted);
-    font-size: 0.78rem;
-  }
-  .profile h2 {
-    margin-bottom: 2px;
-  }
-  .profile .chip {
-    margin-top: 8px;
-    margin-right: 6px;
-  }
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-  }
-  .mini {
-    display: inline-flex;
-    align-items: center;
     gap: 8px;
-    min-height: 40px;
-    padding: 0 16px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-weight: 600;
-    font-size: 0.85rem;
-  }
-  .flash {
-    background: var(--chip-green-bg);
-    color: var(--chip-green-ink);
-    font-weight: 600;
-    font-size: 0.85rem;
-    border-radius: var(--radius-chip);
-    padding: 8px 12px;
-  }
-  .flash.error {
-    background: var(--chip-pink-bg);
-    color: var(--chip-pink-ink);
-  }
-  .form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .row2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .form label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-  .form input {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
-    font-size: 0.92rem;
-    width: 100%;
-  }
-  .form select {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
-    font-size: 0.92rem;
-    width: 100%;
-    color: var(--ink);
-    font: inherit;
-  }
-  .form input:focus,
-  .form select:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: 0;
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 6px;
-  }
-  .ghost,
-  .primary {
-    min-height: 46px;
-    border-radius: var(--radius-pill);
-    font-weight: 700;
-    font-size: 0.88rem;
-    padding: 10px 22px;
-  }
-  .ghost {
-    background: var(--surface);
-    border: 1px solid var(--line);
-  }
-  .primary {
-    background: var(--accent);
-    color: var(--accent-ink);
-  }
-  .primary:disabled {
-    opacity: 0.6;
+    margin-top: 10px;
+    flex-wrap: wrap;
   }
   .row-head {
     display: flex;
@@ -1005,83 +936,91 @@
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .row-head h2 {
+    font-size: 0.95rem;
+    font-weight: 600;
   }
   .monthpick {
     display: flex;
     gap: 8px;
-    align-items: end;
+    align-items: center;
   }
   .monthpick > :global(*) {
-    min-width: 130px;
+    min-width: 118px;
   }
+  /* Divided KPI strip */
   .kpis {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin: 8px 0 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    margin: 0 0 12px;
   }
   .kpi {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 8px 10px;
+    padding: 10px 12px;
     display: flex;
     flex-direction: column;
+    gap: 2px;
+  }
+  .kpi + .kpi {
+    border-left: 1px solid var(--line);
   }
   .kpi small {
     color: var(--muted);
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 0.74rem;
+    font-weight: 500;
   }
   .kpi strong {
     font-size: 1.3rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
   .cal {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 4px;
-    max-width: 560px;
+    max-width: 440px;
   }
   .wd {
     text-align: center;
     color: var(--muted);
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding-bottom: 4px;
   }
   .day {
     aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
+    border-radius: 6px;
     border: 1px solid var(--line);
-    font-size: 0.82rem;
-    font-weight: 600;
+    font-size: 0.8rem;
+    font-weight: 500;
     color: var(--muted);
-    background: var(--surface-2);
+    background: var(--surface);
+    font-variant-numeric: tabular-nums;
   }
   .day.present {
     background: var(--chip-green-bg);
     border-color: transparent;
     color: var(--chip-green-ink);
-    font-weight: 800;
+    font-weight: 600;
   }
   .day.absent {
     background: var(--chip-pink-bg);
     border-color: transparent;
     color: var(--g-grave-ink);
-    font-weight: 800;
+    font-weight: 600;
   }
   .day.late {
     background: var(--chip-yellow-bg);
     border-color: transparent;
     color: var(--chip-yellow-ink);
-    font-weight: 800;
+    font-weight: 600;
   }
   .legend {
     display: flex;
@@ -1097,9 +1036,10 @@
     width: 10px;
     height: 10px;
     border-radius: 3px;
-    background: var(--surface-2);
+    background: var(--surface);
     border: 1px solid var(--line);
     margin-right: 5px;
+    vertical-align: -1px;
   }
   .lg.present::before {
     background: var(--chip-green-bg);
@@ -1113,20 +1053,18 @@
     background: var(--chip-yellow-bg);
     border-color: transparent;
   }
-  .mini {
-    color: var(--accent);
-    font-weight: 700;
-    min-height: 44px;
-    padding: 8px 12px;
-  }
   .muted {
     color: var(--muted);
-    font-size: 0.92rem;
+    font-size: 0.84rem;
+  }
+  .subnote {
+    margin-top: 8px;
+    font-size: 0.76rem;
   }
   .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
   .sgroups {
     list-style: none;
@@ -1134,12 +1072,12 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
   .sgroups li {
-    background: var(--surface-2);
+    background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
+    border-radius: var(--radius-control);
   }
   .grow {
     width: 100%;
@@ -1147,68 +1085,71 @@
     align-items: center;
     gap: 10px;
     text-align: left;
-    background: none;
-    border: 0;
-    padding: 10px 14px;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-    flex-wrap: wrap;
+    padding: 10px 12px;
+    border-radius: var(--radius-control);
   }
-  .takes .grow {
-    padding: 0 0 8px;
-    flex-wrap: nowrap;
+  .grow:hover {
+    background: var(--surface-2);
   }
-  .takes li:last-child .grow {
-    padding-bottom: 0;
+  .grow :global(svg) {
+    width: 16px;
+    height: 16px;
+    color: var(--muted);
+    flex: none;
+    margin-left: auto;
   }
   .sgroups .grow > strong {
-    min-width: 52px;
+    min-width: 48px;
     font-variant-numeric: tabular-nums;
-  }
-  .go {
-    flex: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 999px;
-    background: var(--surface-2);
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: auto;
   }
   .sgroups .chips {
     flex: 1;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
   }
   .takes {
     list-style: none;
-    margin: 12px 0 0;
+    margin: 4px 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
   }
-  .takes li {
+  .takes li + li {
+    border-top: 1px solid var(--line);
+  }
+  .takes .grow {
+    padding: 10px 6px;
+    border-radius: 6px;
+  }
+  .rday {
+    flex: none;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .rtext {
+    flex: 1;
+    min-width: 0;
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--line);
+    flex-direction: column;
   }
-  .takes li:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
+  .rtext strong {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .rtext small {
+    color: var(--muted);
+    font-size: 0.76rem;
   }
   .sev {
     flex: none;
     border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 0.7rem;
-    font-weight: 700;
+    padding: 2px 9px;
+    font-size: 0.72rem;
+    font-weight: 600;
   }
   .sev.medio {
     background: var(--chip-yellow-bg);
@@ -1224,121 +1165,68 @@
   }
   .count {
     background: var(--tint);
-    border: 1px solid var(--line);
     border-radius: 999px;
-    padding: 5px 14px;
+    padding: 3px 10px;
     color: var(--ink-soft);
-    font-size: 0.78rem;
-    font-weight: 700;
+    font-size: 0.74rem;
+    font-weight: 600;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
-  .grid {
+  .flash {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+    font-weight: 600;
+    font-size: 0.84rem;
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
+    margin-bottom: 10px;
+  }
+  .flash.error {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+  }
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .row2 {
     display: grid;
-    grid-template-columns: 360px minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
-  @media (max-width: 899px) {
-    .grid {
+  @media (max-width: 480px) {
+    .row2 {
       grid-template-columns: 1fr;
     }
   }
-  .facts {
+  .form label {
     display: flex;
     flex-direction: column;
-    margin: 0;
-  }
-  .facts > div {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 7px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .facts > div:last-child {
-    border-bottom: none;
-  }
-  .facts dt {
-    color: var(--muted);
-    font-size: 0.84rem;
-    flex: none;
-  }
-  .facts dd {
-    margin: 0;
-    font-size: 0.92rem;
-    font-weight: 700;
-    color: var(--ink);
-    text-align: right;
-    word-break: break-word;
-  }
-  .sub {
-    font-size: 0.8rem;
-    font-weight: 700;
-    margin: 14px 0 2px;
-  }
-  .statusrow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
-    align-items: center;
-  }
-  .linklike {
-    color: var(--accent);
-    font-weight: 700;
+    gap: 5px;
     font-size: 0.82rem;
-    min-height: 36px;
-    padding: 4px 8px;
-    border-radius: var(--radius-pill);
+    font-weight: 500;
   }
-  .arows {
+  .form input {
+    background: var(--surface);
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    padding: 0 12px;
+    min-height: var(--control-height);
+    font-size: 0.85rem;
+    width: 100%;
+  }
+  .form input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-actions {
     display: flex;
-    flex-direction: column;
-    margin: 0 0 8px;
-  }
-  .arows > div {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 7px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .arows > div:last-child {
-    border-bottom: none;
-  }
-  .arows dt {
-    color: var(--muted);
-    font-size: 0.84rem;
-    flex: none;
-  }
-  .arows dd {
-    margin: 0;
-    font-size: 0.92rem;
-    font-weight: 700;
-    color: var(--ink);
-    text-align: right;
-    overflow-wrap: anywhere;
-    min-width: 0;
-  }
-  .flash {
-    background: var(--chip-pink-bg);
-    color: var(--chip-pink-ink);
-    font-weight: 600;
-    font-size: 0.9rem;
-    border-radius: var(--radius-chip);
-    padding: 10px 14px;
-    margin-bottom: 8px;
-  }
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
   }
 </style>

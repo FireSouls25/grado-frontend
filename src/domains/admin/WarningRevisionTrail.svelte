@@ -3,6 +3,7 @@
   // dedicada y en el resumen del estudiante. Con studentName filtra a un
   // estudiante y oculta la pastilla de nombre.
   import { t } from '$lib/i18n';
+  import Icon from '$lib/ui/Icon.svelte';
   import type { WarningRevision } from './api';
 
   export let revisions: WarningRevision[] = [];
@@ -52,7 +53,7 @@
               <span class={`mk ${gravityMarkClass(r.OldGravity)}`}>
                 {r.OldGravity ? gravityName(r.OldGravity) : '—'}
               </span>
-              <span class="swap" aria-hidden="true">›</span>
+              <span class="swap" aria-hidden="true"><Icon name="next" /></span>
               <span class={`mk solid ${gravityMarkClass(r.NewGravity)}`}>
                 {gravityName(r.NewGravity)}
               </span>
@@ -63,7 +64,7 @@
           <span class="tchange">
             <span class="tlabel">{$t.warnings.renamedLabel}</span>
             <span class="told">«{r.OldTitle || '—'}»</span>
-            <span class="swap" aria-hidden="true">›</span>
+            <span class="swap" aria-hidden="true"><Icon name="next" /></span>
             <span class="tnew">«{r.NewTitle}»</span>
           </span>
         {/if}
@@ -71,7 +72,7 @@
           <span class="tchange">
             <span class="tlabel">{$t.warnings.detailLabel}</span>
             <span class="told">{r.OldDetail || '—'}</span>
-            <span class="swap" aria-hidden="true">›</span>
+            <span class="swap" aria-hidden="true"><Icon name="next" /></span>
             <span class="tnew">{r.NewDetail || '—'}</span>
           </span>
         {/if}
@@ -171,11 +172,13 @@
     border-radius: 999px;
     background: var(--accent-soft);
     color: var(--accent);
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.95rem;
-    font-weight: 800;
+  }
+  .swap :global(svg) {
+    width: 12px;
+    height: 12px;
   }
   .tchange {
     display: flex;

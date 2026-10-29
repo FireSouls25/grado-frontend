@@ -639,7 +639,6 @@
   <TopBar title={$t.cierre.distTitle} showBack onBack={() => goBack('/admin/cierre')}><TopActions /></TopBar>
 
   <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
     <div class="tabs" role="tablist" aria-label={$t.cierre.distTitle}>
       <button type="button" role="tab" aria-selected={tab === 'pass'} class:on={tab === 'pass'} on:click={() => (tab = 'pass')}>
         {$t.cierre.distPassTab}
@@ -704,9 +703,9 @@
           on:select={(e) => onGradeChange(Number(e.detail))}
         />
         <div class="stepper" role="group" aria-label={$t.cierre.distSalonsLabel}>
-          <button type="button" aria-label="−" disabled={salonCount <= 1} on:click={() => (salonCount = Math.max(1, salonCount - 1))}>‹</button>
+          <button type="button" aria-label="−" disabled={salonCount <= 1} on:click={() => (salonCount = Math.max(1, salonCount - 1))}><Icon name="back" /></button>
           <strong>{$t.cierre.distSalons(salonCount)}</strong>
-          <button type="button" aria-label="+" disabled={salonCount >= 8} on:click={() => (salonCount = Math.min(8, salonCount + 1))}>›</button>
+          <button type="button" aria-label="+" disabled={salonCount >= 8} on:click={() => (salonCount = Math.min(8, salonCount + 1))}><Icon name="next" /></button>
         </div>
       </div>
       <div class="suggestbox">
@@ -827,11 +826,6 @@
   .pagehead {
     margin-bottom: 12px;
   }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 8px;
-  }
   .tabs {
     display: inline-flex;
     gap: 2px;
@@ -852,7 +846,6 @@
   .tabs button.on {
     background: var(--surface);
     color: var(--ink);
-    box-shadow: var(--shadow);
   }
   .sheet {
     background: var(--surface);
@@ -982,7 +975,8 @@
   }
   .col.over {
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft);
+    border-width: 2px;
+    background: var(--accent-soft);
   }
   .col h3 {
     font-size: 0.85rem;
@@ -1088,7 +1082,8 @@
   }
   .col button:not(.x).selected {
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft);
+    border-width: 2px;
+    background: var(--accent-soft);
   }
   .col button:not(.x) strong {
     font-size: 0.82rem;

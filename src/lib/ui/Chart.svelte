@@ -38,9 +38,10 @@
     // Resolved live from theme tokens: canvas cannot read var() directly,
     // and render() already re-runs on theme change (see onMount).
     return {
-      text: cssVar('--ink', '#201d18'),
-      muted: cssVar('--muted', '#999894'),
-      line: cssVar('--line', '#e4e1d8')
+      text: cssVar('--ink', '#131416'),
+      muted: cssVar('--muted', '#595d62'),
+      line: cssVar('--line', '#e5e8eb'),
+      surface: cssVar('--surface', '#ffffff')
     };
   }
 
@@ -49,8 +50,16 @@
     const p = palette();
     chart.setOption(
       {
+        backgroundColor: 'transparent',
         textStyle: { color: p.text, fontFamily: 'inherit' },
-        tooltip: { trigger: 'item' },
+        tooltip: {
+          trigger: 'item',
+          backgroundColor: p.surface,
+          borderColor: p.line,
+          borderWidth: 1,
+          textStyle: { color: p.text, fontSize: 12 },
+          padding: [8, 10]
+        },
         ...option
       },
       { replaceMerge: ['series'] }

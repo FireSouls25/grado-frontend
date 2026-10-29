@@ -201,19 +201,18 @@
     font-size: 1.05rem;
   }
   .mark {
-    width: 64px;
-    height: 64px;
-    border-radius: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-card);
     background: var(--accent);
     color: var(--accent-ink);
-    font-weight: 800;
-    font-size: 2rem;
+    font-weight: 700;
+    font-size: 1.75rem;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-bottom: 12px;
-    box-shadow: var(--shadow);
-    animation: pop 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+    animation: pop 0.3s var(--ease-out) both;
   }
   .features {
     list-style: none;
@@ -262,12 +261,11 @@
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
-    padding: 26px 24px;
+    padding: 24px 22px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    animation: rise 0.3s ease both;
+    animation: rise-in 0.22s var(--ease-out) both;
   }
   .card h2 {
     font-size: 1.1rem;
@@ -289,13 +287,11 @@
     width: 100%;
     transition:
       border-color 0.15s ease,
-      box-shadow 0.15s ease,
       background-color 0.2s ease;
   }
   .card input:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .password {
     position: relative;
@@ -378,14 +374,14 @@
       align-items: stretch;
       gap: 0;
       margin-top: 24px;
-      border-radius: 24px;
+      border-radius: var(--radius-sheet);
       overflow: hidden;
-      box-shadow: var(--shadow);
       border: 1px solid var(--line);
+      background: var(--surface);
     }
     .hero {
       flex: 1.1;
-      background: linear-gradient(160deg, var(--accent-soft), var(--surface) 75%);
+      background: var(--surface-2);
       padding: 48px 40px;
     }
     .hero h1 {
@@ -395,7 +391,6 @@
       flex: 1;
       border: none;
       border-radius: 0;
-      box-shadow: none;
       padding: 48px 40px;
       justify-content: center;
     }

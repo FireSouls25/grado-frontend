@@ -305,19 +305,14 @@
 </script>
 
 <AdminShell active="llamados" {year}>
-  <TopBar title={$t.warnings.title} showBack onBack={() => goBack('/admin')}><TopActions /></TopBar>
-
-  <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-    <h1 class="title">{$t.warnings.title}</h1>
-    <div class="toolbar">
-      {#if staffWrite}
-        <button type="button" class="mini primary" on:click={openCreate}>
-          {$t.warnings.newAction}
-        </button>
-      {/if}
-    </div>
-  </div>
+  <TopBar title={$t.warnings.title} showBack onBack={() => goBack('/admin')}>
+    {#if staffWrite}
+      <button type="button" class="btn btn-primary" on:click={openCreate}>
+        <Icon name="plus" /> {$t.warnings.newAction}
+      </button>
+    {/if}
+    <TopActions />
+  </TopBar>
 
   {#if state === 'loading'}
     <Skeleton rows={6} />
@@ -361,7 +356,7 @@
           <button type="button" class="shead" on:click={() => toggleGroup(group.label)} aria-expanded={!collapsed[group.label]}>
             <strong>{group.label}</strong>
             <span class="count" role="status">{$t.warnings.callsLabel(group.total)}</span>
-            <span class="chev" aria-hidden="true">{collapsed[group.label] ? '▸' : '▾'}</span>
+            <span class="chev" class:open={!collapsed[group.label]} aria-hidden="true"><Icon name="next" /></span>
           </button>
           {#if !collapsed[group.label]}
             <ul class="students">
@@ -467,7 +462,7 @@
             {#each roster as s (s.StudentID)}
               {@const on = picked.includes(s.StudentID)}
               <button type="button" class="pick" class:on aria-pressed={on} on:click={() => togglePicked(s.StudentID)}>
-                <span class="ckbox" aria-hidden="true">{#if on}✓{/if}</span>
+                <span class="ckbox" aria-hidden="true">{#if on}<Icon name="check" />{/if}</span>
                 <span>{s.Names} {s.Surnames}</span>
               </button>
             {/each}
@@ -513,24 +508,6 @@
 </AdminShell>
 
 <style>
-  .pagehead {
-    margin-bottom: 20px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .title {
-    margin: 0;
-  }
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-  }
   .muted {
     color: var(--muted);
     font-size: 0.85rem;
@@ -601,7 +578,6 @@
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
     margin-top: 12px;
     overflow: hidden;
   }
@@ -618,8 +594,19 @@
     font-size: 1.05rem;
   }
   .chev {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--muted);
-    font-size: 0.9rem;
+  }
+  .chev :global(svg) {
+    width: 16px;
+    height: 16px;
+    transform: rotate(90deg);
+    transition: transform var(--t-fast) var(--ease-out);
+  }
+  .chev.open :global(svg) {
+    transform: rotate(-90deg);
   }
   .students {
     list-style: none;
@@ -755,9 +742,9 @@
   }
   .form input:focus,
   .form textarea:focus {
-    outline: none;
+    outline: 2px solid var(--accent);
+    outline-offset: 0;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .group {
     display: flex;

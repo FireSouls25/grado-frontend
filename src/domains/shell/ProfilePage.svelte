@@ -471,7 +471,6 @@
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
     padding: 18px;
     margin-bottom: 12px;
     animation: rise 0.3s ease both;

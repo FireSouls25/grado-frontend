@@ -2,15 +2,13 @@
   import { createEventDispatcher } from 'svelte';
   import Icon from './Icon.svelte';
 
-  // Desplegable de la identidad (docs/diseno.md): botón de 44px con
-  // píldora, lista con borde hairline y resaltado con teclado. Todo texto
-  // entra por props: este componente no conoce el catálogo i18n.
   interface DropOption {
     value: string;
     label: string;
   }
 
-  export let label: string;
+  export let label: string = '';
+  export let hideLabel = false;
   export let value: string;
   export let options: DropOption[] = [];
   export let placeholder = '';
@@ -67,20 +65,23 @@
 <svelte:window on:click={onWindowClick} on:keydown={onKey} />
 
 <div class="drop" bind:this={box}>
-  <span class="cap">{label}</span>
+  {#if label && !hideLabel}
+    <span class="cap">{label}</span>
+  {/if}
   <button
     type="button"
     class="face"
+    aria-label={label || placeholder}
     aria-haspopup="listbox"
     aria-expanded={open}
     disabled={disabled}
     on:click={() => (open ? close() : openMenu())}
   >
-    <span class="val">{current ? current.label : placeholder}</span>
+    <span class="val" class:placeholder={!current}>{current ? current.label : placeholder}</span>
     <span class="chev" class:up={open} aria-hidden="true"><Icon name="next" /></span>
   </button>
   {#if open}
-    <div class="pop" role="listbox" aria-label={label}>
+    <div class="pop" role="listbox" aria-label={label || placeholder}>
       {#if searchable}
         <label class="find">
           <Icon name="search" />
@@ -120,31 +121,35 @@
   }
   .cap {
     display: block;
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: var(--fs-small);
+    font-weight: 500;
     color: var(--muted);
-    margin-bottom: 4px;
+    margin-bottom: 5px;
   }
   .face {
     width: 100%;
-    min-height: 44px;
+    min-height: var(--control-height);
     display: flex;
     align-items: center;
     gap: 8px;
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 0 8px 0 14px;
-    font-weight: 600;
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    padding: 0 8px 0 12px;
+    font-weight: 500;
     font-size: 0.84rem;
     color: var(--ink);
     text-align: left;
   }
-  .face:active {
-    transform: scale(0.99);
+  .face:hover:not(:disabled) {
+    background: var(--surface-2);
+    border-color: var(--ink-soft);
+  }
+  .face:active:not(:disabled) {
+    transform: translateY(1px);
   }
   .face:disabled {
-    opacity: 0.6;
+    opacity: 0.55;
   }
   .val {
     flex: 1;
@@ -153,38 +158,41 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .val.placeholder {
+    color: var(--faint);
+  }
   .chev {
     flex: none;
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--muted);
   }
   .chev :global(svg) {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
     transform: rotate(90deg);
-    transition: transform 0.15s ease;
+    transition: transform var(--t-fast) var(--ease-out);
   }
   .chev.up :global(svg) {
     transform: rotate(-90deg);
   }
   .pop {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 5px);
     left: 0;
     right: 0;
-    min-width: 200px;
+    min-width: 190px;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    box-shadow: var(--shadow);
-    padding: 6px;
-    z-index: 50;
-    max-height: 280px;
+    border-radius: var(--radius-card);
+    padding: 5px;
+    z-index: 60;
+    max-height: 260px;
     overflow-y: auto;
+    animation: dropIn 0.14s var(--ease-out) both;
   }
   .find {
     display: flex;
@@ -192,9 +200,9 @@
     align-items: center;
     background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 0 10px;
-    min-height: 44px;
+    min-height: 36px;
     color: var(--muted);
     margin-bottom: 4px;
     position: sticky;
@@ -206,13 +214,13 @@
     outline: none;
     width: 100%;
     color: var(--ink);
-    font-size: 0.84rem;
+    font-size: 0.82rem;
   }
   .empty {
     color: var(--muted);
-    font-size: 0.84rem;
+    font-size: 0.82rem;
     text-align: center;
-    padding: 12px;
+    padding: 10px;
   }
   ul {
     list-style: none;
@@ -224,12 +232,12 @@
   }
   li button {
     width: 100%;
-    min-height: 44px;
+    min-height: 36px;
     display: flex;
     align-items: center;
     gap: 8px;
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 6px;
+    padding: 7px 10px;
     font-size: 0.84rem;
     font-weight: 500;
     color: var(--ink);
@@ -242,12 +250,27 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  li button :global(svg) {
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
   li button.hl {
     background: var(--surface-2);
   }
   li button.on {
     background: var(--accent-soft);
     color: var(--accent);
-    font-weight: 700;
+    font-weight: 600;
+  }
+  @keyframes dropIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 </style>

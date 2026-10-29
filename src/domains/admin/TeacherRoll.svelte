@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
@@ -8,6 +7,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
+  import Icon from '$lib/ui/Icon.svelte';
   import { guarded, goBack } from '$lib/nav';
   import { notify } from '$lib/ui/notice';
   import { teacherRoll, recordTeacherDay, listYears, teachers, type TeacherRollRow, type TeacherMarkStatus } from './api';
@@ -17,8 +17,8 @@
 
   function todayLocal(): string {
     const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const fmtTwo = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    return `${d.getFullYear()}-${fmtTwo(d.getMonth() + 1)}-${fmtTwo(d.getDate())}`;
   }
 
   function prettyDay(value: string): string {
@@ -60,11 +60,10 @@
       const list = await guarded(() => listYears());
       if (list) yearsCache = list;
     } catch {
-      /* best effort: without years the banner just stays hidden */
+      /* best effort */
     }
   }
-  // Explicit picks only: untouched rows stay unselected AND unsaved.
-  // One shared motive next to save, attached to non-present marks.
+
   let sel: Record<string, TeacherMarkStatus> = {};
   let rollNote = '';
   let saving = false;
@@ -80,8 +79,6 @@
       await ensureYears();
       dayKind = kindOf(day);
       rows = (await guarded(() => teacherRoll(day))) ?? [];
-      // Non-school day without expectations: offer the roster anyway so
-      // an explicit roll stays possible (the backend records it).
       if (rows.length === 0 && dayKind !== '') {
         const all = await guarded(() => teachers());
         if (all) {
@@ -107,7 +104,8 @@
   function changeDay(delta: number) {
     const d = new Date(`${day}T12:00:00`);
     d.setDate(d.getDate() + delta);
-    const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const fmtTwo = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    const next = `${d.getFullYear()}-${fmtTwo(d.getMonth() + 1)}-${fmtTwo(d.getDate())}`;
     if (next > todayLocal()) return;
     day = next;
     void load();
@@ -153,23 +151,19 @@
 </script>
 
 <AdminShell active="docentes" year={currentYear}>
-  <TopBar title={$t.troll.rollTitle} showBack onBack={back}><TopActions /></TopBar>
-
-  <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-    <h1 class="title">{$t.troll.rollTitle}</h1>
-    <p class="muted">{$t.troll.rollHint}</p>
-  </div>
+  <TopBar title={$t.troll.rollTitle} subtitle={$t.troll.rollHint} showBack onBack={back}>
+    <TopActions />
+  </TopBar>
 
   <div class="sheet">
     <div class="daybar">
       <div class="stepper">
-        <button type="button" class="mini" on:click={() => changeDay(-1)} aria-label="−1 día">‹</button>
+        <button type="button" class="btn btn-sm" on:click={() => changeDay(-1)} aria-label="−1 día"><Icon name="back" /></button>
         <div class="daylabel">
           <strong>{prettyDay(day)}</strong>
           <small>{$t.troll.countTeachers(rows.length)}{markedCount > 0 ? ` · ${markedCount}` : ''}</small>
         </div>
-        <button type="button" class="mini" disabled={day >= todayLocal()} on:click={() => changeDay(1)} aria-label="+1 día">›</button>
+        <button type="button" class="btn btn-sm" disabled={day >= todayLocal()} on:click={() => changeDay(1)} aria-label="+1 día"><Icon name="next" /></button>
       </div>
       <div class="dayactions">
         <input
@@ -180,10 +174,10 @@
           bind:value={rollNote}
           maxlength="140"
         />
-        <button type="button" class="mini" disabled={rows.length === 0} on:click={markAllPresent}>
+        <button type="button" class="btn" disabled={rows.length === 0} on:click={markAllPresent}>
           {$t.troll.markAllPresent}
         </button>
-        <button type="button" class="mini primary" disabled={saving || markedCount === 0} on:click={save}>
+        <button type="button" class="btn btn-primary" disabled={saving || markedCount === 0} on:click={save}>
           {saving ? $t.troll.saving : $t.troll.saveRoll}
         </button>
       </div>
@@ -203,6 +197,7 @@
     {:else}
       <ul class="roll">
         {#each rows as row (row.TeacherID)}
+          {@const current = sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')}
           <li>
             <span class="who">
               <span class="avatar" aria-hidden="true">
@@ -211,13 +206,28 @@
               <span class="name">{row.TeacherName}</span>
             </span>
             <span class="seg" role="group" aria-label={row.TeacherName}>
-              <button type="button" class:present={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'present'} aria-pressed={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'present'} on:click={() => setStatus(row.TeacherID, 'present')}>
+              <button
+                type="button"
+                class:present={current === 'present'}
+                aria-pressed={current === 'present'}
+                on:click={() => setStatus(row.TeacherID, 'present')}
+              >
                 {$t.troll.statusPresent}
               </button>
-              <button type="button" class:absent={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'absent'} aria-pressed={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'absent'} on:click={() => setStatus(row.TeacherID, 'absent')}>
+              <button
+                type="button"
+                class:absent={current === 'absent'}
+                aria-pressed={current === 'absent'}
+                on:click={() => setStatus(row.TeacherID, 'absent')}
+              >
                 {$t.troll.statusAbsent}
               </button>
-              <button type="button" class:late={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'late'} aria-pressed={(sel[row.TeacherID] ?? (row.Recorded ? row.Status : '')) === 'late'} on:click={() => setStatus(row.TeacherID, 'late')}>
+              <button
+                type="button"
+                class:late={current === 'late'}
+                aria-pressed={current === 'late'}
+                on:click={() => setStatus(row.TeacherID, 'late')}
+              >
                 {$t.troll.statusLate}
               </button>
             </span>
@@ -229,33 +239,14 @@
 </AdminShell>
 
 <style>
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .title {
-    margin: 0;
-  }
-  .muted {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin: 6px 0 0;
-  }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 16px 16px 130px;
-  }
-  @media (min-width: 700px) {
-    .sheet {
-      padding: 20px 20px 130px;
-    }
+    border-radius: var(--radius-sheet);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
   .daybar {
     display: flex;
@@ -263,60 +254,60 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
   }
   .stepper {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
   .daylabel {
     display: flex;
     flex-direction: column;
-    min-width: 200px;
+    min-width: 180px;
   }
   .daylabel strong {
-    font-size: 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
     text-transform: capitalize;
   }
   .daylabel small {
     color: var(--muted);
-    font-size: 0.78rem;
-    font-weight: 600;
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
   }
   .dayactions {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
     align-items: center;
+    flex: 1;
+    justify-content: flex-end;
   }
   .motivo {
     flex: 1;
     min-width: 180px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
-    min-height: 44px;
-    font-size: 0.85rem;
+    max-width: 300px;
+    background: var(--surface);
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    padding: 0 12px;
+    min-height: var(--control-height);
+    font-size: 0.84rem;
     color: var(--ink);
   }
-  .mini {
-    display: inline-flex;
-    align-items: center;
-    min-height: 40px;
-    padding: 0 14px;
-    border-radius: var(--radius-pill);
-    background: var(--tint);
-    font-weight: 700;
-    font-size: 0.82rem;
+  .motivo:focus {
+    outline: none;
+    border-color: var(--accent);
   }
-  .mini.primary {
-    background: var(--accent);
-    color: #fff;
-  }
-  .mini:disabled {
-    opacity: 0.5;
+  .notice {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+    border-radius: var(--radius-control);
+    padding: 10px 14px;
+    font-size: 0.84rem;
+    font-weight: 500;
   }
   .roll {
     list-style: none;
@@ -324,57 +315,61 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
   }
   .roll li {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 14px;
+    padding: 10px 4px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
     gap: 10px 14px;
+    border-top: 1px solid var(--line);
+  }
+  .roll li:first-child {
+    border-top: 0;
   }
   .roll .who {
     flex: 1;
     min-width: 180px;
     display: flex;
-    flex-direction: row;
     align-items: center;
     gap: 10px;
   }
   .roll .avatar {
     flex: none;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-pill);
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
     background: var(--accent-soft);
     color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 800;
-    font-size: 0.85rem;
+    font-weight: 600;
+    font-size: 0.76rem;
   }
   .roll .name {
-    font-weight: 700;
+    font-weight: 600;
+    font-size: 0.88rem;
   }
   .seg {
-    display: flex;
-    background: var(--surface);
+    display: inline-flex;
+    background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-control);
     padding: 3px;
-    gap: 2px;
+    gap: 3px;
   }
   .seg button {
-    min-height: 36px;
-    padding: 0 14px;
-    border-radius: var(--radius-pill);
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 6px;
     font-size: 0.8rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--muted);
+  }
+  .seg button:hover {
+    color: var(--ink);
   }
   .seg button.present {
     background: var(--chip-green-bg);

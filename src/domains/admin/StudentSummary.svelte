@@ -3,9 +3,9 @@
   import { push } from 'svelte-spa-router';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
-  import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
   import AdminShell from './AdminShell.svelte';
   import { guarded, goBack } from '$lib/nav';
   import { profile as profileStore } from '$lib/shell/profile';
@@ -58,7 +58,7 @@
   let report: StudentReport | null = null;
   let warnings: Warning[] = [];
 
-  $: fullName = profile ? `${profile.Surnames} ${profile.Names}` : '';
+  $: fullName = profile ? `${profile.Surnames}, ${profile.Names}` : '';
   $: sessions = report?.Sessions ?? [];
   $: marks = sessions.filter((s) => s.Mark && s.Mark !== '').slice().reverse();
   $: totalSessions = report ? report.Sessions.length : 0;
@@ -67,7 +67,7 @@
 
   function markName(mark: string): string {
     if (mark === 'absence') return $t.roster.absentShort;
-    if (mark === 'absence-permission') return $t.roster.absentShort;
+    if (mark === 'absence-permission') return $t.roster.permission;
     if (mark === 'evasion') return $t.studentSummary.markEvasion;
     if (mark === 'late') return $t.studentSummary.markLate;
     return mark;
@@ -199,18 +199,19 @@
 </script>
 
 <AdminShell active="estudiantes" year={currentYear} onYear={null}>
-  <TopBar title={fullName || $t.studentSummary.titleFallback} showBack onBack={() => goBack('/admin/estudiantes')}><TopActions /></TopBar>
-
-  <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-    <div class="toolbar">
-      {#if profile}
-        <button type="button" class="primary" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(id)}`)}>
-          {$t.studentSummary.openFull}
-        </button>
-      {/if}
-    </div>
-  </div>
+  <TopBar
+    title={fullName || $t.studentSummary.titleFallback}
+    subtitle={profile?.ClassID ? `${$t.studentDetail.classLabel} ${profile.ClassID}` : ''}
+    showBack
+    onBack={() => goBack('/admin/estudiantes')}
+  >
+    {#if profile}
+      <button type="button" class="btn btn-primary" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(id)}`)}>
+        {$t.studentSummary.openFull}
+      </button>
+    {/if}
+    <TopActions />
+  </TopBar>
 
   <div class="sheet">
     {#if state === 'loading'}
@@ -221,7 +222,7 @@
       <section class="card" aria-label={$t.studentSummary.statsTitle}>
         <div class="row-head"><h2>{$t.studentSummary.statsTitle}</h2></div>
         <dl class="kpis">
-          <div><dt>{$t.studentSummary.rateLabel}</dt><dd>{rate === null ? '—' : `${rate}%`}</dd></div>
+          <div><dt>{$t.studentSummary.rateLabel}</dt><dd class:low={rate !== null && rate < 85}>{rate === null ? '—' : `${rate}%`}</dd></div>
           <div><dt>{$t.studentSummary.presences}</dt><dd>{report.Presences}</dd></div>
           <div><dt>{$t.studentSummary.absences}</dt><dd>{report.Absences}</dd></div>
           <div><dt>{$t.studentSummary.excused}</dt><dd>{report.Excused}</dd></div>
@@ -244,33 +245,38 @@
           <ul class="rows">
             {#each marks as s (s.SessionID + s.Mark)}
               <li>
-                <span class={`mk ${s.Mark}`}>{markName(s.Mark)}</span>
-                <span class="meta">
-                  <strong>{momentDay(s.Date)}</strong>
-                  <span>{s.ClassLabel} · {$t.admin.yearLabel} {s.SchoolYear}{#if s.Period} · {$t.troll.shistory.periodLabel(s.Period)}{/if}</span>
-                  {#if s.Mark === 'absence-permission' && s.Note}
-                    <small class="permnote">{$t.studentSummary.permissionWithReason(s.Note)}</small>
-                  {/if}
-                </span>
-                {#if s.Mark === 'absence' || s.Mark === 'absence-permission'}
-                  <span class="rowbtns">
+                <div class="row-top">
+                  <span class={`mk ${s.Mark}`}>{markName(s.Mark)}</span>
+                  <span class="meta">
+                    <strong>{momentDay(s.Date)}</strong>
+                    <span>{s.ClassLabel} · {$t.admin.yearLabel} {s.SchoolYear}{#if s.Period} · {$t.troll.shistory.periodLabel(s.Period)}{/if}</span>
+                    {#if s.Mark === 'absence-permission' && s.Note}
+                      <small class="permnote">{$t.studentSummary.permissionWithReason(s.Note)}</small>
+                    {/if}
+                  </span>
+                  <div class="rowbtns">
+                    {#if s.Mark === 'absence' || s.Mark === 'absence-permission'}
+                      <button
+                        type="button"
+                        class={`btn btn-sm ${s.Mark === 'absence-permission' ? 'perm-on' : ''}`}
+                        disabled={acting === s.SessionID + s.Mark}
+                        on:click={() => togglePermission(s.SessionID, s.Mark)}
+                      >
+                        {s.Mark === 'absence' ? $t.studentSummary.justifyAction : $t.studentSummary.unjustifiedAction}
+                      </button>
+                    {/if}
                     <button
                       type="button"
-                      class={`permbtn ${s.Mark === 'absence-permission' ? 'on' : ''}`}
-                      disabled={acting === s.SessionID + s.Mark}
-                      on:click={() => togglePermission(s.SessionID, s.Mark)}
-                    >{s.Mark === 'absence' ? $t.studentSummary.justifyAction : $t.studentSummary.unjustifiedAction}</button>
-                  </span>
-                {/if}
-                <span class="rowbtns">
-                  <button
-                    type="button" class="mini"
-                    on:click={() => (correcting = { sessionID: s.SessionID, mark: s.Mark })}
-                  >{$t.studentSummary.modifyAction}</button>
-                  <button type="button" class="mini" on:click={() => openTrail(s.SessionID)}>
-                    {trailFor === s.SessionID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
-                  </button>
-                </span>
+                      class="btn btn-sm"
+                      on:click={() => (correcting = { sessionID: s.SessionID, mark: s.Mark })}
+                    >
+                      {$t.studentSummary.modifyAction}
+                    </button>
+                    <button type="button" class="btn btn-sm" on:click={() => openTrail(s.SessionID)}>
+                      {trailFor === s.SessionID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
+                    </button>
+                  </div>
+                </div>
                 {#if trailFor === s.SessionID}
                   {#if trailLoading}
                     <p class="muted">{$t.common.retrying}</p>
@@ -296,61 +302,25 @@
           <ul class="rows">
             {#each alerts as a (a.ID)}
               <li>
-                <span class={`mk ${a.Status === 'open' ? 'sev-severe' : 'sev-mild'}`}>{a.Status === 'open' ? $t.academicAlert.openLabel : $t.academicAlert.reviewedLabel}</span>
-                <div class="meta">
-                  <strong>{a.Reason}</strong>
-                  <span>{momentDay(a.CreatedAt)}</span>
+                <div class="row-top">
+                  <span class={`mk ${a.Status === 'open' ? 'sev-severe' : 'sev-mild'}`}>
+                    {a.Status === 'open' ? $t.academicAlert.openLabel : $t.academicAlert.reviewedLabel}
+                  </span>
+                  <div class="meta">
+                    <strong>{a.Reason}</strong>
+                    <span>{momentDay(a.CreatedAt)}</span>
+                  </div>
                   {#if a.Status === 'open' && canManageUsers($profileStore.me?.roles)}
-                    <span class="rowbtns">
+                    <div class="rowbtns">
                       <button
-                        type="button" class="mini"
+                        type="button"
+                        class="btn btn-sm"
                         disabled={reviewingAlert === a.ID}
                         on:click={() => reviewAlert(a.ID)}
-                      >{$t.academicAlert.reviewAction}</button>
-                    </span>
-                  {/if}
-                </div>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
-      <section class="card" aria-label={$t.studentSummary.warningsTitle}>
-        <div class="row-head">
-          <h2>{$t.studentSummary.warningsTitle} ({sortedWarnings.length})</h2>
-          <button
-            type="button" class="mini"
-            on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(id)}&nombre=${encodeURIComponent(reviseName())}`)}
-          >{$t.studentSummary.openWarnings}</button>
-        </div>
-        {#if sortedWarnings.length === 0}
-          <p class="muted">{$t.studentSummary.warningsEmpty}</p>
-        {:else}
-          <ul class="rows">
-            {#each sortedWarnings as w (w.ID)}
-              <li>
-                <span class={`mk sev-${w.Gravity}`}>{gravityName(w.Gravity)}</span>
-                <div class="meta">
-                  <strong>{w.Title}</strong>
-                  <span>{momentDay(w.HappenedAt)}{#if w.ClassLabel} · {w.ClassLabel}{/if}{#if w.AuthorName} · {w.AuthorName}{/if}</span>
-                  {#if w.Description}<small>{w.Description}</small>{/if}
-                  <span class="rowbtns">
-                    {#if staffWrite}
-                      <button
-                        type="button" class="mini"
-                        on:click={() => (editingWarning = { id: w.ID, gravity: w.Gravity, title: w.Title, description: w.Description ?? '' })}
-                      >{$t.studentSummary.modifyAction}</button>
-                    {/if}
-                    <button type="button" class="mini" on:click={() => toggleWarnRevs(w.ID)}>
-                      {warnRevsFor === w.ID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
-                    </button>
-                  </span>
-                  {#if warnRevsFor === w.ID}
-                    {#if warnRevsLoading}
-                      <p class="muted">{$t.common.retrying}</p>
-                    {:else}
-                      <WarningRevisionTrail revisions={warnRevs[w.ID] ?? []} />
-                    {/if}
+                      >
+                        {$t.academicAlert.reviewAction}
+                      </button>
+                    </div>
                   {/if}
                 </div>
               </li>
@@ -359,19 +329,75 @@
         {/if}
       </section>
 
-      <button type="button" class="primary big" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(id)}`)}>
-        {$t.studentSummary.openFull}
-      </button>
-      {#if editingWarning}
-        <WarningCorrectForm
-          warningId={editingWarning.id}
-          initialGravity={editingWarning.gravity}
-          initialTitle={editingWarning.title}
-          initialDescription={editingWarning.description}
-          onClose={() => (editingWarning = null)}
-          onSaved={afterWarningCorrection}
-        />
-      {/if}
+      <section class="card" aria-label={$t.studentSummary.warningsTitle}>
+        <div class="row-head">
+          <h2>{$t.studentSummary.warningsTitle} ({sortedWarnings.length})</h2>
+          <button
+            type="button"
+            class="btn btn-sm"
+            on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(id)}&nombre=${encodeURIComponent(reviseName())}`)}
+          >
+            {$t.studentSummary.openWarnings}
+          </button>
+        </div>
+        {#if sortedWarnings.length === 0}
+          <p class="muted">{$t.studentSummary.warningsEmpty}</p>
+        {:else}
+          <ul class="rows">
+            {#each sortedWarnings as w (w.ID)}
+              <li>
+                <div class="row-top">
+                  <span class={`mk sev-${w.Gravity}`}>{gravityName(w.Gravity)}</span>
+                  <div class="meta">
+                    <strong>{w.Title}</strong>
+                    <span>{momentDay(w.HappenedAt)}{#if w.ClassLabel} · {w.ClassLabel}{/if}{#if w.AuthorName} · {w.AuthorName}{/if}</span>
+                    {#if w.Description}<small>{w.Description}</small>{/if}
+                  </div>
+                  <div class="rowbtns">
+                    {#if staffWrite}
+                      <button
+                        type="button"
+                        class="btn btn-sm"
+                        on:click={() => (editingWarning = { id: w.ID, gravity: w.Gravity, title: w.Title, description: w.Description ?? '' })}
+                      >
+                        {$t.studentSummary.modifyAction}
+                      </button>
+                    {/if}
+                    <button type="button" class="btn btn-sm" on:click={() => toggleWarnRevs(w.ID)}>
+                      {warnRevsFor === w.ID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
+                    </button>
+                  </div>
+                </div>
+                {#if warnRevsFor === w.ID}
+                  {#if warnRevsLoading}
+                    <p class="muted">{$t.common.retrying}</p>
+                  {:else}
+                    <WarningRevisionTrail revisions={warnRevs[w.ID] ?? []} />
+                  {/if}
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+
+      <Sheet
+        open={editingWarning !== null}
+        title={$t.warnings.editTitle}
+        onClose={() => (editingWarning = null)}
+      >
+        {#if editingWarning}
+          <WarningCorrectForm
+            warningId={editingWarning.id}
+            initialGravity={editingWarning.gravity}
+            initialTitle={editingWarning.title}
+            initialDescription={editingWarning.description}
+            onClose={() => (editingWarning = null)}
+            onSaved={afterWarningCorrection}
+          />
+        {/if}
+      </Sheet>
+
       {#if correcting}
         <SessionCorrectSheet
           open
@@ -388,85 +414,68 @@
 </AdminShell>
 
 <style>
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .toolbar {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .primary {
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 700;
-    min-height: 48px;
-    border-radius: var(--radius-pill);
-    padding: 0 20px;
-  }
-  .primary.big {
-    width: 100%;
-    min-height: 54px;
-    font-size: 1rem;
-  }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 24px 24px 0 0;
-    padding: 20px 18px 40px;
+    border-radius: var(--radius-sheet);
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
   }
   .card {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
     padding: 18px;
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
+  .row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
   .row-head h2 {
     margin: 0;
-    font-size: 1.2rem;
-    letter-spacing: -0.02em;
+    font-size: 0.98rem;
+    font-weight: 600;
   }
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
   }
   .kpis {
     margin: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 8px;
   }
   .kpis div {
-    background: var(--surface-2);
+    background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
+    border-radius: var(--radius-control);
     padding: 10px 12px;
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
   .kpis dt {
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: 0.74rem;
+    font-weight: 500;
     color: var(--muted);
   }
   .kpis dd {
     margin: 0;
-    font-size: 1.3rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
+  }
+  .kpis dd.low {
+    color: var(--g-grave-ink);
   }
   .rows {
     list-style: none;
@@ -478,113 +487,95 @@
   }
   .rows li {
     display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    padding: 12px 14px;
+  }
+  .row-top {
+    display: flex;
     gap: 12px;
     align-items: flex-start;
     flex-wrap: wrap;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
   }
   .mk {
     flex: none;
-    font-size: 0.78rem;
-    font-weight: 800;
-    border-radius: var(--radius-pill);
-    padding: 4px 10px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 3px 10px;
     background: var(--tint);
     color: var(--ink-soft);
   }
   .mk.absence {
-    background: var(--chip-pink-bg, #fbe4e6);
-    color: var(--g-grave-ink, #b4232f);
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
   }
   .mk.absence-permission {
-    background: var(--m-permission-bg, #e8f0fe);
-    color: var(--m-permission, #1a56db);
+    background: var(--m-permission-bg);
+    color: var(--m-permission);
   }
   .mk.evasion {
-    background: var(--chip-purple-bg, #efe7fb);
-    color: var(--chip-purple-ink, #6d3fd4);
+    background: var(--chip-purple-bg);
+    color: var(--chip-purple-ink);
   }
   .mk.late {
-    background: var(--chip-yellow-bg, #fdf3d7);
-    color: var(--chip-yellow-ink, #8a6d00);
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
   }
   .mk.sev-mild {
-    background: var(--tint);
-    color: var(--ink-soft);
+    background: var(--chip-sky-bg);
+    color: var(--chip-sky-ink);
   }
   .mk.sev-moderate {
-    background: var(--chip-yellow-bg, #fdf3d7);
-    color: var(--chip-yellow-ink, #8a6d00);
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
   }
   .mk.sev-severe {
-    background: var(--chip-pink-bg, #fbe4e6);
-    color: var(--g-grave-ink, #b4232f);
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
   }
   .meta {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    font-size: 0.9rem;
+    gap: 2px;
+    font-size: 0.85rem;
     flex: 1;
-    min-width: 200px;
+    min-width: 180px;
+  }
+  .meta strong {
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .meta span {
+    color: var(--muted);
+    font-size: 0.78rem;
   }
   .meta small {
-    color: var(--muted);
+    color: var(--ink-soft);
+    font-size: 0.8rem;
   }
   .meta small.permnote {
-    color: var(--m-permission, #1a56db);
+    color: var(--m-permission);
     font-weight: 600;
   }
   .rowbtns {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
+    margin-left: auto;
   }
-  .permbtn {
-    border: 1px solid var(--line);
-    background: var(--surface);
-    border-radius: var(--radius-pill);
-    padding: 6px 14px;
-    min-height: 44px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--ink-soft);
-  }
-  .permbtn.on {
-    background: var(--m-permission-bg, #e8f0fe);
-    color: var(--m-permission, #1a56db);
+  .perm-on {
+    background: var(--m-permission-bg);
+    color: var(--m-permission);
     border-color: transparent;
-  }
-  .permbtn:disabled {
-    opacity: 0.6;
-  }
-  .mini {
-    border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
-    padding: 8px 14px;
-    min-height: 44px;
-    font-weight: 600;
-    background: var(--surface);
-  }
-  .mini:disabled {
-    opacity: 0.6;
   }
   .error {
     color: var(--danger);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
-  }
-  .meta strong {
-    font-size: 0.95rem;
-  }
-  .meta span {
-    color: var(--muted);
-  }
-  .meta small {
-    color: var(--ink-soft);
   }
 </style>

@@ -158,36 +158,31 @@
 
 <TeacherShell active="agenda">
   <div class="agenda">
-  <TopBar title={$t.app.name}><TopActions /></TopBar>
+  <TopBar title={$t.agenda.title} subtitle={headerName || monthLabel}>
+    <TopActions />
+  </TopBar>
 
-  <div class="pagehead">
-    <p class="eyebrow">{$t.agenda.eyebrow}</p>
-    <h1 class="title">{$t.agenda.title}</h1>
-    {#if headerName}
-      <p class="who-name">{headerName}</p>
-    {/if}
-    <div class="controlbar">
-      <label class="search">
-        <Icon name="search" />
-        <input
-          type="search"
-          placeholder={$t.agenda.searchPlaceholder}
-          aria-label={$t.agenda.searchLabel}
-          bind:value={search}
-          bind:this={searchEl}
-        />
-        <kbd title={$t.agenda.searchLabel}>/</kbd>
-      </label>
-      <div class="stats">
-        <span class="statpill">{$t.agenda.todayValue(baseList.length)}</span>
-        <span class="statpill">{$t.agenda.registeredValue(doneCount, baseList.length)}</span>
-      </div>
+  <div class="filterbar">
+    <label class="search">
+      <Icon name="search" />
+      <input
+        type="search"
+        placeholder={$t.agenda.searchPlaceholder}
+        aria-label={$t.agenda.searchLabel}
+        bind:value={search}
+        bind:this={searchEl}
+      />
+      <kbd title={$t.agenda.searchLabel}>/</kbd>
+    </label>
+    <div class="stats">
+      <span class="statpill num">{$t.agenda.todayValue(baseList.length)}</span>
+      <span class="statpill num">{$t.agenda.registeredValue(doneCount, baseList.length)}</span>
     </div>
-    <div class="rowbtns">
-      <button type="button" class="mini" on:click={() => (warnGlobal = true)}>
-        {$t.agenda.warnActionLong}
+    <div class="quick-actions">
+      <button type="button" class="btn btn-sm" on:click={() => (warnGlobal = true)}>
+        <Icon name="warn" /> {$t.agenda.warnAction}
       </button>
-      <button type="button" class="mini" on:click={() => (alertGlobal = true)}>
+      <button type="button" class="btn btn-sm" on:click={() => (alertGlobal = true)}>
         {$t.academicAlert.action}
       </button>
     </div>
@@ -265,15 +260,15 @@
               {st === 'done' ? $t.agenda.stateDone : st === 'now' ? $t.agenda.stateNow : $t.agenda.stateNext}
             </span>
             <div class="rowbtns">
-              <button type="button" class="open" on:click={() => openClass(item)}>
+              <button type="button" class={st === 'now' ? 'btn btn-primary btn-sm' : 'btn btn-sm'} on:click={() => openClass(item)}>
                 {$t.agenda.openList}
               </button>
               <button
                 type="button"
-                class="warn"
+                class="btn btn-sm btn-danger"
                 on:click={() => (warnFor = { gid: item.GroupID, label: `${item.Grade} · ${item.SubjectName}` })}
               >
-                {$t.agenda.warnActionLong}
+                {$t.agenda.warnAction}
               </button>
             </div>
           </li>
@@ -315,49 +310,37 @@
 <style>
   .agenda {
     margin: 0 auto;
-    max-width: 1400px;
+    max-width: 1440px;
     min-width: 0;
     color: var(--ink);
   }
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .title {
-    font-size: 2rem;
-    letter-spacing: -0.03em;
-    font-weight: 550;
-    line-height: 1.05;
-    margin-bottom: 12px;
-    font-variant-numeric: tabular-nums;
-  }
-  .who-name {
-    color: var(--muted);
-    font-size: 0.9rem;
-    margin: -8px 0 12px;
-  }
-  .controlbar {
+  .filterbar {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: center;
-    flex-wrap: wrap;
+    margin-bottom: 14px;
   }
   .search {
-    flex: 1;
-    min-width: 200px;
     display: flex;
     gap: 8px;
     align-items: center;
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 9px 12px;
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    padding: 0 10px;
     color: var(--muted);
-    min-height: 44px;
+    min-height: var(--control-height);
+    flex: 1 1 220px;
+    max-width: 340px;
+  }
+  .search:focus-within {
+    border-color: var(--accent);
+  }
+  .search :global(svg) {
+    width: 16px;
+    height: 16px;
+    flex: none;
   }
   .search input {
     border: 0;
@@ -365,31 +348,41 @@
     outline: none;
     width: 100%;
     color: var(--ink);
-    font-size: 0.85rem;
+    font-size: 0.84rem;
   }
   .search kbd {
     font-family: inherit;
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     color: var(--muted);
-    background: var(--tint);
+    background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 1px 6px;
+    border-radius: 4px;
+    padding: 1px 5px;
   }
   .stats {
     display: flex;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .quick-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex-basis: 100%;
+  }
+  .quick-actions .btn :global(svg) {
+    width: 14px;
+    height: 14px;
   }
   .statpill {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
-    padding: 9px 14px;
-    font-size: 0.78rem;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.76rem;
     font-weight: 600;
     color: var(--ink-soft);
     white-space: nowrap;
-    min-height: 44px;
     display: inline-flex;
     align-items: center;
     font-variant-numeric: tabular-nums;
@@ -397,26 +390,24 @@
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 20px 18px 40px;
+    border-radius: var(--radius-sheet);
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
   }
   .week {
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    padding: 14px 14px 16px;
+    padding: 12px;
   }
   .month {
     color: var(--muted);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 10px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    text-transform: capitalize;
   }
   .days {
     display: grid;
@@ -426,23 +417,27 @@
   .day {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 10px 4px;
+    border-radius: var(--radius-control);
+    padding: 8px 4px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 2px;
-    min-height: 64px;
+    min-height: 58px;
     font-variant-numeric: tabular-nums;
+  }
+  .day:hover:not(.selected) {
+    border-color: var(--control);
+    background: var(--surface-2);
   }
   .day small {
     color: var(--muted);
     font-size: 0.72rem;
-    font-weight: 600;
+    font-weight: 500;
     text-transform: capitalize;
   }
   .day strong {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 600;
   }
   .day.selected {
@@ -455,12 +450,12 @@
     opacity: 0.7;
   }
   .day.today:not(.selected) {
-    border-color: var(--ink-soft);
+    border-color: var(--accent);
   }
   .list-title {
-    font-size: 0.84rem;
-    font-weight: 500;
-    color: var(--ink-soft);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ink);
   }
   .timeline {
     list-style: none;
@@ -508,7 +503,6 @@
   li.now .pip {
     background: var(--accent);
     border-color: var(--accent);
-    box-shadow: 0 0 0 4px var(--accent-soft);
   }
   .tblock {
     display: flex;
@@ -536,14 +530,15 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: var(--tint);
-    border-radius: var(--radius-pill);
-    padding: 4px 11px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 10px;
     font-weight: 600;
   }
   .factpill :global(svg) {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
   }
   .factpill.roll {
     font-variant-numeric: tabular-nums;
@@ -583,64 +578,33 @@
   .st {
     grid-column: 2;
     justify-self: start;
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    border-radius: var(--radius-pill);
-    padding: 5px 12px;
+    border-radius: 999px;
+    padding: 3px 10px;
     white-space: nowrap;
-    background: var(--tint);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
     color: var(--ink-soft);
   }
   .st.now {
-    background: var(--ink);
-    color: var(--bg);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .st.done {
+    opacity: 0.75;
   }
   .rowbtns {
     grid-column: 2;
     justify-self: start;
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
   }
-  .pagehead .rowbtns {
-    grid-column: auto;
-    margin-top: 10px;
-  }
-  .mini {
-    border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
-    padding: 9px 18px;
-    min-height: 44px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    background: var(--surface);
-  }
-  .open,
-  .warn {
-    border-radius: var(--radius-chip);
-    padding: 9px 18px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-weight: 700;
-    font-size: 0.85rem;
-    min-height: 44px;
-  }
-  .warn {
-    background: var(--g-grave-bg);
-    border-color: transparent;
-    color: var(--g-grave-ink);
-  }
-  li.now .open {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-  }
   @media (min-width: 720px) {
-    .title {
-      font-size: 2.4rem;
-    }
     .sheet {
-      padding: 24px 26px 60px;
+      padding: 20px;
     }
     .timeline li {
       grid-template-columns: 24px minmax(0, 1fr) auto auto;

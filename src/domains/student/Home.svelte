@@ -93,10 +93,9 @@
 </script>
 
 <div class="page">
-  <TopBar title={$t.app.name}><TopActions settings={false} help={false} /></TopBar>
+  <TopBar title={$t.studentHome.title} subtitle={profile ? `${profile.Surnames} ${profile.Names}` : ''}><TopActions settings={false} help={false} /></TopBar>
 
   <div class="pagehead">
-    <p class="eyebrow">{$t.studentHome.eyebrow}</p>
     <h1 class="title">{profile ? `${profile.Surnames} ${profile.Names}` : $t.studentHome.title}</h1>
     {#if profile}
       <p class="sub">{profile.DocumentID}{profile.ClassID ? ` · ${profile.ClassID}` : ''}</p>
@@ -193,11 +192,6 @@
   .pagehead {
     margin-bottom: 12px;
   }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
   .title {
     font-size: 2rem;
     letter-spacing: -0.03em;
@@ -232,7 +226,6 @@
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
     padding: 18px;
     animation: rise 0.3s ease both;
   }
@@ -279,10 +272,8 @@
   }
   .kpi small {
     color: var(--muted);
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 0.74rem;
+    font-weight: 500;
   }
   .kpi strong {
     font-size: 1.3rem;

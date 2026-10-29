@@ -6,6 +6,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
+  import Icon from '$lib/ui/Icon.svelte';
   import AdminShell from './AdminShell.svelte';
   import PeriodBlocks from './PeriodBlocks.svelte';
   import { guarded, goBack } from '$lib/nav';
@@ -337,17 +338,16 @@
 </script>
 
 <AdminShell active="anos" year={currentYear} onYear={null}>
-  <TopBar title={$t.admin.yearsTitle} showBack onBack={() => goBack('/admin')}><TopActions /></TopBar>
+  <TopBar title={$t.admin.yearsTitle} showBack onBack={() => goBack('/admin')}>
+    {#if !creating}
+      <button type="button" class="btn btn-primary" on:click={openCreate}>
+        <Icon name="plus" /> {$t.admin.yearsNew}
+      </button>
+    {/if}
+    <TopActions />
+  </TopBar>
 
-  <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-    <div class="toolbar">
-      {#if feedback}<p class="flash" role="status">{feedback}</p>{/if}
-      {#if !creating}
-        <button type="button" class="new" on:click={openCreate}>{$t.admin.yearsNew}</button>
-      {/if}
-    </div>
-  </div>
+  {#if feedback && !creating}<p class="flash" role="status">{feedback}</p>{/if}
 
   {#if creating}
     <section class="card">
@@ -624,14 +624,6 @@
 </AdminShell>
 
 <style>
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
   .toolbar {
     display: flex;
     gap: 8px;
@@ -671,14 +663,6 @@
     color: var(--chip-green-ink);
     font-weight: 600;
   }
-  .new {
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 700;
-    min-height: 44px;
-    border-radius: var(--radius-pill);
-    padding: 0 18px;
-  }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
@@ -692,7 +676,6 @@
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
     padding: 18px;
     display: flex;
     flex-direction: column;

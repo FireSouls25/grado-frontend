@@ -2,6 +2,9 @@
   import { onMount, onDestroy } from 'svelte';
   import { push } from 'svelte-spa-router';
   import Icon from '$lib/ui/Icon.svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
+  import SettingsPanel from './SettingsPanel.svelte';
+  import HelpPanel from './HelpPanel.svelte';
   import { t } from '$lib/i18n';
   import { theme } from '$lib/theme/theme';
   import { notifications, timeAgo, weekdayName, type NoticeStrings } from '$lib/notifications';
@@ -19,6 +22,8 @@
 
   let panelOpen = false;
   let panel: HTMLDivElement | null = null;
+  let settingsOpen = false;
+  let helpOpen = false;
 
   function strings(): NoticeStrings {
     return {
@@ -116,6 +121,17 @@
   <button class="icon-btn" type="button" on:click={cycleTheme} aria-label={$t.a11y.theme} title={$t.a11y.theme}>
     <Icon name={themeIcon()} />
   </button>
+  {#if help}
+    <button
+      class="icon-btn"
+      type="button"
+      on:click={() => (helpOpen = true)}
+      aria-label={$t.help.title}
+      title={$t.help.title}
+    >
+      <Icon name="help" />
+    </button>
+  {/if}
   <button
     class="icon-btn"
     type="button"
@@ -129,50 +145,50 @@
     <button
       class="icon-btn"
       type="button"
-      on:click={() => push('/ajustes')}
+      on:click={() => (settingsOpen = true)}
       aria-label={$t.settings.title}
       title={$t.settings.title}
     >
       <Icon name="settings" />
     </button>
   {/if}
-  {#if help}
-    <button
-      class="icon-btn"
-      type="button"
-      on:click={() => push('/ayuda')}
-      aria-label={$t.help.title}
-      title={$t.help.title}
-    >
-      <Icon name="help" />
-    </button>
-  {/if}
 </div>
+
+<Sheet open={settingsOpen} title={$t.settings.title} onClose={() => (settingsOpen = false)}>
+  <SettingsPanel onNavigate={() => (settingsOpen = false)} />
+</Sheet>
+
+<Sheet open={helpOpen} title={$t.help.title} onClose={() => (helpOpen = false)}>
+  <HelpPanel />
+</Sheet>
 
 <style>
   .actions {
     display: flex;
+    align-items: center;
     gap: 4px;
   }
   .icon-btn {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-pill);
-    color: var(--muted);
-    transition:
-      background-color 0.15s ease,
-      color 0.15s ease,
-      transform 0.1s ease;
+    border-radius: var(--radius-control);
+    border: 1px solid transparent;
+    color: var(--ink-soft);
   }
   .icon-btn:hover {
-    background: var(--surface-2);
+    background: var(--surface);
+    border-color: var(--line);
     color: var(--ink);
   }
   .icon-btn:active {
-    transform: scale(0.92) rotate(8deg);
+    transform: translateY(1px);
+  }
+  .icon-btn :global(svg) {
+    width: 18px;
+    height: 18px;
   }
   .bellwrap {
     position: relative;
@@ -182,15 +198,15 @@
   }
   .badge {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 5px;
+    top: 2px;
+    right: 2px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
     border-radius: 999px;
     background: var(--danger);
     color: #fff;
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     font-weight: 700;
     display: inline-flex;
     align-items: center;
@@ -199,7 +215,7 @@
   }
   .panel {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 6px);
     right: 0;
     width: min(340px, calc(100vw - 32px));
     max-height: min(60vh, 420px);
@@ -207,31 +223,40 @@
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
-    z-index: 60;
+    z-index: 65;
     padding: 8px;
+    animation: dropIn 0.14s var(--ease-out) both;
   }
   .panelhead {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 4px;
+  }
+  .panelhead strong {
+    font-size: 0.85rem;
   }
   .mark {
     color: var(--accent);
-    font-weight: 700;
-    font-size: 0.8rem;
-    min-height: 36px;
-    padding: 0 8px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    min-height: 28px;
+    padding: 0 6px;
+    border-radius: 6px;
+  }
+  .mark:hover {
+    background: var(--surface-2);
   }
   .empty {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 18px 12px;
+    padding: 16px 12px;
     text-align: center;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
   }
   .panel ul {
     list-style: none;
@@ -239,6 +264,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
+    gap: 2px;
   }
   .panel li button {
     width: 100%;
@@ -246,19 +272,19 @@
     align-items: flex-start;
     gap: 10px;
     text-align: left;
-    padding: 10px 8px;
-    border-radius: var(--radius-chip);
+    padding: 8px 10px;
+    border-radius: var(--radius-control);
   }
-  .panel li button:active {
-    transform: scale(0.99);
+  .panel li button:hover {
+    background: var(--surface-2);
   }
   .n-kind {
     flex: none;
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 999px;
-    background: var(--chip-sky-bg);
-    margin-top: 5px;
+    background: var(--accent);
+    margin-top: 6px;
   }
   .n-kind.alert {
     background: var(--g-grave-ink);
@@ -268,15 +294,26 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+    gap: 2px;
   }
   .n-main strong {
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .n-main small {
     color: var(--muted);
-    font-size: 0.76rem;
+    font-size: 0.75rem;
+  }
+  @keyframes dropIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 </style>

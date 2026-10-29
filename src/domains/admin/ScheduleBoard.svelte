@@ -42,7 +42,7 @@
   let sheetSession = 0;
 
   // Catálogo dentro del horario: nombre + descripción + color.
-  const COLOR_PRESETS = ['#7C3AED', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#EC4899'];
+  const COLOR_PRESETS = ['#1b6c80', '#2f70bb', '#a86f0c', '#1e7b4f', '#b83a2a', '#5a6c7d'];
   let subjectSheet: 'closed' | 'create' | 'edit' | 'delete' = 'closed';
   let subjectForm = { id: '', name: '', desc: '', color: '' };
   let savingSubject = false;
@@ -356,11 +356,14 @@
 </script>
 
 <AdminShell active="horario" {year}>
-  <TopBar title={$t.admin.scheduleTitle} showBack onBack={() => goBack('/admin')}><TopActions /></TopBar>
-
-  <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-  </div>
+  <TopBar title={$t.admin.scheduleTitle} showBack onBack={() => goBack('/admin')}>
+    {#if pickedGroup}
+      <button type="button" class="btn btn-primary" on:click={() => openAdd()}>
+        <Icon name="plus" /> {$t.admin.entryAdd}
+      </button>
+    {/if}
+    <TopActions />
+  </TopBar>
 
   <div class="sheet">
   {#if loadError}
@@ -394,11 +397,7 @@
       <p>{$t.admin.scheduleEmpty} {$t.admin.scheduleEditHint}</p>
     </div>
   {:else}
-    <div class="weekhead">
-      <button type="button" class="add" on:click={() => openAdd()}>
-        <Icon name="plus" /> {$t.admin.entryAdd}
-      </button>
-    </div>
+
     {#if entriesError}
       <ErrorState error={entriesError} onRetry={() => pickedGroup && loadEntries(pickedGroup.GroupID)} />
     {:else}
@@ -484,7 +483,7 @@
     <div class="subhead">
       <h2>{$t.subject.title}</h2>
       <span class="count" role="status">{$t.subject.countLabel(subjectsList.length)}</span>
-      <button type="button" class="add small" on:click={openCreateSubject}>
+      <button type="button" class="btn btn-sm btn-primary add-btn" on:click={openCreateSubject}>
         <Icon name="plus" /> {$t.subject.newAction}
       </button>
     </div>
@@ -518,9 +517,10 @@
               type="button"
               class="rm"
               aria-label={`${$t.subject.deleteAction}: ${s.Name}`}
+              title={`${$t.subject.deleteAction}: ${s.Name}`}
               on:click={() => openDeleteSubject(s)}
             >
-              ×
+              <Icon name="close" />
             </button>
           </li>
         {/each}
@@ -560,7 +560,7 @@
           <input
             type="color"
             aria-label={$t.subject.colorCustomLabel}
-            value={/^#[0-9a-fA-F]{6}$/.test(subjectForm.color) ? subjectForm.color : '#7C3AED'}
+            value={/^#[0-9a-fA-F]{6}$/.test(subjectForm.color) ? subjectForm.color : '#1b6c80'}
             on:input={(e) => (subjectForm.color = (e.currentTarget as HTMLInputElement).value)}
           />
         </label>
@@ -590,25 +590,14 @@
 </AdminShell>
 
 <style>
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 16px 16px 130px;
-  }
-  @media (min-width: 700px) {
-    .sheet {
-      padding: 20px 20px 130px;
-    }
+    border-radius: var(--radius-sheet);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
   .pickers {
     display: flex;
@@ -621,34 +610,9 @@
     max-width: 240px;
     min-width: 150px;
   }
-  .weekhead {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-  .add {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    padding: 0 20px;
-    border-radius: var(--radius-pill);
-    background: var(--accent);
-    color: #fff;
-    font-weight: 800;
-    font-size: 0.88rem;
-    box-shadow: var(--shadow);
-  }
-  .add :global(svg) {
-    width: 16px;
-    height: 16px;
-  }
-  .add.small {
-    min-height: 40px;
-    padding: 0 16px;
-    font-size: 0.82rem;
+  .subjects .add-btn :global(svg) {
+    width: 14px;
+    height: 14px;
   }
   .count {
     background: var(--tint);
@@ -704,9 +668,9 @@
     color: var(--ink);
   }
   .form input[type='text']:focus {
-    outline: none;
+    outline: 2px solid var(--accent);
+    outline-offset: 0;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .flabel {
     font-size: 0.85rem;
@@ -727,10 +691,12 @@
   .sw.on {
     border-color: var(--ink);
   }
+  /* Custom colour well: flat institutional teal; the native colour input provides the spectrum. */
   .sw.custom {
     position: relative;
     overflow: hidden;
-    background: conic-gradient(#ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ec4899, #ef4444);
+    background: var(--accent-soft); /* taste-skill-ignore */
+    border: 2px dashed var(--accent);
     cursor: pointer;
   }
   .sw.custom input[type='color'] {
@@ -805,12 +771,17 @@
   }
   .rm {
     flex: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 999px;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
     color: var(--muted);
-    font-size: 1.1rem;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rm :global(svg) {
+    width: 14px;
+    height: 14px;
   }
   .rm:hover {
     color: var(--g-grave-ink);
@@ -850,7 +821,6 @@
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
     background: var(--card);
-    box-shadow: var(--shadow);
   }
   .grid {
     display: grid;

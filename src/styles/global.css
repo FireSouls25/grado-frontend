@@ -1,7 +1,6 @@
-/* Grado design tokens. Single source of truth for themes and colors.
+/* Grado design tokens — Framed Sheet institutional system.
+   Single source of truth for themes, colors, typography, radii and motion.
    Never hardcode a color in components: always reference a var() below.
-   Visual authority: docs/diseno.md (warm paper light, Dracula dark).
-   Severity: --g-leve/medio/grave (blue/yellow/red). Attendance: --m-*.
    Themes: [data-theme="light"] (default), [data-theme="dark"],
    [data-theme="auto"] (follows the OS preference). */
 
@@ -9,155 +8,219 @@
 [data-theme='light'] {
   color-scheme: light;
 
-  --bg: hsl(36, 9%, 94%);
-  --surface: hsl(0, 0%, 100%);
-  --surface-2: hsl(40, 12%, 97%);
-  --card: hsl(44, 20%, 95.5%);
-  --tint: hsl(45, 8%, 91%);
-  --ink: hsl(45, 10%, 10%);
-  --ink-soft: hsl(40, 6%, 28%);
-  --muted: hsl(60, 2%, 52%);
-  --line: hsl(45, 10%, 88%);
-  --grid: hsl(43, 12%, 68%);
+  /* Framed-sheet chrome and surfaces */
+  --bg: #f4f6f8;
+  --ground: #f4f6f8;
+  --surface: #ffffff;
+  --surface-2: #f4f6f8;
+  --raised: #f4f6f8;
+  --card: #f9fafb;
+  --tint: #ebedee;
+  --active: #e6e9ec;
 
-  --accent: hsl(28, 40%, 52%);
-  --accent-ink: hsl(0, 0%, 100%);
-  --accent-soft: hsl(28, 45%, 93%);
-  --coral: hsl(343, 68%, 48%);
+  /* Ink & borders (all text tiers >= 4.5:1 on white & surface-2) */
+  --ink: #131416;
+  --text: #131416;
+  --ink-soft: #36393d;
+  --muted: #595d62;
+  --faint: #666a70;
+  --line: #e5e8eb;
+  --border: #e5e8eb;
+  --rule: #eef0f2;
+  --control: #c9cdd2;
+  --grid: #d5d9de;
 
-  /* Severidad: azul leve, amarillo medio, rojo grave. */
-  --g-leve-bg: hsl(203, 70%, 91%);
-  --g-leve-ink: hsl(198, 72%, 45%);
-  --g-medio-bg: hsl(46, 75%, 87%);
-  --g-medio-ink: hsl(45, 85%, 31%);
-  --g-grave-bg: hsl(6, 70%, 91%);
-  --g-grave-ink: hsl(0, 60%, 51%);
+  /* Primary & institutional teal accent */
+  --primary: #131416;
+  --primary-ink: #ffffff;
+  --accent: #1b6c80;
+  --accent-hover: #155869;
+  --accent-ink: #ffffff;
+  --accent-soft: #e4f1f5;
+  --coral: #2f70bb;
 
-  /* Asistencia: presente verde, ausente rojo, atraso amarillo, permiso
-     azul (no cuenta como falta), evasión violeta. */
-  --m-present: hsl(104, 42%, 39%);
-  --m-absent: hsl(0, 62%, 47%);
-  --m-permission: hsl(205, 68%, 45%);
-  --m-permission-bg: hsl(205, 60%, 90%);
-  --m-evasion: hsl(249, 17%, 56%);
-  --m-late: hsl(45, 85%, 38%);
+  /* Severidad: Tipo 1 azul, Tipo 2 ámbar, Tipo 3 rojo (>= 4.5:1) */
+  --g-leve-bg: #e3f1f8;
+  --g-leve-ink: #115373;
+  --g-medio-bg: #fef4d1;
+  --g-medio-ink: #7c4d08;
+  --g-grave-bg: #ffedea;
+  --g-grave-ink: #9e1c22;
 
-  /* Compatibilidad: componentes actuales; los nuevos usan --g-* y --m-*. */
-  --chip-green-bg: hsl(105, 30%, 90%);
-  --chip-green-ink: hsl(110, 38%, 30%);
+  /* Asistencia: presente verde, inasistencia ladrillo, permiso petróleo,
+     evasión ciruela, atraso ámbar */
+  --m-present: #1e7b4f;
+  --m-absent: #b83a2a;
+  --m-permission: #1b6c80;
+  --m-permission-bg: #e4f1f5;
+  --m-evasion: #733952;
+  --m-late: #a86f0c;
+
+  /* Chips semánticos y de materias */
+  --chip-green-bg: #dcfae5;
+  --chip-green-ink: #04250e;
   --chip-yellow-bg: var(--g-medio-bg);
   --chip-yellow-ink: var(--g-medio-ink);
-  --chip-purple-bg: hsl(285, 30%, 92%);
-  --chip-purple-ink: hsl(288, 32%, 40%);
+  --chip-purple-bg: #f5e9ef;
+  --chip-purple-ink: #632641;
   --chip-pink-bg: var(--g-grave-bg);
   --chip-pink-ink: var(--g-grave-ink);
   --chip-sky-bg: var(--g-leve-bg);
   --chip-sky-ink: var(--g-leve-ink);
 
-  --danger: hsl(0, 60%, 51%);
-  --shadow: 0 1px 2px hsla(45, 9%, 12%, 0.05);
-  --radius-card: 16px;
-  --radius-chip: 10px;
+  --danger: #b4232a;
+  --scrim: rgba(15, 18, 22, 0.48);
+  --shadow: none;
+  --shadow-float: 0 10px 28px rgba(15, 18, 22, 0.12);
+
+  /* Radii: bimodal tight system (cards 10px, controls 8px, sheet 16px) */
+  --radius-sheet: 16px;
+  --radius-card: 10px;
+  --radius-control: 8px;
+  --radius-chip: 8px;
   --radius-pill: 999px;
+
+  /* Typography & spacing scale */
+  --font: 'IBM Plex Sans', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --fs-title: 1.375rem;
+  --fs-section: 1rem;
+  --fs-kpi: 1.75rem;
+  --fs-body: 0.875rem;
+  --fs-small: 0.75rem;
+  --control-height: 38px;
+  --control-height-sm: 32px;
+  --row-height: 48px;
+
+  /* Motion tokens */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 120ms;
+  --t-normal: 180ms;
 }
 
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: hsl(230, 10%, 17%);
-  --surface: hsl(230, 12%, 11%);
-  --surface-2: hsl(230, 10%, 14%);
-  --card: hsl(230, 10%, 21%);
-  --tint: hsl(230, 10%, 18%);
-  --ink: hsl(60, 25%, 95%);
-  --ink-soft: hsl(45, 8%, 76%);
-  --muted: hsl(45, 6%, 60%);
-  --line: hsl(45, 6%, 26%);
-  --grid: hsl(45, 6%, 34%);
+  --bg: #0b0c0e;
+  --ground: #0b0c0e;
+  --surface: #121417;
+  --surface-2: #181b1f;
+  --raised: #181b1f;
+  --card: #16191d;
+  --tint: #20242a;
+  --active: #242930;
 
-  --accent: hsl(31, 95%, 68%);
-  --accent-ink: hsl(30, 45%, 8%);
-  --accent-soft: hsl(30, 40%, 18%);
-  --coral: hsl(330, 100%, 73%);
+  --ink: #f3f4f6;
+  --text: #f3f4f6;
+  --ink-soft: #c6c9ce;
+  --muted: #94989e;
+  --faint: #878b92;
+  --line: #252930;
+  --border: #252930;
+  --rule: #1d2026;
+  --control: #363b44;
+  --grid: #2c313a;
 
-  --g-leve-bg: hsl(195, 55%, 20%);
-  --g-leve-ink: hsl(190, 100%, 80%);
-  --g-medio-bg: hsl(55, 55%, 20%);
-  --g-medio-ink: hsl(60, 95%, 77%);
-  --g-grave-bg: hsl(355, 55%, 22%);
-  --g-grave-ink: hsl(0, 100%, 71%);
+  --primary: #f3f4f6;
+  --primary-ink: #0b0c0e;
+  --accent: #38a3bd;
+  --accent-hover: #4bb5cf;
+  --accent-ink: #071920;
+  --accent-soft: #132d35;
+  --coral: #5899e2;
 
-  --m-present: hsl(105, 45%, 67%);
-  --m-absent: hsl(0, 75%, 66%);
-  --m-permission: hsl(205, 80%, 72%);
-  --m-permission-bg: hsl(205, 45%, 24%);
-  --m-evasion: hsl(250, 35%, 75%);
-  --m-late: hsl(48, 95%, 62%);
+  --g-leve-bg: #122a38;
+  --g-leve-ink: #7ccbf2;
+  --g-medio-bg: #2d2310;
+  --g-medio-ink: #f5c451;
+  --g-grave-bg: #2f1619;
+  --g-grave-ink: #f9757c;
 
-  --chip-green-bg: hsl(105, 30%, 16%);
-  --chip-green-ink: hsl(105, 45%, 68%);
+  --m-present: #3fc07a;
+  --m-absent: #ee6b5e;
+  --m-permission: #4db4d1;
+  --m-permission-bg: #142e38;
+  --m-evasion: #d184a3;
+  --m-late: #e5a93b;
+
+  --chip-green-bg: #142b1d;
+  --chip-green-ink: #5fd694;
   --chip-yellow-bg: var(--g-medio-bg);
   --chip-yellow-ink: var(--g-medio-ink);
-  --chip-purple-bg: hsl(285, 30%, 20%);
-  --chip-purple-ink: hsl(285, 45%, 74%);
+  --chip-purple-bg: #2b1923;
+  --chip-purple-ink: #e29ab8;
   --chip-pink-bg: var(--g-grave-bg);
   --chip-pink-ink: var(--g-grave-ink);
   --chip-sky-bg: var(--g-leve-bg);
   --chip-sky-ink: var(--g-leve-ink);
 
-  --danger: hsl(0, 100%, 71%);
-  --scrim: hsla(0, 0%, 0%, 0.6);
-  --shadow: 0 10px 28px hsla(0, 0%, 0%, 0.45);
+  --danger: #f9757c;
+  --scrim: rgba(0, 0, 0, 0.68);
+  --shadow: none;
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.55);
 }
 
 @media (prefers-color-scheme: dark) {
   [data-theme='auto'] {
     color-scheme: dark;
 
-    --bg: hsl(230, 10%, 17%);
-    --surface: hsl(230, 12%, 11%);
-    --surface-2: hsl(230, 10%, 14%);
-    --card: hsl(230, 10%, 21%);
-    --tint: hsl(230, 10%, 18%);
-    --ink: hsl(60, 25%, 95%);
-    --ink-soft: hsl(45, 8%, 76%);
-    --muted: hsl(45, 6%, 60%);
-    --line: hsl(45, 6%, 26%);
-  --grid: hsl(45, 6%, 34%);
+    --bg: #0b0c0e;
+    --ground: #0b0c0e;
+    --surface: #121417;
+    --surface-2: #181b1f;
+    --raised: #181b1f;
+    --card: #16191d;
+    --tint: #20242a;
+    --active: #242930;
 
-    --accent: hsl(31, 95%, 68%);
-    --accent-ink: hsl(30, 45%, 8%);
-    --accent-soft: hsl(30, 40%, 18%);
-    --coral: hsl(330, 100%, 73%);
+    --ink: #f3f4f6;
+    --text: #f3f4f6;
+    --ink-soft: #c6c9ce;
+    --muted: #94989e;
+    --faint: #878b92;
+    --line: #252930;
+    --border: #252930;
+    --rule: #1d2026;
+    --control: #363b44;
+    --grid: #2c313a;
 
-    --g-leve-bg: hsl(195, 55%, 20%);
-    --g-leve-ink: hsl(190, 100%, 80%);
-    --g-medio-bg: hsl(55, 55%, 20%);
-    --g-medio-ink: hsl(60, 95%, 77%);
-    --g-grave-bg: hsl(355, 55%, 22%);
-    --g-grave-ink: hsl(0, 100%, 71%);
+    --primary: #f3f4f6;
+    --primary-ink: #0b0c0e;
+    --accent: #38a3bd;
+    --accent-hover: #4bb5cf;
+    --accent-ink: #071920;
+    --accent-soft: #132d35;
+    --coral: #5899e2;
 
-    --m-present: hsl(105, 45%, 67%);
-    --m-absent: hsl(0, 75%, 66%);
-    --m-permission: hsl(205, 80%, 72%);
-    --m-permission-bg: hsl(205, 45%, 24%);
-    --m-evasion: hsl(250, 35%, 75%);
-    --m-late: hsl(48, 95%, 62%);
+    --g-leve-bg: #122a38;
+    --g-leve-ink: #7ccbf2;
+    --g-medio-bg: #2d2310;
+    --g-medio-ink: #f5c451;
+    --g-grave-bg: #2f1619;
+    --g-grave-ink: #f9757c;
 
-    --chip-green-bg: hsl(105, 30%, 16%);
-    --chip-green-ink: hsl(105, 45%, 68%);
+    --m-present: #3fc07a;
+    --m-absent: #ee6b5e;
+    --m-permission: #4db4d1;
+    --m-permission-bg: #142e38;
+    --m-evasion: #d184a3;
+    --m-late: #e5a93b;
+
+    --chip-green-bg: #142b1d;
+    --chip-green-ink: #5fd694;
     --chip-yellow-bg: var(--g-medio-bg);
     --chip-yellow-ink: var(--g-medio-ink);
-    --chip-purple-bg: hsl(285, 30%, 20%);
-    --chip-purple-ink: hsl(285, 45%, 74%);
+    --chip-purple-bg: #2b1923;
+    --chip-purple-ink: #e29ab8;
     --chip-pink-bg: var(--g-grave-bg);
     --chip-pink-ink: var(--g-grave-ink);
     --chip-sky-bg: var(--g-leve-bg);
     --chip-sky-ink: var(--g-leve-ink);
 
-    --danger: hsl(0, 100%, 71%);
-    --scrim: hsla(0, 0%, 0%, 0.6);
-    --shadow: 0 10px 28px hsla(0, 0%, 0%, 0.45);
+    --danger: #f9757c;
+    --scrim: rgba(0, 0, 0, 0.68);
+    --shadow: none;
+    --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.55);
   }
 }
 
@@ -169,42 +232,50 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   transition:
-    background-color 0.25s ease,
-    color 0.25s ease;
+    background-color var(--t-normal) ease,
+    color var(--t-normal) ease;
 }
 
 h1,
 h2,
 h3,
+h4,
 p {
   margin: 0;
 }
 
 h1 {
-  font-size: 1.65rem;
+  font-size: var(--fs-title);
   line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
 }
 
 h2 {
-  font-size: 1.15rem;
+  font-size: var(--fs-section);
   line-height: 1.3;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 0.875rem;
+  line-height: 1.35;
+  font-weight: 600;
 }
 
 button {
@@ -214,11 +285,31 @@ button {
   border: none;
   padding: 0;
   cursor: pointer;
+  transition:
+    background-color var(--t-fast) ease,
+    border-color var(--t-fast) ease,
+    color var(--t-fast) ease,
+    transform var(--t-fast) var(--ease-out),
+    opacity var(--t-fast) ease;
 }
 
-input {
+button:disabled {
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
   font: inherit;
   color: inherit;
+  transition:
+    border-color var(--t-fast) ease,
+    background-color var(--t-fast) ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--faint);
 }
 
 :focus-visible {
@@ -232,16 +323,95 @@ input {
   min-height: 100svh;
 }
 
-/* Subject color chips. Components pick a palette via paletteFor(); the
-   actual colors always come from the theme tokens above. */
+/* Unified Button System */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--control-height);
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--ink-soft);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+}
+
+.btn :global(svg) {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-ink);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: transparent;
+}
+
+.btn-danger {
+  background: var(--g-grave-bg);
+  border-color: transparent;
+  color: var(--g-grave-ink);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--g-grave-ink);
+  color: #ffffff;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-soft);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.btn-sm {
+  min-height: var(--control-height-sm);
+  padding: 0 11px;
+  font-size: 0.78rem;
+  gap: 6px;
+}
+
+/* Subject & status color chips */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: var(--radius-pill);
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
 }
 .chip-green {
   background: var(--chip-green-bg);
@@ -264,18 +434,132 @@ input {
   color: var(--chip-sky-ink);
 }
 
-/* One centered column: phone-first, breathing room on desktop. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Legacy button aliases: one visual system even where old class names remain ---- */
+.mini,
+.mini-act,
+.act,
+.new,
+.go,
+.open,
+.collective,
+.primary,
+.ghost-new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--control-height);
+  padding: 0 16px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.mini:hover:not(:disabled),
+.mini-act:hover:not(:disabled),
+.act:hover:not(:disabled),
+.new:hover:not(:disabled),
+.go:hover:not(:disabled),
+.open:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--ink-soft);
+}
+.mini:active:not(:disabled),
+.mini-act:active:not(:disabled),
+.act:active:not(:disabled),
+.new:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.mini:disabled,
+.mini-act:disabled,
+.act:disabled,
+.new:disabled {
+  opacity: 0.55;
+}
+.primary,
+.mini.primary,
+.mini-act,
+.act.primary,
+.new:not(.ghost-new),
+.collective:not(.ghost) {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-ink);
+}
+.primary:hover:not(:disabled),
+.mini.primary:hover:not(:disabled),
+.mini-act:hover:not(:disabled),
+.act.primary:hover:not(:disabled),
+.new:not(.ghost-new):hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: transparent;
+}
+.mini.danger,
+.primary.danger {
+  background: var(--g-grave-bg);
+  border-color: transparent;
+  color: var(--g-grave-ink);
+}
+.mini.danger:hover:not(:disabled),
+.primary.danger:hover:not(:disabled) {
+  background: var(--g-grave-ink);
+  color: #fff;
+}
+/* Resting surfaces never float (all resting shadows were removed
+   file by file); only popovers, sheets and toasts may stand out. */
+.stepper button svg,
+.year-stepper button svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.ckbox svg {
+  width: 14px;
+  height: 14px;
+}
+/* Unified motion: press, hover and entrance */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.card,
+.panel {
+  animation: rise-in 0.22s var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .panel {
+    animation: none;
+  }
+}
+
+/* Standalone page container (Auth, Profile, Settings, Help, StudentHome) */
 .page {
   width: 100%;
-  max-width: 560px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: calc(12px + env(safe-area-inset-top)) 16px
-    calc(96px + env(safe-area-inset-bottom));
+  padding: calc(16px + env(safe-area-inset-top)) 16px
+    calc(72px + env(safe-area-inset-bottom));
 }
 
 @media (min-width: 900px) {
   .page {
-    max-width: 720px;
+    padding-inline: 28px;
   }
 }
 

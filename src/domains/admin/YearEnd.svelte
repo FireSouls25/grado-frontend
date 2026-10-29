@@ -340,7 +340,6 @@
   <TopBar title={$t.cierre.title} showBack onBack={() => goBack('/admin')}><TopActions /></TopBar>
 
   <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
     {#if lastPeriodActive}
       <p class="banner" role="status">{$t.cierre.lastPeriod}</p>
     {:else}
@@ -545,11 +544,6 @@
   .pagehead {
     margin-bottom: 12px;
   }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
   .banner {
     background: var(--accent-soft);
     color: var(--ink);
@@ -591,7 +585,6 @@
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
     padding: 16px 18px;
     display: flex;
     flex-direction: column;

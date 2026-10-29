@@ -242,21 +242,21 @@
 
 <TeacherShell active="agenda">
   <div class="attendance">
-  <TopBar title={$t.app.name} showBack onBack={() => goBack('/agenda')}><TopActions /></TopBar>
+  <TopBar title={titleLabel || $t.attendance.title} subtitle={`${todayLabel} · ${$t.attendance.summaryTitle}: ${presentPct}%`} showBack onBack={() => goBack('/agenda')}>
+    <button type="button" class="btn" on:click={() => (warnOpen = true)}>
+      <Icon name="warn" /> {$t.agenda.warnAction}
+    </button>
+    <button type="button" class="btn btn-primary" disabled={saving || roster.length === 0} on:click={save}>{$t.attendance.save}</button>
+    <TopActions />
+  </TopBar>
 
-  <div class="pagehead">
-    <p class="crumbs">{$t.attendance.breadcrumbHome} <span>›</span> {$t.attendance.breadcrumbAgenda} <span>›</span> <strong>{$t.attendance.breadcrumbHere}</strong></p>
-    <p class="eyebrow">{$t.attendance.eyebrow}</p>
-    <h1 class="title">{$t.attendance.title}</h1>
-    <div class="headactions">
-      <button type="button" class="collective" on:click={() => (warnOpen = true)}>
-        <Icon name="warn" /> {$t.agenda.warnActionLong}
-      </button>
-      <button type="button" class="collective ghost" on:click={() => (alertOpen = true)}>
-        <Icon name="warn" /> {$t.academicAlert.action}
-      </button>
-    </div>
-    <WarningNewSheet
+  <div class="quick-actions">
+    <button type="button" class="btn btn-sm" on:click={() => (alertOpen = true)}>
+      {$t.academicAlert.action}
+    </button>
+    <button type="button" class="btn btn-sm" on:click={() => push('/agenda')}>{$t.attendance.back}</button>
+  </div>
+  <WarningNewSheet
       open={warnOpen}
       groupID={groupID}
       originLabel={titleLabel}
@@ -270,7 +270,6 @@
       onClose={() => (alertOpen = false)}
       onSaved={() => (alertOpen = false)}
     />
-  </div>
 
   <div class="sheet">
     {#if loading}
@@ -286,7 +285,6 @@
     {:else}
       <div class="grid">
         <aside class="card info">
-          <p class="tag">{$t.attendance.todayTag}</p>
           <h2>{titleLabel}</h2>
           <ul class="facts">
             <li><span class="ibadge"><Icon name="calendar" /></span> <span class="cap">{todayLabel}</span></li>
@@ -311,10 +309,10 @@
           </div>
           <p class="hint-top">{$t.attendance.listHint}</p>
           <div class="bulk">
-            <button type="button" class="bulk-btn" on:click={markAllPresent}>
+            <button type="button" class="btn btn-sm" on:click={markAllPresent}>
               <Icon name="check" /> {$t.attendance.markAllPresent}
             </button>
-            <button type="button" class="bulk-btn" on:click={markAllAbsent}>
+            <button type="button" class="btn btn-sm" on:click={markAllAbsent}>
               <Icon name="close" /> {$t.attendance.markAllAbsent}
             </button>
           </div>
@@ -363,8 +361,8 @@
             <p class="hint">{$t.attendance.saveHint}</p>
           {/if}
           <div class="actions">
-            <button type="button" class="ghost" on:click={() => push('/agenda')}>{$t.attendance.back}</button>
-            <button type="button" class="primary" disabled={saving} on:click={save}>{$t.attendance.save}</button>
+            <button type="button" class="btn" on:click={() => push('/agenda')}>{$t.attendance.back}</button>
+            <button type="button" class="btn btn-primary" disabled={saving} on:click={save}>{saving ? '…' : $t.attendance.save}</button>
           </div>
         </section>
       </div>
@@ -381,58 +379,17 @@
     min-width: 0;
     color: var(--ink);
   }
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .crumbs {
-    color: var(--muted);
-    font-size: 0.8rem;
-    margin-bottom: 6px;
-  }
-  .crumbs strong {
-    color: var(--ink);
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .title {
-    font-size: 2rem;
-    letter-spacing: -0.03em;
-    font-weight: 550;
-    line-height: 1.05;
-    margin-bottom: 12px;
-    font-variant-numeric: tabular-nums;
-  }
-  .collective {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 700;
-    font-size: 0.85rem;
-    border-radius: var(--radius-pill);
-    padding: 10px 18px;
-    white-space: nowrap;
-    min-height: 44px;
-  }
-  .collective :global(svg) {
-    width: 15px;
-    height: 15px;
-  }
-  .headactions {
+  .quick-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
+    margin-bottom: 12px;
   }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 20px 18px 40px;
+    border-radius: var(--radius-sheet);
+    padding: 18px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -448,14 +405,6 @@
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
     padding: 20px 18px;
-  }
-  .tag {
-    color: var(--accent);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
   }
   .info h2 {
     font-size: 1.4rem;
@@ -486,8 +435,9 @@
   .ibadge {
     width: 26px;
     height: 26px;
-    border-radius: 8px;
-    background: var(--tint);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
     color: var(--ink-soft);
     display: inline-flex;
     align-items: center;
@@ -576,40 +526,25 @@
     overflow-wrap: anywhere;
   }
   .countpill {
-    background: var(--tint);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
     color: var(--ink-soft);
     font-size: 0.74rem;
     font-weight: 600;
-    border-radius: var(--radius-pill);
-    padding: 5px 12px;
+    border-radius: 999px;
+    padding: 4px 10px;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
   .bulk {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     margin-bottom: 10px;
     flex-wrap: wrap;
   }
-  .bulk-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 38px;
-    padding: 0 14px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--line);
-    background: var(--surface-2);
-    color: var(--muted);
-    font-weight: 600;
-    font-size: 0.8rem;
-  }
-  .bulk-btn:hover {
-    color: var(--ink);
-  }
-  .bulk-btn :global(svg) {
-    width: 15px;
-    height: 15px;
+  .bulk .btn :global(svg) {
+    width: 14px;
+    height: 14px;
   }
   .hint-top {
     color: var(--muted);
@@ -637,15 +572,16 @@
   }
   .avatar {
     flex: none;
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--ink);
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
-    font-size: 0.7rem;
+    font-weight: 600;
+    font-size: 0.72rem;
   }
   .who {
     flex: 1;
@@ -678,18 +614,18 @@
     display: flex;
     background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 4px;
-    gap: 4px;
+    border-radius: var(--radius-control);
+    padding: 3px;
+    gap: 3px;
     flex-wrap: wrap;
   }
   .seg button {
     flex: 1;
-    min-height: 44px;
+    min-height: 36px;
     padding: 6px 10px;
-    border-radius: var(--radius-pill);
-    font-size: 0.82rem;
-    font-weight: 700;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
     color: var(--muted);
     white-space: nowrap;
   }
@@ -714,60 +650,33 @@
     margin: 14px 2px 0;
   }
   .flash {
-    background: var(--tint);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
     color: var(--ink);
-    font-weight: 600;
-    font-size: 0.88rem;
-    border-radius: var(--radius-chip);
-    padding: 10px 14px;
-    margin: 14px 0 0;
+    font-weight: 500;
+    font-size: 0.84rem;
+    border-radius: var(--radius-control);
+    padding: 10px 12px;
+    margin: 12px 0 0;
   }
   .flash.error {
     background: var(--g-grave-bg);
+    border-color: transparent;
     color: var(--g-grave-ink);
   }
   .actions {
     display: flex;
-    flex-direction: column-reverse;
     gap: 8px;
-    margin-top: 18px;
-  }
-  .ghost {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    color: var(--ink);
-    font-weight: 700;
-    font-size: 0.88rem;
-    border-radius: var(--radius-chip);
-    padding: 12px 20px;
-    min-height: 44px;
-  }
-  .primary {
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 700;
-    font-size: 0.88rem;
-    border-radius: var(--radius-chip);
-    padding: 12px 24px;
-    min-height: 44px;
-  }
-  .primary:disabled {
-    opacity: 0.6;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
   @media (min-width: 720px) {
-    .title {
-      font-size: 2.4rem;
-    }
-    .sheet {
-      padding: 24px 26px 60px;
-    }
     .grid {
-      grid-template-columns: 320px minmax(0, 1fr);
-      gap: 12px;
-    }
-    .actions {
-      flex-direction: row;
-      justify-content: space-between;
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 14px;
     }
   }
 </style>

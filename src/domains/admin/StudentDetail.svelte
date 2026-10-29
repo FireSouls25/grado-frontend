@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
@@ -10,6 +9,7 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
+  import { notify } from '$lib/ui/notice';
   import {
     auditForStudent,
     studentProfile,
@@ -52,7 +52,7 @@
     loadError = null;
     try {
       const data = await guarded(() => studentProfile(studentID));
-      if (data === null) return; // 401/403 ya navegaron
+      if (data === null) return;
       profile = data;
       state = 'ready';
     } catch (err) {
@@ -65,8 +65,6 @@
       state = 'error';
       return;
     }
-    // Cada bloque falla por su cuenta: un historial vacío no debe hide la
-    // ficha, ni al revés.
     void loadWarnings();
     void loadReport();
     void loadTrail();
@@ -148,8 +146,6 @@
       report = (await guarded(() => studentReport(studentID))) ?? null;
     } catch (err) {
       report = null;
-      // El informe completo es admin-only (manage-system): un docente ve la
-      // ficha, pero el backend le cierra este bloque. Se dice, no se oculta.
       reportDenied = err instanceof ApiError && err.status === 403;
       if (!reportDenied) console.warn('student report unavailable', err);
     }
@@ -247,18 +243,13 @@
     ? [profile.Phone, profile.Email, profile.Address].some(Boolean)
     : false;
 
-  // Edición: el formulario parte de la ficha cargada y se envía completa
-  // (PUT reemplaza el perfil). El estado nunca se edita a mano.
   let editing = false;
   let saving = false;
   let editError = '';
-  let editFeedback = '';
   let form: StudentProfile | null = null;
 
   function startEdit() {
     if (!profile) return;
-    // La API serializa slices vacíos como null: normalizar antes de
-    // copiar, o el editor no abre (y el guardado fallaría igual).
     form = {
       ...profile,
       Mother: { ...profile.Mother },
@@ -270,7 +261,6 @@
       Siblings: (profile.Siblings ?? []).map((s) => ({ ...s }))
     };
     editError = '';
-    editFeedback = '';
     editing = true;
   }
 
@@ -289,15 +279,14 @@
   async function saveEdit() {
     if (!form) return;
     editError = validateEdit();
-    editFeedback = '';
     if (editError) return;
     saving = true;
     try {
       profile = await updateStudent(studentID, form);
       form = null;
       editing = false;
-      editFeedback = $t.studentDetail.saved;
-      void loadTrail(); // la propia edición queda en la bitácora
+      notify($t.studentDetail.saved);
+      void loadTrail();
     } catch (err) {
       editError = err instanceof ApiError ? err.message : $t.common.loadError;
     } finally {
@@ -307,25 +296,17 @@
 </script>
 
 <AdminShell active="estudiantes" year={currentYear}>
-  <TopBar title={$t.admin.studentsTitle} showBack onBack={() => goBack('/admin/estudiantes')}>
+  <TopBar title={fullName || $t.studentDetail.title} showBack onBack={() => goBack('/admin/estudiantes')}>
+    {#if profile && !editing}
+      <button type="button" class="btn" on:click={startEdit}>
+        <Icon name="settings" /> {$t.studentDetail.editAction}
+      </button>
+      <button type="button" class="btn" on:click={() => window.print()}>
+        <Icon name="print" /> {$t.studentDetail.exportPdf}
+      </button>
+    {/if}
     <TopActions />
   </TopBar>
-
-  <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-    <h1 class="title">{fullName || $t.studentDetail.title}</h1>
-    {#if profile && !editing}
-      <div class="toolbar">
-        {#if editFeedback}<p class="flash" role="status">{editFeedback}</p>{/if}
-        <button type="button" class="mini" on:click={startEdit}>
-          <Icon name="settings" /> {$t.studentDetail.editAction}
-        </button>
-        <button type="button" class="mini" on:click={() => window.print()}>
-          <Icon name="print" /> {$t.studentDetail.exportPdf}
-        </button>
-      </div>
-    {/if}
-  </div>
 
   {#if profile}
     <div class="print-head" aria-hidden="true">
@@ -352,14 +333,16 @@
               {:else}
                 <span class="avatar big" aria-hidden="true">{initials}</span>
               {/if}
-              <button type="button" class="link" on:click={() => photoInput?.click()}>
-                {$t.studentDetail.photoChange}
-              </button>
-              {#if photoUrl}
-                <button type="button" class="link danger" on:click={removePhoto}>
-                  {$t.studentDetail.photoRemove}
+              <div class="photo-actions">
+                <button type="button" class="link" on:click={() => photoInput?.click()}>
+                  {$t.studentDetail.photoChange}
                 </button>
-              {/if}
+                {#if photoUrl}
+                  <button type="button" class="link danger" on:click={removePhoto}>
+                    {$t.studentDetail.photoRemove}
+                  </button>
+                {/if}
+              </div>
               <input
                 bind:this={photoInput}
                 type="file"
@@ -379,16 +362,20 @@
 
           <dl class="facts">
             <div><dt>{$t.studentDetail.classLabel}</dt><dd>{profile.ClassID || '—'}</dd></div>
-            <div><dt>{$t.studentDetail.birthdateLabel}</dt><dd>
-              {longDate(profile.Birthdate)}{age !== null ? ` · ${$t.studentDetail.ageLabel(age)}` : ''}
-            </dd></div>
+            <div>
+              <dt>{$t.studentDetail.birthdateLabel}</dt>
+              <dd>{longDate(profile.Birthdate)}{age !== null ? ` · ${$t.studentDetail.ageLabel(age)}` : ''}</dd>
+            </div>
             <div><dt>{$t.studentDetail.birthplaceLabel}</dt><dd>{profile.Birthplace || '—'}</dd></div>
             <div><dt>{$t.studentDetail.bloodTypeLabel}</dt><dd>{profile.BloodType || '—'}</dd></div>
-            <div><dt>{$t.studentDetail.statusLabel}</dt><dd>
-              <span class={`chip ${profile.Status === 'active' ? 'chip-green' : 'chip-yellow'}`}>
-                {profile.Status === 'active' ? $t.studentDetail.statusActive : $t.studentDetail.statusGraduated}
-              </span>
-            </dd></div>
+            <div>
+              <dt>{$t.studentDetail.statusLabel}</dt>
+              <dd>
+                <span class={`chip ${profile.Status === 'active' ? 'chip-green' : 'chip-yellow'}`}>
+                  {profile.Status === 'active' ? $t.studentDetail.statusActive : $t.studentDetail.statusGraduated}
+                </span>
+              </dd>
+            </div>
           </dl>
 
           {#if hasContactData}
@@ -563,7 +550,7 @@
   {/if}
 </AdminShell>
 
-<Sheet open={editing && form !== null} title={$t.studentDetail.editTitle} onClose={() => (editing = false)}>
+<Sheet open={editing && form !== null} wide title={$t.studentDetail.editTitle} onClose={() => (editing = false)}>
   {#if form}
     <form class="form" on:submit|preventDefault={saveEdit}>
       <div class="row2">
@@ -575,12 +562,17 @@
         <label>{$t.studentDetail.classLabel}<input bind:value={form.ClassID} autocomplete="off" /></label>
       </div>
       <div class="row2">
-        <label>{$t.admin.formBirthdate}
-          <input type="date" lang="es-CO" value={form.Birthdate ? form.Birthdate.slice(0, 10) : ''}
+        <label>
+          {$t.admin.formBirthdate}
+          <input
+            type="date"
+            lang="es-CO"
+            value={form.Birthdate ? form.Birthdate.slice(0, 10) : ''}
             on:change={(e) => {
               const v = (e.currentTarget as HTMLInputElement).value;
               form!.Birthdate = v ? `${v}T00:00:00Z` : '0001-01-01T00:00:00Z';
-            }} />
+            }}
+          />
         </label>
         <label>{$t.studentDetail.bloodTypeLabel}<input bind:value={form.BloodType} placeholder="O+, A-, AB…" /></label>
       </div>
@@ -596,126 +588,33 @@
       </div>
       <h3 class="formsub">{$t.studentDetail.healthTitle}</h3>
       <div class="row2">
-        <label>{$t.studentDetail.visionLabel}
-          <input bind:value={form.Vision.Detail} placeholder={$t.studentDetail.conditionNo} />
-        </label>
-        <label>{$t.studentDetail.hearingLabel}
-          <input bind:value={form.Hearing.Detail} placeholder={$t.studentDetail.conditionNo} />
-        </label>
+        <label>{$t.studentDetail.visionLabel}<input bind:value={form.Vision.Detail} placeholder={$t.studentDetail.conditionNo} /></label>
+        <label>{$t.studentDetail.hearingLabel}<input bind:value={form.Hearing.Detail} placeholder={$t.studentDetail.conditionNo} /></label>
       </div>
       <label>{$t.studentDetail.medicalLabel}<input bind:value={form.MedicalReport} autocomplete="off" /></label>
       {#if editError}<p class="flash error" role="alert">{editError}</p>{/if}
-      <div class="actions">
-        <button class="ghost" type="button" on:click={() => (editing = false)}>{$t.common.cancel}</button>
-        <button class="primary" type="submit" disabled={saving}>{saving ? '…' : $t.common.save}</button>
+      <div class="form-actions">
+        <button class="btn" type="button" on:click={() => (editing = false)}>{$t.common.cancel}</button>
+        <button class="btn btn-primary" type="submit" disabled={saving}>{saving ? '…' : $t.common.save}</button>
       </div>
     </form>
   {/if}
 </Sheet>
 
 <style>
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-  }
-  .pagehead {
-    margin-bottom: 20px;
-  }
-  .mini {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 40px;
-    padding: 0 16px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-weight: 600;
-    font-size: 0.85rem;
-  }
-  .flash {
-    background: var(--chip-green-bg);
-    color: var(--chip-green-ink);
-    font-weight: 600;
-    font-size: 0.85rem;
-    border-radius: var(--radius-chip);
-    padding: 8px 12px;
-  }
-  .flash.error {
-    background: var(--chip-pink-bg);
-    color: var(--chip-pink-ink);
-  }
-  .form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .row2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .form label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-  .form input {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
-    padding: 10px 12px;
-    font-size: 0.92rem;
-    width: 100%;
-  }
-  .form input:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: 0;
-  }
-  .formsub {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-    margin-top: 4px;
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 6px;
-  }
-  .ghost,
-  .primary {
-    min-height: 46px;
-    border-radius: var(--radius-pill);
-    font-weight: 700;
-    font-size: 0.88rem;
-    padding: 10px 22px;
-  }
-  .ghost {
+  .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
-  }
-  .primary {
-    background: var(--accent);
-    color: var(--accent-ink);
-  }
-  .primary:disabled {
-    opacity: 0.6;
+    border-radius: var(--radius-sheet);
+    padding: 20px;
   }
   .grid {
     display: grid;
-    grid-template-columns: 360px minmax(0, 1fr);
-    gap: 20px;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 16px;
     align-items: start;
   }
-  @media (max-width: 899px) {
+  @media (max-width: 900px) {
     .grid {
       grid-template-columns: 1fr;
     }
@@ -727,65 +626,66 @@
     min-width: 0;
   }
   .card {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    padding: 20px;
+    padding: 18px;
   }
   .card-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
   .card-head h2 {
-    font-size: 1.02rem;
+    font-size: 0.96rem;
+    font-weight: 600;
   }
   .count {
-    color: var(--muted);
-    font-size: 0.78rem;
-    font-weight: 700;
+    background: var(--tint);
+    color: var(--ink-soft);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
   .idblock {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     padding-bottom: 14px;
     border-bottom: 1px solid var(--line);
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
   .idblock strong {
     display: block;
-    font-size: 1.05rem;
+    font-size: 1rem;
+    font-weight: 600;
   }
   .idblock small {
     color: var(--muted);
     font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
   }
-  .avatar {
-    flex: none;
-    width: 46px;
-    height: 46px;
-    border-radius: var(--radius-pill);
+  .avatar.big {
+    width: 68px;
+    height: 68px;
+    font-size: 1.4rem;
+    border-radius: var(--radius-card);
     background: var(--accent-soft);
     color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 800;
-  }
-  .avatar.big {
-    width: 88px;
-    height: 88px;
-    font-size: 1.9rem;
-    border-radius: 28px;
+    font-weight: 700;
   }
   .photo {
     flex: none;
-    width: 88px;
-    height: 88px;
-    border-radius: 28px;
+    width: 68px;
+    height: 68px;
+    border-radius: var(--radius-card);
     object-fit: cover;
     border: 1px solid var(--line);
   }
@@ -794,15 +694,20 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    gap: 6px;
+  }
+  .photo-actions {
+    display: flex;
     gap: 8px;
   }
   .link {
     color: var(--accent);
-    font-weight: 700;
-    font-size: 0.82rem;
-    min-height: 36px;
-    padding: 4px 0;
-    text-align: left;
+    font-weight: 600;
+    font-size: 0.78rem;
+    padding: 2px 0;
+  }
+  .link:hover {
+    text-decoration: underline;
   }
   .link.danger {
     color: var(--g-grave-ink);
@@ -820,7 +725,7 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
-    padding: 7px 0;
+    padding: 6px 0;
     border-bottom: 1px solid var(--line);
   }
   .facts > div:last-child {
@@ -828,48 +733,54 @@
   }
   .facts dt {
     color: var(--muted);
-    font-size: 0.84rem;
+    font-size: 0.82rem;
     flex: none;
   }
   .facts dd {
     margin: 0;
-    font-size: 0.92rem;
-    font-weight: 700;
+    font-size: 0.85rem;
+    font-weight: 600;
     color: var(--ink);
     text-align: right;
     word-break: break-word;
+    font-variant-numeric: tabular-nums;
   }
   .sub {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 600;
     color: var(--muted);
-    margin: 18px 0 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    margin: 14px 0 6px;
   }
   .sub2 {
     font-size: 0.8rem;
-    font-weight: 700;
-    margin: 14px 0 2px;
+    font-weight: 600;
+    margin: 10px 0 2px;
+  }
+  .siblist {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    font-size: 0.84rem;
+    color: var(--ink-soft);
   }
   .yr {
     display: inline-block;
     background: var(--tint);
     color: var(--ink-soft);
     border-radius: 999px;
-    padding: 1px 10px;
+    padding: 1px 8px;
     font-size: 0.7rem;
-    font-weight: 700;
+    font-weight: 600;
     margin-right: 6px;
     font-variant-numeric: tabular-nums;
   }
   .sevsum {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 14px;
+    gap: 6px;
+    margin-bottom: 12px;
   }
   .scrollbox.capped {
-    max-height: 300px;
+    max-height: 280px;
     overflow: hidden;
   }
   .scrollbox:not(.capped) {
@@ -878,8 +789,8 @@
   }
   .note {
     color: var(--muted);
-    font-size: 0.84rem;
-    margin-top: 10px;
+    font-size: 0.82rem;
+    margin-top: 8px;
   }
   .wlist,
   .slist,
@@ -889,14 +800,14 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
   .wlist li,
   .tlist li {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    padding-bottom: 10px;
+    gap: 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--line);
   }
   .wlist li:last-child,
@@ -907,10 +818,9 @@
   .sev {
     flex: none;
     border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: capitalize;
+    padding: 2px 9px;
+    font-size: 0.72rem;
+    font-weight: 600;
   }
   .sev.leve {
     background: var(--chip-sky-bg);
@@ -932,11 +842,12 @@
   .wtext strong,
   .ttext strong {
     display: block;
-    font-size: 0.9rem;
+    font-size: 0.86rem;
+    font-weight: 600;
   }
   .wtext p {
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     margin: 2px 0;
   }
   .wtext small,
@@ -947,12 +858,13 @@
   .pill {
     flex: none;
     border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 0.7rem;
-    font-weight: 700;
+    padding: 2px 9px;
+    font-size: 0.72rem;
+    font-weight: 600;
   }
   .pill.read {
-    background: var(--surface-2);
+    background: var(--surface);
+    border: 1px solid var(--line);
     color: var(--muted);
   }
   .pill.write {
@@ -962,7 +874,7 @@
   .code {
     flex: none;
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
@@ -972,13 +884,15 @@
   .kpis {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
   }
   .kpi {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 12px;
     padding: 10px 12px;
+  }
+  .kpi + .kpi {
+    border-left: 1px solid var(--line);
   }
   .kpi small {
     display: block;
@@ -987,15 +901,16 @@
   }
   .kpi strong {
     font-size: 1.2rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
   .slist li {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 0;
+    padding: 7px 0;
     border-bottom: 1px solid var(--line);
-    font-size: 0.85rem;
+    font-size: 0.84rem;
   }
   .slist li:last-child {
     border-bottom: none;
@@ -1003,6 +918,69 @@
   .slist .muted {
     color: var(--muted);
     flex: 1;
+  }
+  .flash {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+    font-weight: 600;
+    font-size: 0.84rem;
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
+  }
+  .flash.error {
+    background: var(--chip-pink-bg);
+    color: var(--chip-pink-ink);
+  }
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  @media (max-width: 480px) {
+    .row2 {
+      grid-template-columns: 1fr;
+    }
+  }
+  .form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.82rem;
+    font-weight: 500;
+  }
+  .form input {
+    background: var(--surface);
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    padding: 0 12px;
+    min-height: var(--control-height);
+    font-size: 0.85rem;
+    width: 100%;
+  }
+  .form input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .formsub {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
   }
   .print-head,
   .print-foot {
@@ -1013,18 +991,12 @@
       size: A4;
       margin: 16mm;
     }
-    /* Fuera la consola: solo la ficha, formal y sin chrome. */
     :global(.console > .side),
     :global(.console > .mnav),
     :global(.topbar),
-    .toolbar,
     .photocol .link,
-    .pagehead .title,
-    .pagehead .eyebrow {
+    .photo-actions {
       display: none !important;
-    }
-    .pagehead {
-      margin-bottom: 4px;
     }
     .print-head {
       display: block;
@@ -1039,8 +1011,6 @@
     .print-school {
       font-weight: 700;
       font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
     }
     .print-foot {
       display: block;
@@ -1064,20 +1034,15 @@
       width: 100%;
       min-width: 0;
     }
-    .card {
-      box-shadow: none;
-    }
     .kpi,
     .wlist li,
     .slist li,
     .tlist li {
       break-inside: avoid;
     }
-    /* La bitácora es interna: nunca sale en el PDF familiar. */
     .trailcard {
       display: none !important;
     }
-    /* Llamados y asistencia: página dedicada con TODO el historial. */
     .warncard,
     .reportcard {
       break-before: page;

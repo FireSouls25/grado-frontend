@@ -10,7 +10,7 @@
   export let onClose: () => void = () => {};
 
   function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') onClose();
+    if (open && e.key === 'Escape') onClose();
   }
 </script>
 
@@ -19,16 +19,16 @@
 {#if open}
   <div use:portal>
     <div class="scrim" on:click={onClose} aria-hidden="true"></div>
-    <!-- The scrim is a sibling: clicks inside the sheet never reach it. -->
     <div class="sheet" class:wide role="dialog" aria-modal="true" tabindex="-1" aria-label={title}>
       <div class="grab" aria-hidden="true"></div>
       <div class="head">
         <h2>{title}</h2>
         <button
-          class="icon-btn"
+          class="close-btn"
           type="button"
           on:click={onClose}
           aria-label={closeLabel || $t.a11y.close}
+          title={closeLabel || $t.a11y.close}
         >
           <Icon name="close" />
         </button>
@@ -45,53 +45,50 @@
     position: fixed;
     inset: 0;
     background: var(--scrim);
-    animation: fade 0.2s ease both;
-    z-index: 40;
+    animation: fade 0.18s ease both;
+    z-index: 70;
   }
   .sheet {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 41;
+    z-index: 71;
     background: var(--surface);
-    border-radius: 20px 20px 0 0;
-    box-shadow: var(--shadow);
-    max-height: 85dvh;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    max-height: 88dvh;
     display: flex;
     flex-direction: column;
     overscroll-behavior: contain;
-    animation: rise 0.25s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+    animation: rise 0.22s var(--ease-out) both;
     padding-bottom: env(safe-area-inset-bottom);
     pointer-events: auto;
   }
-  @media (min-width: 900px) {
-    /* Centered dialog on desktop (not a bottom sheet). The entrance
-       animates the `translate` property so it never fights the
-       `transform` centering below (a filled `transform` keyframe would
-       override translateX(-50%) and shove the panel to the right). */
+  @media (min-width: 760px) {
     .sheet {
       left: 50%;
       right: auto;
       top: 50%;
       bottom: auto;
-      width: min(560px, calc(100vw - 32px));
+      width: min(540px, calc(100vw - 32px));
+      max-height: min(86dvh, 760px);
       transform: translate(-50%, -50%);
-      border-radius: 20px;
-      padding-bottom: 8px;
+      border-radius: var(--radius-sheet);
+      padding-bottom: 4px;
     }
     .sheet.wide {
-      width: min(880px, calc(100vw - 32px));
+      width: min(860px, calc(100vw - 32px));
     }
   }
   .grab {
-    width: 40px;
+    width: 36px;
     height: 4px;
     border-radius: 4px;
-    background: var(--line);
+    background: var(--control);
     margin: 10px auto 0;
   }
-  @media (min-width: 900px) {
+  @media (min-width: 760px) {
     .grab {
       display: none;
     }
@@ -101,36 +98,43 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 8px 8px 8px 20px;
+    padding: 14px 16px 12px 20px;
+    border-bottom: 1px solid var(--line);
   }
   .head h2 {
-    font-size: 1.05rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
   .body {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-    padding: 4px 20px 20px;
+    padding: 16px 20px 20px;
   }
-  .icon-btn {
+  .close-btn {
     flex: none;
-    width: 44px;
-    height: 44px;
+    width: 34px;
+    height: 34px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-control);
     color: var(--muted);
     cursor: pointer;
   }
-  .icon-btn:hover {
+  .close-btn:hover {
     background: var(--surface-2);
     color: var(--ink);
   }
+  .close-btn :global(svg) {
+    width: 18px;
+    height: 18px;
+  }
   @keyframes rise {
     from {
-      opacity: 0.5;
-      translate: 0 40px;
+      opacity: 0;
+      translate: 0 18px;
     }
     to {
       opacity: 1;

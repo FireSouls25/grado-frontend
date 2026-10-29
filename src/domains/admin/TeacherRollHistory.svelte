@@ -7,6 +7,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
+  import Icon from '$lib/ui/Icon.svelte';
   import { guarded, goBack } from '$lib/nav';
   import { teacherRollHistory, teacherRoll, teacherDayRevisions, type TeacherDayCard, type TeacherRollRow, type TeacherDayRevision } from './api';
   import { rollDate } from './rollDate';
@@ -15,15 +16,15 @@
 
   function todayLocal(): string {
     const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const fmtTwo = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    return `${d.getFullYear()}-${fmtTwo(d.getMonth() + 1)}-${fmtTwo(d.getDate())}`;
   }
 
   function monthAgo(): string {
     const d = new Date();
     d.setDate(d.getDate() - 30);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const fmtTwo = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    return `${d.getFullYear()}-${fmtTwo(d.getMonth() + 1)}-${fmtTwo(d.getDate())}`;
   }
 
   function prettyDay(value: string): string {
@@ -48,7 +49,6 @@
   let revisions: TeacherDayRevision[] = [];
   let revisionsLoading = false;
 
-  $: expandedCard = cards.find((c) => c.Day === expanded) ?? null;
   $: absentLate = detailRows.filter((r) => r.Status === 'absent' || r.Status === 'late');
   $: presentRows = detailRows.filter((r) => r.Status === 'present');
 
@@ -128,11 +128,14 @@
 </script>
 
 <AdminShell active="docentes" year={currentYear}>
-  <TopBar title={$t.troll.rollHistoryTitle} showBack onBack={() => goBack('/admin/docentes')}><TopActions /></TopBar>
+  <TopBar title={$t.troll.rollHistoryTitle} showBack onBack={() => goBack('/admin/docentes')}>
+    <button type="button" class="btn btn-primary" on:click={() => push('/admin/docentes/lista')}>
+      {$t.troll.rollAction}
+    </button>
+    <TopActions />
+  </TopBar>
 
-  <div class="pagehead">
-    <p class="eyebrow">{$t.admin.consoleEyebrow}</p>
-    <h1 class="title">{$t.troll.rollHistoryTitle}</h1>
+  <div class="sheet">
     <div class="filters">
       <label>
         <span>{$t.troll.historySearchFrom}</span>
@@ -143,9 +146,7 @@
         <input type="date" lang="es-CO" bind:value={to} min={from} max={todayLocal()} on:change={load} />
       </label>
     </div>
-  </div>
 
-  <div class="sheet">
     {#if state === 'loading'}
       <Skeleton rows={4} />
     {:else if state === 'error'}
@@ -162,11 +163,11 @@
                 <small>{$t.troll.countTeachers(card.Total)}</small>
               </span>
               <span class="csum">
-                <span class="chip ok">{card.Present}</span>
-                <span class="chip bad">{card.Absent}</span>
-                <span class="chip warn">{card.Late}</span>
+                <span class="chip ok" title={$t.troll.statusPresent}>{card.Present}</span>
+                <span class="chip bad" title={$t.troll.statusAbsent}>{card.Absent}</span>
+                <span class="chip warn" title={$t.troll.statusLate}>{card.Late}</span>
               </span>
-              <span class="chev" aria-hidden="true">{expanded === card.Day ? '▾' : '▸'}</span>
+              <span class="chev" class:open={expanded === card.Day} aria-hidden="true"><Icon name="next" /></span>
             </button>
             {#if expanded === card.Day}
               <div class="cbody">
@@ -189,24 +190,26 @@
                       {/each}
                     </ul>
                   {/if}
-                  {#if presentRows.length > 0}
-                    <button type="button" class="mini" on:click={() => (showPresent = !showPresent)}>
-                      {showPresent ? $t.troll.hidePresent : `${$t.troll.showPresent} (${presentRows.length})`}
-                    </button>
-                    {#if showPresent}
-                      <ul class="names plain">
-                        {#each presentRows as r (r.TeacherID)}
-                          <li>{r.TeacherName}</li>
-                        {/each}
-                      </ul>
+                  <div class="btnrow">
+                    {#if presentRows.length > 0}
+                      <button type="button" class="btn btn-sm" on:click={() => (showPresent = !showPresent)}>
+                        {showPresent ? $t.troll.hidePresent : `${$t.troll.showPresent} (${presentRows.length})`}
+                      </button>
                     {/if}
+                    <button type="button" class="btn btn-sm" on:click={() => modify(card.Day)}>
+                      {$t.troll.modifyAction}
+                    </button>
+                    <button type="button" class="btn btn-sm" on:click={() => (showRevisions = !showRevisions)}>
+                      {showRevisions ? $t.troll.hideRevisions : $t.troll.showRevisions}
+                    </button>
+                  </div>
+                  {#if showPresent && presentRows.length > 0}
+                    <ul class="names plain">
+                      {#each presentRows as r (r.TeacherID)}
+                        <li>{r.TeacherName}</li>
+                      {/each}
+                    </ul>
                   {/if}
-                  <button type="button" class="mini" on:click={() => modify(card.Day)}>
-                    {$t.troll.modifyAction}
-                  </button>
-                  <button type="button" class="mini" on:click={() => (showRevisions = !showRevisions)}>
-                    {showRevisions ? $t.troll.hideRevisions : $t.troll.showRevisions}
-                  </button>
                   {#if showRevisions}
                     {#if revisionsLoading}
                       <Skeleton rows={2} />
@@ -249,52 +252,37 @@
 </AdminShell>
 
 <style>
-  .pagehead {
-    margin-bottom: 12px;
-  }
-  .eyebrow {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .title {
-    margin: 0;
+  .sheet {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sheet);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
   .filters {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-top: 10px;
   }
   .filters label {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    font-size: 0.78rem;
-    font-weight: 700;
+    gap: 5px;
+    font-size: var(--fs-small);
+    font-weight: 500;
     color: var(--muted);
   }
   .filters input {
-    min-height: 44px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface-2);
-    padding: 0 12px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--ink);
-  }
-  .sheet {
+    min-height: var(--control-height);
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-bottom: 0;
-    border-radius: 24px 24px 0 0;
-    padding: 16px 16px 130px;
-  }
-  @media (min-width: 700px) {
-    .sheet {
-      padding: 20px 20px 130px;
-    }
+    padding: 0 12px;
+    font-weight: 500;
+    font-size: 0.84rem;
+    color: var(--ink);
   }
   .cards {
     list-style: none;
@@ -302,66 +290,195 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
   .cards .card {
     padding: 0;
     overflow: hidden;
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow);
+  }
+  .chead {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    text-align: left;
+  }
+  .chead:hover {
+    background: var(--surface-2);
+  }
+  .cdate {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .cdate strong {
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .cdate small {
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .csum {
+    display: flex;
+    gap: 6px;
+  }
+  .chip {
+    min-width: 30px;
+    text-align: center;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip.ok {
+    background: var(--chip-green-bg);
+    color: var(--chip-green-ink);
+  }
+  .chip.bad {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+  }
+  .chip.warn {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+  }
+  .chev {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+  }
+  .chev :global(svg) {
+    width: 16px;
+    height: 16px;
+    transform: rotate(90deg);
+    transition: transform var(--t-fast) var(--ease-out);
+  }
+  .chev.open :global(svg) {
+    transform: rotate(-90deg);
+  }
+  .cbody {
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .btnrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .muted {
+    color: var(--muted);
+    font-size: 0.84rem;
+  }
+  .sub {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0;
+  }
+  .names {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .names li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .names.plain li {
+    color: var(--muted);
+    font-size: 0.84rem;
+  }
+  .sev {
+    flex: none;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .sev.medio {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+  }
+  .sev.grave {
+    background: var(--chip-pink-bg);
+    color: var(--g-grave-ink);
+  }
+  .ntext {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ntext strong {
+    font-size: 0.86rem;
+  }
+  .ntext small {
+    color: var(--muted);
+    font-size: 0.76rem;
   }
   .revs {
     list-style: none;
     margin: 0;
-    padding: 12px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: var(--radius-chip);
+    border-radius: var(--radius-control);
   }
   .revs li.rev {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 6px;
     padding: 10px 12px;
   }
   .changerow {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
   }
   .person {
-    align-self: flex-start;
     background: var(--tint);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 3px 10px;
-    font-size: 0.82rem;
-    font-weight: 800;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
   }
   .change {
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 4px 12px 4px 4px;
+    gap: 6px;
   }
   .mk {
     border-radius: 999px;
-    padding: 3px 12px;
-    font-size: 0.75rem;
-    font-weight: 800;
-    border: 2px solid transparent;
+    padding: 2px 9px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid transparent;
   }
   .mk.is-present {
     color: var(--chip-green-ink);
@@ -396,26 +513,17 @@
     border-color: transparent;
   }
   .swap {
-    flex: none;
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.95rem;
-    font-weight: 800;
+    color: var(--muted);
+    font-size: 0.85rem;
   }
   .first {
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: 0.74rem;
+    font-weight: 500;
     color: var(--muted);
   }
   .revnote {
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
   }
   .meta {
     display: flex;
@@ -425,156 +533,10 @@
   .meta .box {
     background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 3px 12px;
+    border-radius: 5px;
+    padding: 2px 8px;
     font-size: 0.72rem;
-    font-weight: 700;
     color: var(--ink-soft);
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .meta .box:first-child {
-    background: var(--accent-soft);
-    border-color: transparent;
-    color: var(--accent);
-  }
-  .revs li.rev {
-    gap: 10px;
-    padding: 12px 14px;
-  }
-  .chead {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    text-align: left;
-  }
-  .cdate {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .cdate strong {
-    font-size: 1rem;
-    text-transform: capitalize;
-  }
-  .cdate small {
-    color: var(--muted);
-    font-size: 0.78rem;
-    font-weight: 600;
-  }
-  .csum {
-    display: flex;
-    gap: 6px;
-  }
-  .chip {
-    min-width: 34px;
-    text-align: center;
-    border-radius: 999px;
-    padding: 4px 10px;
-    font-size: 0.8rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-  }
-  .chip.ok {
-    background: var(--chip-green-bg);
-    color: var(--chip-green-ink);
-  }
-  .chip.bad {
-    background: var(--chip-pink-bg);
-    color: var(--g-grave-ink);
-  }
-  .chip.warn {
-    background: var(--chip-yellow-bg);
-    color: var(--chip-yellow-ink);
-  }
-  .chev {
-    color: var(--muted);
-    font-size: 0.9rem;
-  }
-  .cbody {
-    border-top: 1px solid var(--line);
-    padding: 12px 16px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .muted {
-    color: var(--muted);
-    font-size: 0.85rem;
-  }
-  .sub {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-    margin: 0;
-  }
-  .names {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .names li {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .names.plain li {
-    color: var(--muted);
-    font-size: 0.88rem;
-  }
-  .sev {
-    flex: none;
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 0.7rem;
-    font-weight: 700;
-  }
-  .sev.medio {
-    background: var(--chip-yellow-bg);
-    color: var(--chip-yellow-ink);
-  }
-  .sev.grave {
-    background: var(--chip-pink-bg);
-    color: var(--g-grave-ink);
-  }
-  .ntext {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .ntext strong {
-    font-size: 0.92rem;
-  }
-  .ntext small {
-    color: var(--muted);
-    font-size: 0.78rem;
-  }
-  .link {
-    align-self: flex-start;
-    color: var(--accent);
-    font-weight: 700;
-    font-size: 0.82rem;
-    min-height: 36px;
-    padding: 4px 0;
-  }
-  .mini {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    min-height: 40px;
-    padding: 0 16px;
-    border-radius: var(--radius-pill);
-    background: var(--tint);
-    font-weight: 700;
-    font-size: 0.82rem;
   }
 </style>

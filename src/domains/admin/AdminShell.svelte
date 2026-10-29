@@ -8,8 +8,6 @@
   import { profile } from '$lib/shell/profile';
   import { canManageUsers } from '$lib/access';
 
-  // Barra lateral persistente de la consola admin (docs/diseno.md).
-  // Sin búsqueda: cada página filtra con la suya junto a sus tabs.
   export let active:
     | 'resumen'
     | 'docentes'
@@ -36,9 +34,6 @@
     | 'cap'
     | 'check';
 
-  // Una sola fuente para las dos navegaciones (lateral en escritorio,
-  // barra horizontal en móvil): el mismo destino y el mismo estado.
-  // Años es solo admin; el cierre lo ve también secretaría (sin cerrar).
   $: items = [
     { key: 'resumen' as Key, href: '/admin', icon: 'book' as IconName, label: $t.admin.viewOverview },
     { key: 'docentes' as Key, href: '/admin/docentes', icon: 'users' as IconName, label: $t.nav.teachers },
@@ -52,14 +47,26 @@
       : []),
     { key: 'cierre' as Key, href: '/admin/cierre', icon: 'check' as IconName, label: $t.admin.navCierre }
   ];
+
+  $: userLabel = $profile.me?.teacher
+    ? `${$profile.me.teacher.names} ${$profile.me.teacher.surnames}`.trim()
+    : ($profile.me?.username ?? '');
 </script>
 
 <div class="console">
   <aside class="side" aria-label={$t.admin.consoleEyebrow}>
-    <div class="usercard">
-      <span class="logo">G</span>
-      <span class="u-t"><strong>{$t.admin.schoolName}</strong></span>
+    <div class="brandcard">
+      <svg class="brandmark" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+        <rect width="28" height="28" rx="7" fill="var(--accent-soft)" />
+        <path d="M7 9.5C7 8.67 7.67 8 8.5 8H13.5V20H8.5C7.67 20 7 19.33 7 18.5V9.5Z" stroke="var(--accent)" stroke-width="1.75" stroke-linejoin="round" />
+        <path d="M21 9.5C21 8.67 20.33 8 19.5 8H14.5V20H19.5C20.33 20 21 19.33 21 18.5V9.5Z" stroke="var(--accent)" stroke-width="1.75" stroke-linejoin="round" />
+      </svg>
+      <div class="u-t">
+        <strong>{$t.admin.schoolName}</strong>
+        <small>{$t.app.name}</small>
+      </div>
     </div>
+
     <nav class="vnav" aria-label={$t.admin.manageTitle}>
       <p class="nav-cap">{$t.admin.manageTitle}</p>
       {#each items as item (item.key)}
@@ -69,25 +76,32 @@
           aria-current={active === item.key ? 'page' : undefined}
           on:click={() => item.key !== active && push(item.href)}
         >
-          <Icon name={item.icon} /> {item.label}
+          <Icon name={item.icon} />
+          <span>{item.label}</span>
         </button>
       {/each}
     </nav>
-    <div class="yearbox">
-      <small>{$t.admin.yearLabel}</small>
+
+    <div class="side-foot">
       {#if onYear}
-        <div class="stepper">
-          <button type="button" on:click={() => onYear && onYear(-1)} aria-label={$t.a11y.prevYear}>‹</button>
-          <strong>{year}</strong>
-          <button type="button" on:click={() => onYear && onYear(1)} aria-label={$t.a11y.nextYear}>›</button>
+        <div class="yearbox">
+          <small>{$t.admin.yearLabel}</small>
+          <div class="stepper">
+            <button type="button" on:click={() => onYear && onYear(-1)} aria-label={$t.a11y.prevYear}><Icon name="back" /></button>
+            <strong>{year}</strong>
+            <button type="button" on:click={() => onYear && onYear(1)} aria-label={$t.a11y.nextYear}><Icon name="next" /></button>
+          </div>
         </div>
-      {:else}
-        <div class="stepper"><strong>{year}</strong></div>
+      {/if}
+      {#if userLabel}
+        <button type="button" class="userrow" on:click={() => push('/perfil')}>
+          <Icon name="user" />
+          <span class="uname">{userLabel}</span>
+        </button>
       {/if}
     </div>
   </aside>
 
-  <!-- Móvil: la lateral no cabe, pero la navegación sigue siendo obligatoria. -->
   <nav class="mnav" aria-label={$t.admin.manageTitle}>
     {#each items as item (item.key)}
       <button
@@ -96,7 +110,8 @@
         aria-current={active === item.key ? 'page' : undefined}
         on:click={() => item.key !== active && push(item.href)}
       >
-        <Icon name={item.icon} /> <span>{item.label}</span>
+        <Icon name={item.icon} />
+        <span>{item.label}</span>
       </button>
     {/each}
   </nav>
@@ -115,15 +130,14 @@
   .side {
     display: none;
   }
-  /* Barra de secciones en móvil: coincide con el lateral de escritorio
-     (mismos destinos, mismo estado activo) y se desplaza en horizontal. */
   .mnav {
     display: flex;
     gap: 6px;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
     background: var(--bg);
+    border-bottom: 1px solid var(--line);
     position: sticky;
     top: 0;
     z-index: 20;
@@ -135,53 +149,41 @@
     flex: none;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    padding: 0 16px;
-    border-radius: 999px;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
     border: 1px solid var(--line);
     background: var(--surface);
     color: var(--ink-soft);
     font-weight: 500;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     white-space: nowrap;
   }
   .mnav button.active {
-    background: var(--ink);
-    border-color: var(--ink);
-    color: var(--bg);
+    background: var(--active);
+    border-color: var(--control);
+    color: var(--ink);
     font-weight: 600;
   }
   .mnav button :global(svg) {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
   .sbody {
     min-width: 0;
-    padding: 0 16px calc(96px + env(safe-area-inset-bottom));
+    padding: 12px 16px calc(64px + env(safe-area-inset-bottom));
   }
-  .usercard {
+  .brandcard {
     display: flex;
     gap: 10px;
     align-items: center;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 10px 12px;
-    box-shadow: var(--shadow);
+    padding: 6px 8px 10px;
   }
-  .logo {
-    width: 36px;
-    height: 36px;
+  .brandmark {
+    width: 32px;
+    height: 32px;
     flex: none;
-    background: var(--ink);
-    color: var(--bg);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 0.72rem;
   }
   .u-t {
     display: flex;
@@ -190,8 +192,18 @@
     min-width: 0;
   }
   .u-t strong {
-    font-size: 0.8rem;
-    line-height: 1.25;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .u-t small {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .vnav {
     display: flex;
@@ -199,82 +211,134 @@
     gap: 2px;
   }
   .nav-cap {
-    color: var(--ink-soft);
-    font-size: 0.78rem;
+    color: var(--muted);
+    font-size: 0.74rem;
     font-weight: 500;
-    padding: 0 12px 6px;
+    padding: 4px 10px 6px;
   }
   .vnav button {
     display: flex;
     gap: 10px;
     align-items: center;
-    padding: 9px 12px;
-    min-height: 44px;
-    border-radius: 10px;
-    color: var(--ink-soft);
+    padding: 0 10px;
+    min-height: 36px;
+    border-radius: var(--radius-control);
+    color: var(--muted);
     font-weight: 500;
-    font-size: 0.86rem;
-    border: 1px solid transparent;
+    font-size: 0.85rem;
     text-align: left;
   }
-  .vnav button.active {
-    background: var(--surface);
-    border-color: var(--line);
+  .vnav button :global(svg) {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+  .vnav button:hover {
+    background: var(--tint);
     color: var(--ink);
-    box-shadow: var(--shadow);
+  }
+  .vnav button.active {
+    background: var(--active);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .side-foot {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
   }
   .yearbox {
-    border-top: 1px solid var(--line);
-    padding: 14px 4px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 6px;
   }
   .yearbox small {
     color: var(--muted);
-    font-weight: 600;
-    font-size: 0.7rem;
+    font-weight: 500;
+    font-size: 0.76rem;
   }
   .stepper {
     display: flex;
     align-items: center;
-    gap: 14px;
-    margin-top: 6px;
+    gap: 6px;
   }
   .stepper strong {
-    font-size: 1.3rem;
+    font-size: 0.88rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+    min-width: 40px;
+    text-align: center;
   }
   .stepper button {
-    width: 44px;
-    height: 44px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: var(--surface-2);
-    font-size: 1.2rem;
-    line-height: 1;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--control);
+    background: var(--surface);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-soft);
   }
-  @media (min-width: 1020px) {
+  .stepper button :global(svg) {
+    width: 14px;
+    height: 14px;
+  }
+  .stepper button:hover {
+    background: var(--surface-2);
+  }
+  .userrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius-control);
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-align: left;
+  }
+  .userrow:hover {
+    background: var(--tint);
+    color: var(--ink);
+  }
+  .userrow :global(svg) {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+  .uname {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  @media (min-width: 960px) {
     .console {
       display: grid;
-      grid-template-columns: 272px minmax(0, 1fr);
+      grid-template-columns: 232px minmax(0, 1fr);
     }
     .side {
       display: flex;
       background: var(--bg);
-      padding: 18px 14px;
+      padding: 16px 12px;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
       position: sticky;
       top: 0;
       height: 100vh;
       height: 100svh;
       overflow-y: auto;
     }
-    /* La lateral reemplaza a la barra en escritorio: nunca ambas. */
     .mnav {
       display: none;
     }
     .sbody {
-      padding: 26px 28px calc(96px + env(safe-area-inset-bottom));
+      padding: 14px 20px 32px 8px;
     }
   }
 </style>

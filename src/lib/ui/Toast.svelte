@@ -3,9 +3,6 @@
   import { t } from '$lib/i18n';
   import Icon from './Icon.svelte';
 
-  // Aviso flotante de éxito: aparece sobre la vista, se va solo a los
-  // pocos segundos y trae X para adelantarlo. Solo éxitos: los errores
-  // se quedan fijos junto a su formulario hasta resolverse.
   export let message = '';
   export let durationMs = 4000;
   export let onClose: () => void = () => {};
@@ -41,7 +38,7 @@
   .toast {
     position: fixed;
     left: 50%;
-    bottom: calc(24px + env(safe-area-inset-bottom));
+    bottom: calc(20px + env(safe-area-inset-bottom));
     transform: translateX(-50%);
     z-index: 90;
     display: flex;
@@ -50,12 +47,11 @@
     max-width: min(92vw, 420px);
     background: var(--ink);
     color: var(--bg);
-    border-radius: var(--radius-pill);
-    padding: 10px 10px 10px 16px;
+    border-radius: var(--radius-control);
+    padding: 8px 8px 8px 14px;
     font-weight: 600;
-    font-size: 0.88rem;
-    box-shadow: var(--shadow);
-    animation: rise 0.25s ease both;
+    font-size: 0.84rem;
+    animation: rise 0.2s var(--ease-out) both;
   }
   .check {
     flex: none;
@@ -63,8 +59,8 @@
     color: var(--chip-green-bg);
   }
   .check :global(svg) {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
   .text {
     flex: 1;
@@ -72,25 +68,25 @@
   }
   .toast button {
     flex: none;
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: 6px;
     opacity: 0.8;
   }
-  .toast button:active {
-    transform: scale(0.92);
+  .toast button:hover {
+    opacity: 1;
   }
   .toast button :global(svg) {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
   @keyframes rise {
     from {
       opacity: 0;
-      transform: translate(-50%, 10px);
+      transform: translate(-50%, 8px);
     }
     to {
       opacity: 1;

@@ -1,8 +1,9 @@
 # Identidad visual — Consola del administrador
 
-Viva: nace del prototipo `src/proto/` (variante E, validada contra
-`reference/cosmos.png`) y manda sobre `global.css` y los dominios admin
-cuando haya conflicto. Tono: español, app estándar, sobrio colegial.
+Viva: nace del prototipo validado contra la referencia visual y manda
+sobre `global.css` y los dominios admin cuando haya conflicto. Tono:
+español, app estándar, sobrio colegial. (Los prototipos `proto/` y las
+imágenes `reference/` se retiraron; este documento es la autoridad.)
 
 ## Mundo
 
