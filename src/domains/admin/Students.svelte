@@ -63,10 +63,18 @@
   let rosters: Record<string, RosterEntry[]> = {};
   let reportsDone = false;
 
-  function mergedOf(g: YearGroup) {
-    const rep = reports[g.GroupID];
+  // Los mapas viajan como argumentos: Svelte solo rastrea las variables
+  // que aparecen en el cuerpo del `$:`, no las que se leen dentro de una
+  // funcion auxiliar. Sin esto, el derivado no se recalcula al llegar
+  // los reportes y la lista queda vacia aunque haya datos.
+  function mergedOf(
+    g: YearGroup,
+    repMap: Record<string, ClassReport>,
+    rosMap: Record<string, RosterEntry[]>
+  ) {
+    const rep = repMap[g.GroupID];
     const known = new Set((rep?.Students ?? []).map((s) => s.StudentID));
-    const extra = (rosters[g.GroupID] ?? [])
+    const extra = (rosMap[g.GroupID] ?? [])
       .filter((r) => !known.has(r.StudentID))
       .map((r) => ({
         StudentID: r.StudentID,
@@ -86,7 +94,7 @@
     return {
       label: g.ClassLabel,
       days: reports[g.GroupID]?.Sessions ?? 0,
-      students: mergedOf(g).map((s) => ({
+      students: mergedOf(g, reports, rosters).map((s) => ({
         surnames: s.Surnames,
         names: s.Names,
         presences: s.Presences,
@@ -277,7 +285,7 @@
   }
 
   $: allRoster = groups.flatMap((g) =>
-    mergedOf(g).map((s) => ({
+    mergedOf(g, reports, rosters).map((s) => ({
       ...s,
       group: g.ClassLabel,
       rate: rateOf(s.Presences, s.Sessions),
@@ -372,7 +380,7 @@
 
   let exporting = false;
   let exportOpen = false;
-  $: totalExportStudents = groups.reduce((n, g) => n + mergedOf(g).length, 0);
+  $: totalExportStudents = groups.reduce((n, g) => n + mergedOf(g, reports, rosters).length, 0);
   let exportAll = true;
   let exportPicked: Record<string, boolean> = {};
 
@@ -403,7 +411,7 @@
       if (exportAll) {
         const sheets = [];
         for (const g of selected) {
-          if (mergedOf(g).length === 0) continue;
+          if (mergedOf(g, reports, rosters).length === 0) continue;
           sheets.push(sheetFor(g));
         }
         if (sheets.length === 0) {
@@ -416,7 +424,7 @@
         });
       } else {
         for (const g of selected) {
-          if (mergedOf(g).length === 0) continue;
+          if (mergedOf(g, reports, rosters).length === 0) continue;
           const safe = g.ClassLabel.replace(/[\\/:*?"<>|]/g, '-');
           await exportStudentsWorkbook(`grado-estudiantes-${safe}-${year}.xlsx`, [sheetFor(g)], { ...text, title: `${$t.admin.studentExcelTitle(year)} · ${g.ClassLabel}` });
         }
@@ -469,7 +477,7 @@
             <label class="xrow">
               <input type="checkbox" checked={exportAll || !!exportPicked[g.GroupID]} disabled={exportAll} on:change={() => toggleExportGroup(g.GroupID)} />
               <span class="xmain"><strong>{g.ClassLabel}</strong></span>
-              <span class="xcount">{$t.admin.groupStudents(mergedOf(g).length)}</span>
+              <span class="xcount">{$t.admin.groupStudents(mergedOf(g, reports, rosters).length)}</span>
             </label>
           </li>
         {/each}
@@ -515,7 +523,7 @@
             >
               <div class="sc-top">
                 <strong>{g.ClassLabel}</strong>
-                <span class="sc-count">{known ? mergedOf(g).length : '—'}</span>
+                <span class="sc-count">{known ? mergedOf(g, reports, rosters).length : '—'}</span>
               </div>
               <small>{dir ? `${dir.Surnames} ${dir.Names}`.trim() : $t.admin.noDirector}</small>
             </button>
