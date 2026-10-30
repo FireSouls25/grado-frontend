@@ -29,7 +29,7 @@ globalThis.localStorage = {
 };
 
 const entry = `
-import { openSession, recordMark, issueWarnings } from '/home/grim/Documents/projects/grado/frontend/src/domains/teacher/api.ts';
+import { openSession, recordMark, issueWarnings, todaySessions, sessionMarks } from '/home/grim/Documents/projects/grado/frontend/src/domains/teacher/api.ts';
 import { issueWarningBatch, correctWarning, studentReport } from '/home/grim/Documents/projects/grado/frontend/src/domains/admin/api.ts';
 const fail = (m) => { console.error('CONTRACT FAIL:', m); process.exitCode = 1; };
 const last = () => globalThis.__calls[globalThis.__calls.length - 1];
@@ -61,6 +61,18 @@ await issueWarningBatch({ classID: 'g', studentIDs: ['a'], gravity: 'mild', titl
   if (!c.url.endsWith('/v1/warnings/batch')) fail('issueWarningBatch url ' + c.url);
   if ('snapshots' in (c.body || {})) fail('issueWarningBatch envía snapshots');
 }
+await todaySessions('g-1', '2026-10-30');
+{
+  const c = last();
+  const want = '/v1/sessions/history?classGroupID=g-1&from=2026-10-30&to=2026-10-30';
+  if (!c.url.endsWith(want) || c.method !== 'GET') fail('todaySessions ' + c.method + ' ' + c.url);
+}
+globalThis.fetch = async (url, init) => {
+  globalThis.__calls.push({ url: String(url), method: init?.method || 'GET', body: init?.body ? JSON.parse(init.body) : undefined });
+  return { ok: true, status: 200, json: async () => ({ Marks: { a: 'absence' } }) };
+};
+const marks = await sessionMarks('s-9');
+if (!marks || marks.a !== 'absence') fail('sessionMarks no lee Marks del detalle');
 await correctWarning('w-1', { description: 'Nuevo texto' });
 {
   const c = last();

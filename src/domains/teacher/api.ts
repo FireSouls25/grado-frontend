@@ -109,6 +109,18 @@ export async function recordMark(
   });
 }
 
+/** Today's roll calls of one salon, newest first. */
+export async function todaySessions(groupID: string, day: string): Promise<{ ID: string }[]> {
+  const q = `classGroupID=${encodeURIComponent(groupID)}&from=${encodeURIComponent(day)}&to=${encodeURIComponent(day)}`;
+  return (await api.get<{ ID: string }[]>(`/v1/sessions/history?${q}`)) ?? [];
+}
+
+/** Current marks of one roll call, by student. */
+export async function sessionMarks(id: string): Promise<Record<string, string> | null> {
+  const r = await api.get<{ Marks?: Record<string, string> }>(`/v1/sessions/${encodeURIComponent(id)}`);
+  return r?.Marks ?? null;
+}
+
 // The backend builds its own snapshots from the current profiles and
 // rejects unknown fields, so the draft carries only the event itself.
 export interface WarningDraft {

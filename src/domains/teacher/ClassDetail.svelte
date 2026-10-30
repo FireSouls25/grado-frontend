@@ -10,7 +10,7 @@
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
-  import { classRoster, isMissing, openSession, recordMark } from './api';
+  import { classRoster, isMissing, openSession, recordMark, sessionMarks, todaySessions } from './api';
   import { groupsByYear, listSubjects } from '../admin/api';
   import { notify } from '$lib/ui/notice';
   import { dateKey, saveRollcall } from './rollcall';
@@ -100,6 +100,7 @@
       presentInit = new Set(present);
       late = new Set();
       lateInit = new Set();
+      await resumeToday();
     } catch {
       // Backend sin nómina todavía (404 o error): vacío honesto, no lista falsa.
       roster = [];
@@ -109,6 +110,37 @@
       lateInit = new Set();
     } finally {
       loading = false;
+    }
+  }
+
+  function localDay(d = new Date()): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  // Si el salón ya tiene llamado hoy, se retoma: la lista abre con el
+  // estado de cada estudiante y se sigue la misma sesión en vez de
+  // abrir otra. Sin sesión previa queda todo presente, como antes.
+  async function resumeToday() {
+    try {
+      const list = await guarded(() => todaySessions(groupID, localDay()));
+      if (!list || list.length === 0 || !list[0]?.ID) return;
+      const marks = await guarded(() => sessionMarks(list[0].ID));
+      if (!marks) return;
+      sessionID = list[0].ID;
+      const p = new Set<string>();
+      const l = new Set<string>();
+      for (const r of roster) {
+        const m = marks[r.StudentID] ?? '';
+        if (m === 'late') l.add(r.StudentID);
+        else if (m === '') p.add(r.StudentID);
+      }
+      present = p;
+      late = l;
+      presentInit = new Set(p);
+      lateInit = new Set(l);
+    } catch {
+      /* sin historial legible: todo presente, como antes */
     }
   }
 
@@ -262,7 +294,6 @@
     <button type="button" class="btn" on:click={() => (warnOpen = true)}>
       <Icon name="warn" /> {$t.agenda.warnAction}
     </button>
-    <button type="button" class="btn btn-primary" disabled={saving || roster.length === 0 || !dirty} on:click={save}>{$t.attendance.save}</button>
     <TopActions />
   </TopBar>
 
