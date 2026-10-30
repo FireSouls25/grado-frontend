@@ -140,22 +140,12 @@
         byGroup.set(gid, list);
       }
       for (const [gid, list] of byGroup) {
-        const snapshots: Record<string, { names: string; surnames: string; documentID: string; classID: string }> = {};
-        for (const r of list) {
-          snapshots[r.StudentID] = {
-            names: r.Names,
-            surnames: r.Surnames,
-            documentID: r.DocumentID,
-            classID: gid
-          };
-        }
         await issueWarnings({
           studentIDs: list.map((r) => r.StudentID),
           classID: gid,
           title: title.trim(),
           gravity,
-          description: description.trim(),
-          snapshots
+          description: description.trim()
         });
       }
       notify($t.warning.saved);

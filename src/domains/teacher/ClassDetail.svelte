@@ -160,8 +160,13 @@
       sessionID = detail.Session.ID;
       return true;
     } catch (err) {
-      if (err instanceof ApiError && isMissing(err)) sessionMissing = true;
-      return false;
+      // Solo el 404 significa "backend sin sesiones": cualquier otro
+      // error (año cerrado, red, validación) debe verse tal cual.
+      if (err instanceof ApiError && isMissing(err)) {
+        sessionMissing = true;
+        return false;
+      }
+      throw err;
     }
   }
 

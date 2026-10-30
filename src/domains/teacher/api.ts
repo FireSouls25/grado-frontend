@@ -107,20 +107,14 @@ export async function recordMark(
   });
 }
 
+// The backend builds its own snapshots from the current profiles and
+// rejects unknown fields, so the draft carries only the event itself.
 export interface WarningDraft {
   studentIDs: string[];
   classID: string;
   title: string;
   gravity: 'mild' | 'moderate' | 'severe';
   description: string;
-  snapshots: Record<string, WarningSnapshot>;
-}
-
-export interface WarningSnapshot {
-  names: string;
-  surnames: string;
-  documentID: string;
-  classID: string;
 }
 
 export interface StudentIncident {

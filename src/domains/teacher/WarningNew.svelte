@@ -105,22 +105,12 @@
     saving = true;
     try {
       const target = roster.find((r) => r.StudentID === studentID);
-      const snapshots: Record<string, { names: string; surnames: string; documentID: string; classID: string }> = {};
-      if (target) {
-        snapshots[target.StudentID] = {
-          names: target.Names,
-          surnames: target.Surnames,
-          documentID: target.DocumentID,
-          classID: groupID
-        };
-      }
       await issueWarnings({
         studentIDs: target ? [target.StudentID] : [],
         classID: groupID,
         title: title.trim(),
         gravity,
-        description: description.trim(),
-        snapshots
+        description: description.trim()
       });
       saved = true;
       feedback = $t.warning.saved;
