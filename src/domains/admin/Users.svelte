@@ -48,6 +48,29 @@
     return role;
   }
 
+  type SectionKey = 'owner' | 'admin' | 'secretary' | 'teacher' | 'none';
+
+  // Each account lives in exactly one section: its highest-priority
+  // role. Pure students never appear here; role-less accounts go last.
+  function sectionOf(u: UserAccount): SectionKey | null {
+    if (u.Roles.includes('owner')) return 'owner';
+    if (u.Roles.includes('admin')) return 'admin';
+    if (u.Roles.includes('secretary')) return 'secretary';
+    if (u.Roles.includes('teacher')) return 'teacher';
+    if (u.Roles.includes('student')) return null;
+    return 'none';
+  }
+
+  function sectionTitle(key: SectionKey): string {
+    if (key === 'owner') return $t.users.sectionOwner;
+    if (key === 'admin') return $t.users.sectionAdmin;
+    if (key === 'secretary') return $t.users.sectionSecretary;
+    if (key === 'teacher') return $t.users.sectionTeacher;
+    return $t.users.sectionNone;
+  }
+
+  const sectionOrder: SectionKey[] = ['owner', 'admin', 'secretary', 'teacher', 'none'];
+
   function initialsOf(username: string): string {
     return username
       .split(/[._\s-]+/)
@@ -107,7 +130,11 @@
   $: q = foldSearch(search.trim());
   // The bin is opt-in: every normal view hides soft-deleted accounts,
   // which only surface under the Eliminados filter (owners only).
+  // Pure students never appear here; each account sits in exactly one
+  // section, the one of its highest-priority role.
   $: visible = list.filter((u) => {
+    const section = sectionOf(u);
+    if (section === null) return false;
     if (fRole && !u.Roles.includes(fRole)) return false;
     if (fState === 'deleted') {
       if (!u.DeletedAt) return false;
@@ -119,6 +146,10 @@
     if (q && !foldSearch(`${u.Username} ${u.Email}`).includes(q)) return false;
     return true;
   });
+
+  $: sections = sectionOrder
+    .map((key) => ({ key, title: sectionTitle(key), rows: visible.filter((u) => sectionOf(u) === key) }))
+    .filter((s) => s.rows.length > 0);
 
   async function toggleActive(u: UserAccount) {
     if (acting) return;
@@ -223,15 +254,20 @@
     {:else if visible.length === 0}
       <EmptyState icon="list" title={$t.users.noMatchTitle} body={$t.users.noMatchBody} />
     {:else}
-      <div class="table-wrap">
-        <div class="colhead" aria-hidden="true">
-          <span>{$t.admin.teacherDetailTitle}</span>
-          <span>{$t.admin.filterRole}</span>
-          <span class="num-col">{$t.users.filterState}</span>
-          <span class="act-col">{$t.a11y.actions}</span>
-        </div>
-        <ul class="roster">
-          {#each visible as u (u.ID)}
+      {#each sections as section (section.key)}
+        <section class="role-section" aria-label={section.title}>
+          <div class="section-head">
+            <h2>{section.title}</h2>
+            <span class="count" role="status">{$t.users.count(section.rows.length)}</span>
+          </div>
+          <div class="colhead" aria-hidden="true">
+            <span>{$t.users.userColumn}</span>
+            <span>{$t.admin.filterRole}</span>
+            <span class="num-col">{$t.users.filterState}</span>
+            <span class="act-col">{$t.a11y.actions}</span>
+          </div>
+          <ul class="roster">
+            {#each section.rows as u (u.ID)}
             {@const locked = isPrivileged(u) && !isOwner(roles)}
             {@const linked = u.TeacherID ? (teacherNames[u.TeacherID] ?? '') : ''}
             <li class="trow" class:deleted={!!u.DeletedAt}>
@@ -300,9 +336,10 @@
                 {/if}
               </div>
             </li>
-          {/each}
-        </ul>
-      </div>
+            {/each}
+          </ul>
+        </section>
+      {/each}
       {#if fState === 'deleted' && staffOwners}
         <p class="hint">{$t.users.confirmDelete}</p>
       {/if}
@@ -385,8 +422,28 @@
     color: var(--muted);
     font-size: 0.8rem;
   }
-  .table-wrap {
-    overflow-x: auto;
+  .role-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .role-section + .role-section {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .section-head h2 {
+    font-size: 0.92rem;
+    font-weight: 600;
+  }
+  .section-head .count {
+    align-self: center;
   }
   .colhead {
     display: none;
