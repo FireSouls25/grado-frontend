@@ -19,9 +19,19 @@ export function canManageUsers(roles: string[] | undefined | null): boolean {
   return isAdmin(roles);
 }
 
-/** Bloquear o reactivar accesos: admin y secretaría (nunca a admins). */
+/** Bloquear o reactivar accesos: admin y secretaría. Solo el owner
+ *  toca cuentas admin u owner (el backend lo niega al resto). */
 export function canBlockAccess(roles: string[] | undefined | null): boolean {
   return isAdmin(roles) || isSecretary(roles);
+}
+
+export function isOwner(roles: string[] | undefined | null): boolean {
+  return (roles ?? []).includes('owner');
+}
+
+/** Ver eliminados, borrar, restaurar y tocar otros admins: solo owner. */
+export function canManageOwners(roles: string[] | undefined | null): boolean {
+  return isOwner(roles);
 }
 
 /** Crear o corregir llamados: docentes y admin; la secretaría solo mira. */

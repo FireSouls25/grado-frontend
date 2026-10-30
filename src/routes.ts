@@ -40,6 +40,7 @@ export const routes = {
   '/admin/docentes': admin(() => import('./domains/admin/Teachers.svelte')),
   '/admin/docentes/lista': admin(() => import('./domains/admin/TeacherRoll.svelte')),
   '/admin/docentes/historial': admin(() => import('./domains/admin/TeacherRollHistory.svelte')),
+  '/admin/usuarios': admin(() => import('./domains/admin/Users.svelte')),
   '/admin/docentes/:id': admin(() => import('./domains/admin/TeacherDetail.svelte')),
   '/admin/estudiantes': admin(() => import('./domains/admin/Students.svelte')),
   '/admin/estudiantes/historial': admin(() => import('./domains/admin/SessionHistory.svelte')),

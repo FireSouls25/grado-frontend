@@ -576,7 +576,40 @@ export interface UserAccount {
   Username: string;
   Email: string;
   Active: boolean;
+  DeletedAt?: string | null;
+  TeacherID?: string;
   Roles: string[];
+}
+
+/** Lists login accounts with their roles (admin console). Owners may
+ *  include soft-deleted accounts and filter by role. */
+export async function listUsers(params: { role?: string; includeDeleted?: boolean } = {}): Promise<UserAccount[]> {
+  const q = new URLSearchParams();
+  if (params.role) q.set('role', params.role);
+  if (params.includeDeleted) q.set('includeDeleted', 'true');
+  const suffix = q.toString() ? `?${q.toString()}` : '';
+  return (await api.get<UserAccount[]>(`/v1/users${suffix}`)) ?? [];
+}
+
+/** One login account with roles (deleted hidden unless owner). */
+export async function getUser(id: string): Promise<UserAccount | null> {
+  try {
+    return await api.get<UserAccount>(`/v1/users/${encodeURIComponent(id)}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+/** Soft-deletes a login (owner-only): immediate lockout, data kept for
+ *  the retention window. */
+export async function deleteUser(id: string): Promise<UserAccount> {
+  return api.del<UserAccount>(`/v1/users/${encodeURIComponent(id)}`);
+}
+
+/** Restores a soft-deleted login inside its retention window. */
+export async function restoreUser(id: string): Promise<UserAccount> {
+  return api.post<UserAccount>(`/v1/users/${encodeURIComponent(id)}/restore`, {});
 }
 
 // Creates a login account (admin only). Teachers never self-register:
