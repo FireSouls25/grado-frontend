@@ -156,8 +156,9 @@
   async function ensureSession(): Promise<boolean> {
     if (sessionID) return true;
     try {
-      const detail = await openSession(groupID);
-      sessionID = detail.Session.ID;
+      const created = await openSession(groupID);
+      if (!created?.ID) throw new Error('empty session');
+      sessionID = created.ID;
       return true;
     } catch (err) {
       // Solo el 404 significa "backend sin sesiones": cualquier otro

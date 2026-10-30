@@ -1,6 +1,6 @@
 import { api } from '$lib/api/client';
 import { ApiError } from '$lib/api/types';
-import type { Me, RosterEntry, SessionDetail, Warning } from '$lib/api/types';
+import type { Me, RosterEntry, Session, Warning } from '$lib/api/types';
 
 // Endpoints that exist in the backend today.
 export async function me(): Promise<Me> {
@@ -90,8 +90,10 @@ export async function classRoster(groupID: string): Promise<RosterEntry[]> {
   );
 }
 
-export async function openSession(groupID: string): Promise<SessionDetail> {
-  return api.post<SessionDetail>('/v1/sessions/open', { classGroupID: groupID });
+// Open returns the flat session (the backend answers the created row,
+// not the detail envelope): callers needing marks fetch the detail.
+export async function openSession(groupID: string): Promise<Session> {
+  return api.post<Session>('/v1/sessions/open', { classGroupID: groupID });
 }
 
 export async function recordMark(
