@@ -12,6 +12,7 @@
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
   import { classRoster, isMissing, openSession, recordMark } from './api';
   import { groupsByYear, listSubjects } from '../admin/api';
+  import { notify } from '$lib/ui/notice';
   import { dateKey, saveRollcall } from './rollcall';
   import type { RosterEntry } from '$lib/api/types';
   import { guarded, goBack } from '$lib/nav';
@@ -190,6 +191,15 @@
 
   // Instantánea del resumen para la Agenda: tanto si el backend guardó
   // como si quedó local, el estado final es lo que se anota.
+  // El botón solo se habilita cuando el estado difiere de lo último
+  // guardado: sin cambios no hay nada que enviar.
+  function sameSets(a: Set<string>, b: Set<string>): boolean {
+    if (a.size !== b.size) return false;
+    for (const v of a) if (!b.has(v)) return false;
+    return true;
+  }
+  $: dirty = !sameSets(present, presentInit) || !sameSets(late, lateInit);
+
   function snapshotRollcall() {
     saveRollcall({
       Date: dateKey(),
@@ -233,7 +243,7 @@
       presentInit = new Set(present);
       lateInit = new Set(late);
       snapshotRollcall();
-      feedback = $t.attendance.saved;
+      notify($t.attendance.saved);
     } catch (err) {
       feedbackError = true;
       feedback = err instanceof ApiError ? err.message : $t.common.loadError;
@@ -252,7 +262,7 @@
     <button type="button" class="btn" on:click={() => (warnOpen = true)}>
       <Icon name="warn" /> {$t.agenda.warnAction}
     </button>
-    <button type="button" class="btn btn-primary" disabled={saving || roster.length === 0} on:click={save}>{$t.attendance.save}</button>
+    <button type="button" class="btn btn-primary" disabled={saving || roster.length === 0 || !dirty} on:click={save}>{$t.attendance.save}</button>
     <TopActions />
   </TopBar>
 
@@ -368,7 +378,7 @@
           {/if}
           <div class="actions">
             <button type="button" class="btn" on:click={() => push('/agenda')}>{$t.attendance.back}</button>
-            <button type="button" class="btn btn-primary" disabled={saving} on:click={save}>{saving ? '…' : $t.attendance.save}</button>
+            <button type="button" class="btn btn-primary" disabled={saving || roster.length === 0 || !dirty} on:click={save}>{saving ? '…' : $t.attendance.save}</button>
           </div>
         </section>
       </div>
