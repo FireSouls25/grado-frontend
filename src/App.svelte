@@ -2,6 +2,7 @@
   import Router, { push } from 'svelte-spa-router';
   import { routes } from './routes';
   import { session } from './domains/auth/session';
+  import SessionExpiredDialog from './domains/auth/SessionExpiredDialog.svelte';
   import { path } from '$lib/nav';
   import { onMount } from 'svelte';
 
@@ -16,3 +17,4 @@
 </script>
 
 <Router {routes} />
+<SessionExpiredDialog />

@@ -3,7 +3,7 @@ import { api } from './api/client';
 import type { Me } from './api/types';
 import { ApiError } from './api/types';
 import { readable } from 'svelte/store';
-import { authNotice, refreshNow, session } from '../domains/auth/session';
+import { authNotice, refreshNow, session, sessionExpired } from '../domains/auth/session';
 
 /** Current hash path, reactive. Hash routing needs no server fallback. */
 export const path = readable<string>(
@@ -105,7 +105,9 @@ export async function guarded<T>(fn: () => Promise<T>): Promise<T | null> {
       }
       await session.logout();
       authNotice.set('expired');
-      push('/login');
+      // No se navega de inmediato: el popup global de sesión
+      // vencida interrumpe donde esté el usuario y lo lleva al login.
+      sessionExpired.set(true);
       return null;
     }
     if (err instanceof ApiError && err.status === 403) {

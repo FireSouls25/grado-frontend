@@ -33,7 +33,9 @@ export const es = {
     invalidPassword: 'La contraseña no coincide. Intenta de nuevo.',
     rateLimited: 'Demasiados intentos. Espera un minuto e intenta de nuevo.',
     retryIn: (s: number) => `Espera ${s}s para reintentar.`,
+    sessionExpiredTitle: 'Sesión vencida',
     sessionExpired: 'Tu sesión terminó. Entra de nuevo para continuar.',
+    goLogin: 'Iniciar sesión',
     passwordChanged: 'Contraseña actualizada. Entra de nuevo con tu nueva contraseña.',
     features: [
       {

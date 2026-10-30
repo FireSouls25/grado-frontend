@@ -7,6 +7,10 @@ import { ApiError } from '$lib/api/types';
  *  page shows an expiry notice once, then clears it. */
 export const authNotice = writable<'' | 'expired' | 'passwordChanged'>('');
 
+/** Drives the global "session expired" popup: set alongside authNotice,
+ *  cleared when the user heads back to login. */
+export const sessionExpired = writable(false);
+
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let inflight: Promise<boolean> | null = null;
 let setSession: (v: string) => void = () => {};
