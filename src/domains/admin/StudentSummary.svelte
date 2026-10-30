@@ -32,6 +32,7 @@
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
   import { ApiError } from '$lib/api/types';
+  import { calendarDate } from '$lib/dates';
   $: roles = $profileStore.me?.roles ?? [];
   $: staffWrite = canWriteWarnings(roles);
 
@@ -80,8 +81,8 @@
   }
 
   function momentDay(iso: string): string {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
+    const d = calendarDate(iso);
+    if (!d) return iso;
     return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
   }
 

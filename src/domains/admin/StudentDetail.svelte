@@ -25,6 +25,7 @@
   import { guarded, goBack } from '$lib/nav';
   import { isMissing } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
+  import { calendarDate } from '$lib/dates';
 
   export let params: { id?: string } = {};
   $: studentID = decodeURIComponent(params.id ?? '');
@@ -177,8 +178,8 @@
 
   function ageOf(birthdate: string): number | null {
     if (!birthdate) return null;
-    const born = new Date(birthdate);
-    if (Number.isNaN(born.getTime())) return null;
+    const born = calendarDate(birthdate);
+    if (!born) return null;
     const now = new Date();
     let years = now.getFullYear() - born.getFullYear();
     const before =
@@ -190,8 +191,8 @@
 
   function longDate(value: string): string {
     if (!value) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
+    const d = calendarDate(value);
+    if (!d) return value;
     return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
   }
 

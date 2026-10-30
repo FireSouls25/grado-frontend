@@ -39,6 +39,7 @@
   import { guarded, goBack } from '$lib/nav';
   import { profile } from '$lib/shell/profile';
   import { canManageUsers } from '$lib/access';
+  import { calendarDate } from '$lib/dates';
   $: roles = $profile.me?.roles ?? [];
 
   export let params: { id?: string } = {};
@@ -148,8 +149,8 @@
 
   function ageOf(value: string): number | null {
     if (!value || value.startsWith('0001')) return null;
-    const born = new Date(value);
-    if (Number.isNaN(born.getTime())) return null;
+    const born = calendarDate(value);
+    if (!born) return null;
     const now = new Date();
     let years = now.getFullYear() - born.getFullYear();
     const before =
@@ -161,8 +162,8 @@
 
   function longDate(value: string): string {
     if (!value || value.startsWith('0001')) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
+    const d = calendarDate(value);
+    if (!d) return value;
     return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
   }
 
