@@ -1172,7 +1172,6 @@ export const es = {
     sectionAdmin: 'Administradores',
     sectionSecretary: 'Secretaría',
     sectionTeacher: 'Docentes',
-    userColumn: 'Usuario',
     noAccess: 'Sin acceso',
     createAccess: 'Crear acceso',
     accessUsername: 'Usuario de acceso',

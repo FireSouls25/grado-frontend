@@ -3,6 +3,7 @@
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
+import Sheet from '$lib/ui/Sheet.svelte';
   import AdminShell from './AdminShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
@@ -93,20 +94,26 @@
     return [first, last].filter(Boolean).join('.');
   }
 
-  let accessFor: string | null = null;
+  let accessTarget: TeacherSummary | null = null;
   let accessUsername = '';
   let accessPassword = '';
   let accessError = '';
 
   function openAccess(x: TeacherSummary) {
-    accessFor = x.ID;
+    accessTarget = x;
     accessUsername = suggestUsername(x);
     accessPassword = '';
     accessError = '';
   }
 
-  async function saveAccess(x: TeacherSummary) {
-    if (acting) return;
+  function closeAccess() {
+    accessTarget = null;
+    accessError = '';
+  }
+
+  async function saveAccess() {
+    const x = accessTarget;
+    if (!x || acting) return;
     accessError = '';
     if (!accessUsername.trim() || !accessPassword) {
       accessError = $t.admin.accountNeedsBoth;
@@ -126,7 +133,7 @@
         teacherID: x.ID
       });
       notify($t.users.accessCreated);
-      accessFor = null;
+      accessTarget = null;
       await load();
     } catch (err) {
       accessError = err instanceof ApiError ? err.message : $t.common.loadError;
@@ -155,7 +162,7 @@
     state = 'loading';
     loadError = null;
     confirming = null;
-    accessFor = null;
+    accessTarget = null;
     try {
       const [data, teacherList] = await Promise.all([
         guarded(() => listUsers({ includeDeleted: staffOwners })),
@@ -330,12 +337,6 @@
             <h2>{section.title}</h2>
             <span class="count" role="status">{$t.users.count(section.rows.length)}</span>
           </div>
-          <div class="colhead" aria-hidden="true">
-            <span>{$t.users.userColumn}</span>
-            <span>{$t.admin.filterRole}</span>
-            <span class="num-col">{$t.users.filterState}</span>
-            <span class="act-col">{$t.a11y.actions}</span>
-          </div>
           <ul class="roster">
             {#each section.rows as u (u.ID)}
             {@const locked = isPrivileged(u) && !isOwner(roles)}
@@ -427,43 +428,41 @@
                     <span class="pill mute">{$t.users.noAccess}</span>
                   </div>
                   <div class="act-col">
-                    {#if accessFor === x.ID}
-                      <button type="button" class="btn btn-sm btn-primary" disabled={acting} on:click={() => saveAccess(x)}>
-                        {$t.users.createAccess}
-                      </button>
-                      <button type="button" class="btn btn-sm" on:click={() => (accessFor = null)}>
-                        {$t.common.cancel}
-                      </button>
-                    {:else}
-                      <button type="button" class="btn btn-sm" on:click={() => openAccess(x)}>
-                        {$t.users.createAccess}
-                      </button>
-                    {/if}
+                    <button type="button" class="btn btn-sm" on:click={() => openAccess(x)}>
+                      {$t.users.createAccess}
+                    </button>
                   </div>
                 </li>
-                {#if accessFor === x.ID}
-                  <li class="trow form-row">
-                    <label>
-                      <span>{$t.users.accessUsername}</span>
-                      <input type="text" bind:value={accessUsername} autocapitalize="none" autocomplete="off" />
-                    </label>
-                    <label class="span2">
-                      <span>{$t.users.accessPassword}</span>
-                      <input type="password" bind:value={accessPassword} autocomplete="new-password" />
-                    </label>
-                    {#if accessError}<p class="flash error" role="alert">{accessError}</p>{/if}
-                    <div class="act-col spanall">
-                      <button type="button" class="btn btn-sm btn-primary" disabled={acting} on:click={() => saveAccess(x)}>
-                        {$t.common.save}
-                      </button>
-                    </div>
-                  </li>
-                {/if}
               {/each}
             {/if}
           </ul>
         </section>
       {/each}
+
+      <Sheet open={accessTarget !== null} title={$t.users.createAccess} onClose={closeAccess}>
+        {#if accessTarget}
+          <p class="muted sheet-sub">
+            {accessTarget.Surnames}, {accessTarget.Names} · {accessTarget.DocumentID}
+          </p>
+          <form class="access-form" on:submit|preventDefault={saveAccess}>
+            <label>
+              <span>{$t.users.accessUsername}</span>
+              <input type="text" bind:value={accessUsername} autocapitalize="none" autocomplete="off" />
+            </label>
+            <label>
+              <span>{$t.users.accessPassword}</span>
+              <input type="password" bind:value={accessPassword} autocomplete="new-password" />
+            </label>
+            {#if accessError}<p class="flash error" role="alert">{accessError}</p>{/if}
+            <div class="form-actions">
+              <button type="button" class="btn" on:click={closeAccess}>{$t.common.cancel}</button>
+              <button type="submit" class="btn btn-primary" disabled={acting}>
+                {acting ? $t.common.retrying : $t.common.save}
+              </button>
+            </div>
+          </form>
+        {/if}
+      </Sheet>
       {#if fState === 'deleted' && staffOwners}
         <p class="hint">{$t.users.confirmDelete}</p>
       {/if}
@@ -569,9 +568,6 @@
   .section-head .count {
     align-self: center;
   }
-  .colhead {
-    display: none;
-  }
   .roster {
     list-style: none;
     margin: 0;
@@ -592,44 +588,47 @@
   .trow.deleted {
     opacity: 0.85;
   }
-  .trow.form-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: end;
-    background: var(--surface-2);
-    border: 1px dashed var(--control);
-    border-radius: var(--radius-card);
-    padding: 12px 14px;
-    margin-top: 4px;
+  .sheet-sub {
+    margin-bottom: 12px;
   }
-  .form-row label {
+  .muted {
+    color: var(--muted);
+    font-size: 0.84rem;
+  }
+  .access-form {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    font-size: var(--fs-small);
+    gap: 12px;
+  }
+  .access-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.82rem;
     font-weight: 500;
     color: var(--muted);
-    flex: 1 1 200px;
-    min-width: 0;
   }
-  .form-row input {
+  .access-form input {
     min-height: var(--control-height);
     border: 1px solid var(--control);
     border-radius: var(--radius-control);
     background: var(--surface);
     padding: 0 12px;
-    font-size: 0.84rem;
+    font-size: 0.85rem;
     color: var(--ink);
     width: 100%;
   }
-  .form-row input:focus {
+  .access-form input:focus {
     outline: none;
     border-color: var(--accent);
   }
-  .form-row .spanall {
-    flex-basis: 100%;
+  .form-actions {
+    display: flex;
     justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
   }
   .flash.error {
     flex-basis: 100%;
@@ -720,28 +719,16 @@
     background: var(--g-grave-bg);
     color: var(--g-grave-ink);
   }
+  .pill.warn {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
+  }
   .pill.mute {
     background: transparent;
     border: 1px dashed var(--control);
     color: var(--muted);
   }
   @media (min-width: 820px) {
-    .colhead {
-      display: grid;
-      grid-template-columns: minmax(220px, 1.4fr) 170px 110px auto;
-      gap: 14px;
-      padding: 0 4px 8px;
-      border-bottom: 1px solid var(--line);
-      color: var(--muted);
-      font-size: 0.75rem;
-      font-weight: 500;
-    }
-    .colhead .num-col {
-      text-align: left;
-    }
-    .colhead .act-col {
-      justify-content: flex-end;
-    }
     .trow {
       display: grid;
       grid-template-columns: minmax(220px, 1.4fr) 170px 110px auto;
