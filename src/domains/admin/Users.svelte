@@ -20,6 +20,7 @@
     setUserActive,
     deleteUser,
     restoreUser,
+    createUser,
     teachers,
     type UserAccount,
     type TeacherSummary
@@ -33,6 +34,7 @@
   let loadError: unknown = null;
   let list: UserAccount[] = [];
   let teacherNames: Record<string, string> = {};
+  let teacherProfiles: TeacherSummary[] = [];
   let search = '';
   let fRole = '';
   let fState: '' | 'active' | 'inactive' | 'deleted' = '';
@@ -48,28 +50,92 @@
     return role;
   }
 
-  type SectionKey = 'owner' | 'admin' | 'secretary' | 'teacher' | 'none';
+  type SectionKey = 'owner' | 'admin' | 'secretary' | 'teacher';
 
   // Each account lives in exactly one section: its highest-priority
-  // role. Pure students never appear here; role-less accounts go last.
+  // role. Pure students and role-less logins never appear here: every
+  // real account is created with its role.
   function sectionOf(u: UserAccount): SectionKey | null {
     if (u.Roles.includes('owner')) return 'owner';
     if (u.Roles.includes('admin')) return 'admin';
     if (u.Roles.includes('secretary')) return 'secretary';
     if (u.Roles.includes('teacher')) return 'teacher';
-    if (u.Roles.includes('student')) return null;
-    return 'none';
+    return null;
   }
 
   function sectionTitle(key: SectionKey): string {
     if (key === 'owner') return $t.users.sectionOwner;
     if (key === 'admin') return $t.users.sectionAdmin;
     if (key === 'secretary') return $t.users.sectionSecretary;
-    if (key === 'teacher') return $t.users.sectionTeacher;
-    return $t.users.sectionNone;
+    return $t.users.sectionTeacher;
   }
 
-  const sectionOrder: SectionKey[] = ['owner', 'admin', 'secretary', 'teacher', 'none'];
+  // Teacher profiles without any login yet: real staff with no way
+  // in. They surface at the end of Docentes with a one-shot access
+  // form, so no real teacher is ever missing from this screen.
+  $: linkedTeacherIDs = new Set(list.map((u) => u.TeacherID).filter(Boolean));
+  $: unlinkedTeachers = teacherProfiles.filter((x) => !linkedTeacherIDs.has(x.ID));
+  $: visibleUnlinked = unlinkedTeachers
+    .filter(() => fState !== 'deleted' && (fRole === '' || fRole === 'teacher'))
+    .filter((x) => (q ? foldSearch(`${x.Surnames} ${x.Names}`).includes(q) : true))
+    .sort((a, b) => `${a.Surnames} ${a.Names}`.localeCompare(`${b.Surnames} ${b.Names}`, 'es'));
+
+  function suggestUsername(x: TeacherSummary): string {
+    const fold = (s: string) =>
+      s
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '.')
+        .replace(/^\.+|\.+$/g, '');
+    const first = fold(x.Names.split(/\s+/)[0] ?? '');
+    const last = fold(x.Surnames.split(/\s+/)[0] ?? '');
+    return [first, last].filter(Boolean).join('.');
+  }
+
+  let accessFor: string | null = null;
+  let accessUsername = '';
+  let accessPassword = '';
+  let accessError = '';
+
+  function openAccess(x: TeacherSummary) {
+    accessFor = x.ID;
+    accessUsername = suggestUsername(x);
+    accessPassword = '';
+    accessError = '';
+  }
+
+  async function saveAccess(x: TeacherSummary) {
+    if (acting) return;
+    accessError = '';
+    if (!accessUsername.trim() || !accessPassword) {
+      accessError = $t.admin.accountNeedsBoth;
+      return;
+    }
+    if (accessPassword.length < 8 || !/[A-Za-z]/.test(accessPassword) || !/[0-9]/.test(accessPassword)) {
+      accessError = $t.admin.formPasswordWeak;
+      return;
+    }
+    acting = true;
+    try {
+      await createUser({
+        username: accessUsername.trim(),
+        email: '',
+        password: accessPassword,
+        role: 'teacher',
+        teacherID: x.ID
+      });
+      notify($t.users.accessCreated);
+      accessFor = null;
+      await load();
+    } catch (err) {
+      accessError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      acting = false;
+    }
+  }
+
+  const sectionOrder: SectionKey[] = ['owner', 'admin', 'secretary', 'teacher'];
 
   function initialsOf(username: string): string {
     return username
@@ -89,6 +155,7 @@
     state = 'loading';
     loadError = null;
     confirming = null;
+    accessFor = null;
     try {
       const [data, teacherList] = await Promise.all([
         guarded(() => listUsers({ includeDeleted: staffOwners })),
@@ -103,7 +170,10 @@
         a.Username.toLowerCase() < b.Username.toLowerCase() ? -1 : 1
       );
       const names: Record<string, string> = {};
-      for (const x of teacherList as TeacherSummary[]) {
+      teacherProfiles = [...(teacherList as TeacherSummary[])].sort((a, b) =>
+        `${a.Surnames} ${a.Names}`.localeCompare(`${b.Surnames} ${b.Names}`, 'es')
+      );
+      for (const x of teacherProfiles) {
         names[x.ID] = `${x.Surnames} ${x.Names}`.trim();
       }
       teacherNames = names;
@@ -337,6 +407,60 @@
               </div>
             </li>
             {/each}
+            {#if section.key === 'teacher'}
+              {#each visibleUnlinked as x (x.ID)}
+                <li class="trow">
+                  <button type="button" class="who-btn" on:click={() => openAccess(x)}>
+                    <span class="avatar" aria-hidden="true">{initialsOf(`${x.Surnames} ${x.Names}`)}</span>
+                    <span class="who">
+                      <span class="nameline">
+                        <strong class="name">{x.Surnames}, {x.Names}</strong>
+                        <span class="pill warn">{$t.users.noAccess}</span>
+                      </span>
+                      <span class="sub">{x.DocumentID}</span>
+                    </span>
+                  </button>
+                  <div class="roles-col">
+                    <span class="pill">{roleLabel('teacher')}</span>
+                  </div>
+                  <div class="state-col">
+                    <span class="pill mute">{$t.users.noAccess}</span>
+                  </div>
+                  <div class="act-col">
+                    {#if accessFor === x.ID}
+                      <button type="button" class="btn btn-sm btn-primary" disabled={acting} on:click={() => saveAccess(x)}>
+                        {$t.users.createAccess}
+                      </button>
+                      <button type="button" class="btn btn-sm" on:click={() => (accessFor = null)}>
+                        {$t.common.cancel}
+                      </button>
+                    {:else}
+                      <button type="button" class="btn btn-sm" on:click={() => openAccess(x)}>
+                        {$t.users.createAccess}
+                      </button>
+                    {/if}
+                  </div>
+                </li>
+                {#if accessFor === x.ID}
+                  <li class="trow form-row">
+                    <label>
+                      <span>{$t.users.accessUsername}</span>
+                      <input type="text" bind:value={accessUsername} autocapitalize="none" autocomplete="off" />
+                    </label>
+                    <label class="span2">
+                      <span>{$t.users.accessPassword}</span>
+                      <input type="password" bind:value={accessPassword} autocomplete="new-password" />
+                    </label>
+                    {#if accessError}<p class="flash error" role="alert">{accessError}</p>{/if}
+                    <div class="act-col spanall">
+                      <button type="button" class="btn btn-sm btn-primary" disabled={acting} on:click={() => saveAccess(x)}>
+                        {$t.common.save}
+                      </button>
+                    </div>
+                  </li>
+                {/if}
+              {/each}
+            {/if}
           </ul>
         </section>
       {/each}
@@ -467,6 +591,54 @@
   }
   .trow.deleted {
     opacity: 0.85;
+  }
+  .trow.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: end;
+    background: var(--surface-2);
+    border: 1px dashed var(--control);
+    border-radius: var(--radius-card);
+    padding: 12px 14px;
+    margin-top: 4px;
+  }
+  .form-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: var(--fs-small);
+    font-weight: 500;
+    color: var(--muted);
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+  .form-row input {
+    min-height: var(--control-height);
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    padding: 0 12px;
+    font-size: 0.84rem;
+    color: var(--ink);
+    width: 100%;
+  }
+  .form-row input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-row .spanall {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+  .flash.error {
+    flex-basis: 100%;
+    background: var(--g-grave-bg);
+    color: var(--g-grave-ink);
+    font-weight: 600;
+    font-size: 0.84rem;
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
   }
   .who-btn {
     display: flex;
