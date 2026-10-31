@@ -76,6 +76,11 @@ Descargos: defensa escrita ante una falta (`POST .../defenses`,
 permiso `record-defenses`: admin + secretaría). Popup con motivo
 obligatorio junto al botón de permiso; se muestra junto a la falta.
 
+- Tasa de asistencia: presentes + permisos + atrasos; solo falta y evasión
+  la bajan (`LateStreak >= 3` avisa en el resumen y suma a en riesgo).
+  En la interfaz, inasistencia y evasión se unifican bajo "evasión";
+  el backend conserva ambas marcas.
+
 ## Orden construido y siguiente
 
 1. ✅ Entorno, deps, Tauri, `.env`, `.gitignore` (incluye `reference/`)

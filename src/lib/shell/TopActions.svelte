@@ -4,7 +4,6 @@
   import Icon from '$lib/ui/Icon.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
-  import HelpPanel from './HelpPanel.svelte';
   import { t } from '$lib/i18n';
   import { theme } from '$lib/theme/theme';
   import { notifications, timeAgo, weekdayName, type NoticeStrings } from '$lib/notifications';
@@ -23,7 +22,7 @@
   let panelOpen = false;
   let panel: HTMLDivElement | null = null;
   let settingsOpen = false;
-  let helpOpen = false;
+  
 
   function strings(): NoticeStrings {
     return {
@@ -122,13 +121,7 @@
     <Icon name={themeIcon()} />
   </button>
   {#if help}
-    <button
-      class="icon-btn"
-      type="button"
-      on:click={() => (helpOpen = true)}
-      aria-label={$t.help.title}
-      title={$t.help.title}
-    >
+    <button class="icon-btn" type="button" on:click={() => push('/ayuda')} aria-label={$t.help.title} title={$t.help.title}>
       <Icon name="help" />
     </button>
   {/if}
@@ -158,9 +151,7 @@
   <SettingsPanel onNavigate={() => (settingsOpen = false)} />
 </Sheet>
 
-<Sheet open={helpOpen} title={$t.help.title} onClose={() => (helpOpen = false)}>
-  <HelpPanel />
-</Sheet>
+
 
 <style>
   .actions {

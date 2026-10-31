@@ -298,8 +298,9 @@ export const es = {
     emptyBody: 'No hay estudiantes matriculados en este salón.',
     present: 'Presente',
     absent: 'Falta injustificada',
-    absentShort: 'Ausente',
+    absentShort: 'Evasión',
     permission: 'Falta con permiso',
+    permShort: 'Permiso',
     evasion: 'Evasión',
     late: 'Atraso',
     warn: 'Llamado de atención',
@@ -1021,6 +1022,7 @@ export const es = {
       count === 1 ? '1 salón bajo el umbral de 85%' : `${count} salones bajo el umbral de 85%`,
     riskTitle: 'Estudiantes en riesgo',
     riskDays: (n: number) => (n === 1 ? '1 día con lista' : `${n} días con lista`),
+    lateStreak: (n: number) => (n === 1 ? '1 atraso seguido' : `${n} atrasos seguidos`),
     riskCount: (count: number) =>
       count === 1 ? '1 en lista' : `${count} en lista`,
     riskEmpty: 'Sin estudiantes en riesgo todavía.',
@@ -1115,7 +1117,7 @@ export const es = {
     salonNoTeacher: 'Sin asignar',
     teachersSearch: 'Buscar docente…',
     studentSearch: 'Buscar estudiante…',
-    minAbsences: 'Mín. faltas injustificadas',
+    minAbsences: 'Mín. evasiones',
     minLates: 'Mín. atrasos',
     warnFilter: 'Llamados',
     warnAny: 'Todos',
@@ -1276,19 +1278,90 @@ export const es = {
   },
   help: {
     title: 'Ayuda',
-    intro: 'Guías cortas para usar la aplicación.',
-    guides: [
+    intro: 'Qué puedes hacer según tu rol, paso a paso. Todo lo que guardes se refleja de inmediato en las pantallas que lo muestran.',
+    stale: 'Si algo no aparece tras guardar, recarga la pantalla: los datos siempre vienen del servidor.',
+    roles: [
       {
-        title: 'Pasar lista',
-        body: 'Abre tu clase del día, toca un estudiante y marca inasistencia, evasión o atraso. Sin marca cuenta como presente.'
+        id: 'teacher',
+        title: 'Si eres docente',
+        steps: [
+          {
+            title: 'Pasar lista',
+            body: 'En Agenda abre tu clase de hoy (la pestaña del día se elige sola con la hora del servidor; en fin de semana verás la semana siguiente). Marca Presente, Evasión o Atraso por estudiante, o usa «Marcar todos». El botón Guardar asistencia solo se activa cuando hay cambios y al guardar verás el aviso «Asistencia guardada». Si la lista de hoy ya se tomó, abre con el estado guardado.'
+          },
+          {
+            title: 'Uniforme',
+            body: 'Junto a cada nombre hay una casilla marcada: quítala si el uniforme está mal. Se guarda con la lista y aparece en el resumen del estudiante, en su ficha y en las estadísticas.'
+          },
+          {
+            title: 'Permiso en clase',
+            body: 'El botón Permiso de cada fila pide el motivo (obligatorio) y lo guarda junto a la falta. Lo verás en el resumen como «Con permiso» y ya no cuenta como falta en el porcentaje.'
+          },
+          {
+            title: 'Llamado de atención',
+            body: 'Con el botón Llamado eliges uno o varios estudiantes y describes lo ocurrido con título, gravedad y detalle. El llamado congela los datos del estudiante tal como están en ese momento.'
+          },
+          {
+            title: 'Alerta académica',
+            body: 'Junto al botón Llamado está Alerta académica: úsala para elevar un caso; la secretaría y la administración la revisan.'
+          },
+          {
+            title: 'Solo tus salones',
+            body: 'Solo puedes abrir las listas de tus grupos. Si llegas a otra por enlace, la aplicación te devuelve a tu agenda con un aviso y no muestra ni cambia nada.'
+          }
+        ]
       },
       {
-        title: 'Llamado de atención',
-        body: 'Selecciona uno o varios estudiantes y describe lo ocurrido. El llamado guarda sus datos tal como están en ese momento.'
+        id: 'secretary',
+        title: 'Si eres de secretaría',
+        steps: [
+          {
+            title: 'Consultar estudiantes y docentes',
+            body: 'En Estudiantes y Docentes tienes buscador y filtros por salón y estado. Abre el resumen (marcas, uniforme, descargos, racha de atrasos) o la ficha completa de cada persona.'
+          },
+          {
+            title: 'Descargos',
+            body: 'Junto al botón de permiso de cada falta verás Descargo: escribe la defensa del estudiante y se guarda junto a la falta. Solo la secretaría y la administración pueden registrarlos.'
+          },
+          {
+            title: 'Corregir asistencia',
+            body: 'Con Modificar en cada marca cambias el estado: el motivo es obligatorio al poner permiso y todo queda registrado en el historial de la llamada, que puedes consultar con «Ver cambios».'
+          },
+          {
+            title: 'Llamados y alertas',
+            body: 'En Llamados ves el historial con sus revisiones. Las alertas académicas que elevan los docentes aparecen para revisión.'
+          },
+          {
+            title: 'Años, horario y reportes',
+            body: 'En Resumen ves estudiantes en riesgo, tasas y días con lista, y puedes exportar el año a Excel. En Año lectivo y Horario consultas la estructura del calendario.'
+          }
+        ]
       },
       {
-        title: 'Corregir asistencia',
-        body: 'Si un estudiante llega tarde, cambia su marca: se guardan ambos estados y puedes ver la diferencia.'
+        id: 'admin',
+        title: 'Si administras',
+        steps: [
+          {
+            title: 'Todo lo de secretaría',
+            body: 'Puedes consultar, corregir, registrar descargos y revisar alertas igual que la secretaría, además de gestionar lo siguiente.'
+          },
+          {
+            title: 'Usuarios y accesos',
+            body: 'En Usuarios creas las cuentas (usuario y contraseña con su rol), las activas o desactivas y gestionas la papelera. Solo el propietario toca cuentas de administración.'
+          },
+          {
+            title: 'Docentes y salones',
+            body: 'En Docentes asignas la dirección de grupo y consultas la ficha completa (contacto, horario, materias y asistencia del docente).'
+          },
+          {
+            title: 'Años lectivos y cierre',
+            body: 'En Año lectivo creas el año con sus periodos, festivos y días sin clase. Al cerrar el año, en Cierre distribuyes los salones y exportas el consolidado.'
+          },
+          {
+            title: 'Cómo leer la asistencia',
+            body: 'La tasa cuenta como asistencia los presentes, los permisos y los atrasos; solo la falta y la evasión la bajan. Tres atrasos seguidos generan un aviso en el resumen del estudiante.'
+          }
+        ]
       }
     ]
   },

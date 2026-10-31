@@ -861,6 +861,7 @@ export interface ClassReport {
     StudentID: string;
     /** Alias corto para los enlaces; el UUID sigue siendo la identidad. */
     Slug?: string;
+    LateStreak?: number;
     Names: string;
     Surnames: string;
     Sessions: number;
@@ -903,6 +904,7 @@ export interface StudentReport {
   Evasions: number;
   Lates: number;
   UniformFaults?: number;
+  LateStreak?: number;
   WarningsMild: number;
   WarningsModerate: number;
   WarningsSevere: number;

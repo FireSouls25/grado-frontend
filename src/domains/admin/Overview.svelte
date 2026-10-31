@@ -59,6 +59,7 @@
     lates: number;
     sessions: number;
     rate: number;
+    lateStreak: number;
   }
 
   interface Task {
@@ -221,7 +222,7 @@
     reportsKnown = false;
     const byStudent = new Map<
       string,
-      { slug: string; names: string; surnames: string; presences: number; absences: number; excused: number; evasions: number; lates: number; sessions: number }
+      { slug: string; names: string; surnames: string; presences: number; absences: number; excused: number; evasions: number; lates: number; sessions: number; lateStreak: number }
     >();
     const labelOf = new Map(groups.map((g) => [g.GroupID, g.ClassLabel]));
     const settled = await mapSettled(groups, 5, (g) => classReport(g.GroupID));
@@ -249,7 +250,7 @@
       const label = labelOf.get(report.ClassGroupID) ?? '';
       const sessions = report.Students.length > 0 ? report.Sessions : 0;
       if (label && sessions > 0) {
-        const presences = report.Students.reduce((n, s) => n + s.Presences, 0);
+        const presences = report.Students.reduce((n, s) => n + s.Presences + s.Excused + s.Lates, 0);
         const calls = report.Students.reduce((n, s) => n + s.Sessions, 0);
         salonRates.push({
           label,
@@ -259,6 +260,7 @@
       for (const s of report.Students) {
         const prev = byStudent.get(s.StudentID) ?? {
           slug: s.Slug ?? '',
+          lateStreak: 0,
           names: s.Names,
           surnames: s.Surnames,
           presences: 0,
@@ -275,6 +277,7 @@
         prev.lates += s.Lates;
         prev.sessions += s.Sessions;
         if (!prev.slug && s.Slug) prev.slug = s.Slug;
+        if (typeof s.LateStreak === 'number') prev.lateStreak = Math.max(prev.lateStreak, s.LateStreak);
         byStudent.set(s.StudentID, prev);
       }
     });
@@ -294,9 +297,10 @@
         evasions: s.evasions,
         lates: s.lates,
         sessions: s.sessions,
-        rate: s.sessions > 0 ? Math.round((s.presences / s.sessions) * 100) : 0
+        rate: s.sessions > 0 ? Math.round(((s.presences + s.excused + s.lates) / s.sessions) * 100) : 0,
+        lateStreak: s.lateStreak
       }))
-      .filter((r) => r.sessions > 0 && ((r.sessions >= RATE_MIN_DAYS && r.rate < RATE_FLOOR) || r.absences + r.evasions >= 3))
+      .filter((r) => r.sessions > 0 && ((r.sessions >= RATE_MIN_DAYS && r.rate < RATE_FLOOR) || r.absences + r.evasions >= 3 || r.lateStreak >= 3))
       .sort((a, b) => a.rate - b.rate);
     await loadSecondary();
     await loadTeacherExtras();
@@ -577,7 +581,7 @@
         id: `riesgo-${row.id}`,
         sev: grave ? 'grave' : 'medio',
         title: `${$t.admin.reviewAction}: ${row.name}`,
-        meta: `${row.rate}% · ${row.absences} ${$t.admin.colAbsences} · ${row.evasions} ${$t.admin.colEvasions}`,
+        meta: `${row.rate}% · ${row.absences + row.evasions} ${$t.admin.colEvasions}` + (row.lateStreak >= 2 ? ` · ${$t.admin.lateStreak(row.lateStreak)}` : ''),
         href: `/admin/estudiantes/${encodeURIComponent(row.slug || row.id)}/resumen`,
         actionLabel: $t.admin.openSummary,
         call: guardianPhones[row.id] ?? null,
@@ -1004,7 +1008,6 @@
                   <div class="prow-head" aria-hidden="true">
                     <span>#</span>
                     <span>{$t.admin.colStudent}</span>
-                    <span class="num-col">{$t.admin.colAbsences}</span>
                     <span class="num-col">{$t.admin.colEvasions}</span>
                     <span class="num-col rate-col">{$t.admin.colRate}</span>
                     <span class="act-col">{$t.a11y.actions}</span>
@@ -1018,12 +1021,11 @@
                           <span class="who">
                             <strong>{row.name}</strong>
                             <small>
-                              {$t.admin.riskDays(row.sessions)}{row.excused > 0 ? ` · ${row.excused} ${$t.admin.colPermissionLong.toLowerCase()}` : ''}{row.lates > 0 ? ` · ${row.lates} ${$t.admin.colLatesLong.toLowerCase()}` : ''}
+                              {$t.admin.riskDays(row.sessions)}{row.excused > 0 ? ` · ${row.excused} ${$t.admin.colPermissionLong.toLowerCase()}` : ''}{row.lates > 0 ? ` · ${row.lates} ${$t.admin.colLatesLong.toLowerCase()}` : ''}{row.lateStreak >= 2 ? ` · ${$t.admin.lateStreak(row.lateStreak)}` : ''}
                             </small>
                           </span>
                         </div>
-                        <span class="num-cell">{row.absences}</span>
-                        <span class="num-cell" class:alert={row.evasions > 0}>{row.evasions}</span>
+                        <span class="num-cell" class:alert={row.absences + row.evasions > 0}>{row.absences + row.evasions}</span>
                         <div class="rateblock">
                           <div class="rate-top">
                             <span class="rate-id">
@@ -1921,7 +1923,7 @@
     }
     .prow-head {
       display: grid;
-      grid-template-columns: 28px minmax(0, 1.5fr) 64px 64px 176px 312px;
+      grid-template-columns: 28px minmax(0, 1.5fr) 64px 176px 312px;
       gap: 16px;
       padding: 0 4px 8px;
       border-bottom: 1px solid var(--line);
@@ -1939,7 +1941,7 @@
       text-align: right;
     }
     .prow {
-      grid-template-columns: 28px minmax(0, 1.5fr) 64px 64px 176px 312px;
+      grid-template-columns: 28px minmax(0, 1.5fr) 64px 176px 312px;
       gap: 16px;
       padding: 10px 4px;
     }

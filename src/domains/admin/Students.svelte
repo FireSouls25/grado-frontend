@@ -282,15 +282,17 @@
     }
   }
 
-  function rateOf(presences: number, sessions: number): number {
-    return sessions > 0 ? Math.round((presences / sessions) * 100) : 0;
+  // Permisos y atrasos cuentan como asistencia: solo la falta
+  // injustificada y la evasión bajan el porcentaje.
+  function rateOf(presences: number, excused: number, lates: number, sessions: number): number {
+    return sessions > 0 ? Math.round(((presences + excused + lates) / sessions) * 100) : 0;
   }
 
   $: allRoster = groups.flatMap((g) =>
     mergedOf(g, reports, rosters).map((s) => ({
       ...s,
       group: g.ClassLabel,
-      rate: rateOf(s.Presences, s.Sessions),
+      rate: rateOf(s.Presences, s.Excused, s.Lates, s.Sessions),
       calls: warns.filter((w) => w.StudentID === s.StudentID).length
     }))
   );
@@ -300,7 +302,7 @@
   $: visibleRoster = allRoster
     .filter((s) => (picked ? s.group === picked.ClassLabel : true))
     .filter((s) => (qn ? foldSearch(`${s.Surnames} ${s.Names}`).includes(qn) : true))
-    .filter((s) => s.Absences >= nAbs && s.Lates >= nLate)
+    .filter((s) => s.Absences + s.Evasions >= nAbs && s.Lates >= nLate)
     .filter((s) => (fWarn === 'yes' ? s.calls > 0 : true))
     .sort((a, b) => a.rate - b.rate);
   $: hasAnyStudents = allRoster.length > 0;
@@ -572,7 +574,6 @@
           <div class="table-wrap">
             <div class="colhead" aria-hidden="true">
               <span>{$t.admin.colStudent}</span>
-              <span class="num-col">{$t.admin.colAbsences}</span>
               <span class="num-col">{$t.admin.colPermission}</span>
               <span class="num-col">{$t.admin.colEvasions}</span>
               <span class="num-col">{$t.admin.markLate}</span>
@@ -609,9 +610,8 @@
                       {/if}
                     </div>
                   </div>
-                  <span class="c-stat"><strong>{s.Absences}</strong></span>
                   <span class="c-stat"><strong>{s.Excused}</strong></span>
-                  <span class="c-stat" class:alert={s.Evasions > 0}><strong>{s.Evasions}</strong></span>
+                  <span class="c-stat" class:alert={s.Absences + s.Evasions > 0}><strong>{s.Absences + s.Evasions}</strong></span>
                   <span class="c-stat" class:alert={s.Lates > 0}><strong>{s.Lates}</strong></span>
                   <div class="rateblock">
                     <span class="rate-id">
@@ -967,7 +967,7 @@
   }
   .stu-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(4, 48px) 84px;
+    grid-template-columns: minmax(0, 1fr) repeat(3, 48px) 84px;
     gap: 8px;
     align-items: center;
     padding: 10px 4px;
@@ -979,7 +979,7 @@
   @media (min-width: 820px) {
     .colhead {
       display: grid;
-      grid-template-columns: minmax(200px, 1.6fr) repeat(4, 76px) 120px 224px;
+      grid-template-columns: minmax(200px, 1.6fr) repeat(3, 76px) 120px 224px;
       gap: 12px;
       padding: 0 4px 8px;
       border-bottom: 1px solid var(--line);
@@ -994,7 +994,7 @@
       text-align: right;
     }
     .stu-row {
-      grid-template-columns: minmax(200px, 1.6fr) repeat(4, 76px) 120px 224px;
+      grid-template-columns: minmax(200px, 1.6fr) repeat(3, 76px) 120px 224px;
       gap: 12px;
     }
   }

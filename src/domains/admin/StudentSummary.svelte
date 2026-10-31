@@ -69,7 +69,7 @@
   $: sessions = report?.Sessions ?? [];
   $: marks = sessions.filter((s) => s.Mark && s.Mark !== '').slice().reverse();
   $: totalSessions = report ? report.Sessions.length : 0;
-  $: rate = report && totalSessions > 0 ? Math.round((report.Presences / totalSessions) * 100) : null;
+  $: rate = report && totalSessions > 0 ? Math.round(((report.Presences + report.Excused + report.Lates) / totalSessions) * 100) : null;
   $: sortedWarnings = warnings.slice().sort((a, b) => (b.HappenedAt < a.HappenedAt ? -1 : 1));
 
   function markName(mark: string): string {
@@ -308,9 +308,8 @@
         <dl class="kpis">
           <div><dt>{$t.studentSummary.rateLabel}</dt><dd class:low={rate !== null && rate < 85}>{rate === null ? '—' : `${rate}%`}</dd></div>
           <div><dt>{$t.studentSummary.presences}</dt><dd>{report.Presences}</dd></div>
-          <div><dt>{$t.studentSummary.absences}</dt><dd>{report.Absences}</dd></div>
           <div><dt>{$t.studentSummary.excused}</dt><dd>{report.Excused}</dd></div>
-          <div><dt>{$t.studentSummary.evasions}</dt><dd>{report.Evasions}</dd></div>
+          <div><dt>{$t.studentSummary.evasions}</dt><dd>{report.Absences + report.Evasions}</dd></div>
           <div><dt>{$t.studentSummary.lates}</dt><dd>{report.Lates}</dd></div>
         <div><dt>{$t.attendance.uniformLabel}</dt><dd class:low={(report.UniformFaults ?? 0) > 0}>{report.UniformFaults ?? 0}</dd></div>
           <div><dt>{$t.roster.warnGravityMild}</dt><dd>{report.WarningsMild}</dd></div>
@@ -318,6 +317,9 @@
           <div><dt>{$t.roster.warnGravitySevere}</dt><dd>{report.WarningsSevere}</dd></div>
           <div><dt>{$t.studentSummary.faults}</dt><dd>{report.FaultsMinor + report.FaultsOrdinary + report.FaultsSevere}</dd></div>
         </dl>
+        {#if (report.LateStreak ?? 0) >= 3}
+          <p class="streakwarn" role="note">{$t.admin.lateStreak(report.LateStreak ?? 0)}</p>
+        {/if}
       </section>
 
       <section class="card" aria-label={$t.studentSummary.marksTitle}>
@@ -584,6 +586,15 @@
     margin: 0;
     font-size: 0.98rem;
     font-weight: 600;
+  }
+  .streakwarn {
+    margin: 0;
+    background: var(--g-medio-bg);
+    color: var(--g-medio-ink);
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
   }
   .muted {
     color: var(--muted);
