@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { onSessionReady } from '$lib/sessionReady';
+  import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -553,7 +553,7 @@
         done: false
       });
     }
-    const staffManage = canManageUsers(roles);
+    const staffManage = canManageUsers($profile.me);
     for (const g of salonsNoDirector) {
       next.push({
         id: `nodir-${g.gid}`,
@@ -593,7 +593,7 @@
         done: false
       });
     }
-    const staffReview = canManageUsers($profile.me?.roles ?? []);
+    const staffReview = canManageUsers($profile.me);
     for (const a of openAlerts) {
       next.push({
         id: `alerta-${a.ID}`,
@@ -621,7 +621,7 @@
 
   onMount(() => {
     load();
-    const offReady = onSessionReady(() => load());
+    const offReady = loadWhenReady(() => load());
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (

@@ -93,7 +93,7 @@
     }
     try {
       const days: TeacherClass[][] = await Promise.all(
-        [1, 2, 3, 4, 5, 6, 7].map((w) => daySchedule(w).catch(() => [] as TeacherClass[]))
+        [0, 1, 2, 3, 4, 5, 6].map((w) => daySchedule(w).catch(() => [] as TeacherClass[]))
       );
       const byGroup = new Map<string, { gid: string; subjects: Set<string> }>();
       for (const entries of days) {
@@ -303,7 +303,6 @@
         {#if me.createdAt}
           <div class="row"><dt>{$t.profile.memberSince}</dt><dd>{formatTimestamp(me.createdAt)}</dd></div>
         {/if}
-        <div class="row"><dt>{$t.profile.accountID}</dt><dd class="mono">{me.subject}</dd></div>
       </dl>
       <input bind:this={photoInput} type="file" accept="image/*" hidden on:change={onPhotoPicked} />
     </section>
@@ -578,11 +577,6 @@
     text-align: right;
     min-width: 0;
     overflow-wrap: anywhere;
-  }
-  .row dd.mono {
-    font-variant-numeric: tabular-nums;
-    font-size: 0.78rem;
-    color: var(--ink-soft);
   }
   .row-head {
     display: flex;

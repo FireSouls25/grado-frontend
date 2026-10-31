@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { onSessionReady } from '$lib/sessionReady';
+  import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -16,6 +16,8 @@
   import { groupsByYear, listSubjects } from '../admin/api';
   import { notify } from '$lib/ui/notice';
   import { dateKey, saveRollcall } from './rollcall';
+  import { calendarDate } from '$lib/dates';
+  import { schoolDay } from '$lib/schoolDay';
   import type { RosterEntry } from '$lib/api/types';
   import { guarded, goBack } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
@@ -87,11 +89,18 @@
   let feedbackError = false;
   let saving = false;
 
-  $: todayLabel = new Date().toLocaleDateString('es-CO', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long'
-  });
+  // El rótulo y la consulta usan el día del servidor, no el reloj del
+  // equipo: hoy es hoy aunque el dispositivo mienta.
+  let todayKey = '';
+  $: todayLabel = (() => {
+    const d = todayKey ? calendarDate(todayKey) : null;
+    const base = d ?? new Date();
+    return base.toLocaleDateString('es-CO', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    });
+  })();
 
   function bySurname(a: RosterEntry, b: RosterEntry): number {
     const x = `${a.Surnames} ${a.Names}`.toLowerCase();
@@ -103,6 +112,7 @@
     loading = true;
     feedback = '';
     try {
+      todayKey = await schoolDay();
       const data = await guarded(() => classRoster(groupID));
       if (data === null) return; // 401/403 already navigated away
       roster = [...data].sort(bySurname);
@@ -124,17 +134,12 @@
     }
   }
 
-  function localDay(d = new Date()): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  }
-
   // Si el salón ya tiene llamado hoy, se retoma: la lista abre con el
   // estado de cada estudiante y se sigue la misma sesión en vez de
   // abrir otra. Sin sesión previa queda todo presente, como antes.
   async function resumeToday() {
     try {
-      const list = await guarded(() => todaySessions(groupID, localDay()));
+      const list = await guarded(() => todaySessions(groupID, todayKey || dateKey()));
       if (!list || list.length === 0 || !list[0]?.ID) return;
       const marks = await guarded(() => sessionMarks(list[0].ID));
       if (!marks) return;
@@ -177,10 +182,7 @@
     }
   }
 
-  onMount(() => {
-    void load();
-    return onSessionReady(() => void load());
-  });
+  onMount(() => loadWhenReady(() => void load()));
 
   type RollMark = '' | 'absence' | 'absence-permission' | 'late';
 
@@ -297,7 +299,7 @@
 
   function snapshotRollcall() {
     saveRollcall({
-      Date: dateKey(),
+      Date: todayKey || dateKey(),
       GroupID: groupID,
       Students: roster.length,
       Present: presentCount,

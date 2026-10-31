@@ -55,6 +55,8 @@ export interface MeTeacher {
 export interface Me {
   subject: string;
   roles: string[];
+  /** Permisos efectivos del backend; la consola autoriza por esta lista. */
+  permissions?: string[] | null;
   home: string;
   username?: string;
   email?: string;

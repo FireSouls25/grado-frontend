@@ -30,7 +30,7 @@
   } from './api';
   import type { Warning } from '$lib/api/types';
   $: roles = $profile.me?.roles ?? [];
-  $: staffWrite = canWriteWarnings(roles);
+  $: staffWrite = canWriteWarnings($profile.me);
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;

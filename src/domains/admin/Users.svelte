@@ -27,7 +27,7 @@ import Sheet from '$lib/ui/Sheet.svelte';
     type TeacherSummary
   } from './api';
   $: roles = $profile.me?.roles ?? [];
-  $: staffOwners = canManageOwners(roles);
+  $: staffOwners = canManageOwners($profile.me);
 
   const currentYear = new Date().getFullYear();
 

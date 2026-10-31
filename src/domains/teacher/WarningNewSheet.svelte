@@ -72,7 +72,7 @@
   }
 
   async function loadAll(): Promise<GlobalRoster[]> {
-    const days = await Promise.all([1, 2, 3, 4, 5, 6, 7].map((w) => daySchedule(w).catch(() => [] as TeacherClass[])));
+    const days = await Promise.all([0, 1, 2, 3, 4, 5, 6].map((w) => daySchedule(w).catch(() => [] as TeacherClass[])));
     const byGroup = new Map<string, string>();
     for (const entries of days) {
       for (const e of entries) {

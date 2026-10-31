@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { onSessionReady } from '$lib/sessionReady';
+  import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import { notify } from '$lib/ui/notice';
@@ -231,10 +231,7 @@
     }
   }
 
-  onMount(() => {
-    void load();
-    return onSessionReady(() => void load());
-  });
+  onMount(() => loadWhenReady(() => void load()));
 
   async function load() {
     state = 'loading';
@@ -408,7 +405,7 @@
     showBack
     onBack={() => goBack('/admin/docentes')}
   >
-    {#if detail && canManageUsers(roles)}
+    {#if detail && canManageUsers($profile.me)}
       <button type="button" class="btn" on:click={startEdit}>{$t.teacherDetail.editAction}</button>
       <button
         type="button"
@@ -442,7 +439,7 @@
                     {`${detail.Surnames} ${detail.Names}`.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
                   </span>
                 {/if}
-                {#if canManageUsers(roles)}
+                {#if canManageUsers($profile.me)}
                   <div class="photo-actions">
                     <button type="button" class="link" on:click={() => photoInput?.click()}>
                       {$t.troll.photoChange}
@@ -579,7 +576,7 @@
                   </button>
                 {/if}
               </div>
-            {:else if canManageUsers(roles)}
+            {:else if canManageUsers($profile.me)}
               <p class="muted">{$t.admin.accountNone}</p>
             {/if}
           </section>

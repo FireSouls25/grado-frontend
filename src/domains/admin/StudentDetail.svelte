@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { onSessionReady } from '$lib/sessionReady';
+  import { loadWhenReady } from '$lib/sessionReady';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
@@ -162,10 +162,7 @@
     }
   }
 
-  onMount(() => {
-    void load();
-    return onSessionReady(() => void load());
-  });
+  onMount(() => loadWhenReady(() => void load()));
 
   $: fullName = profile ? `${profile.Surnames}, ${profile.Names}`.replace(/^,\s*/, '') : '';
   $: initials = profile

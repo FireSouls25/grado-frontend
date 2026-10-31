@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { onSessionReady } from '$lib/sessionReady';
+  import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
@@ -35,7 +35,7 @@
   import { ApiError } from '$lib/api/types';
   import { calendarDate } from '$lib/dates';
   $: roles = $profileStore.me?.roles ?? [];
-  $: staffWrite = canWriteWarnings(roles);
+  $: staffWrite = canWriteWarnings($profileStore.me);
 
   export let params: { id?: string } = {};
   $: id = decodeURIComponent(params.id ?? '');
@@ -202,10 +202,7 @@
     }
   }
 
-  onMount(() => {
-    void load();
-    return onSessionReady(() => void load());
-  });
+  onMount(() => loadWhenReady(() => void load()));
 </script>
 
 <AdminShell active="estudiantes" year={currentYear} onYear={null}>
@@ -320,7 +317,7 @@
                     <strong>{a.Reason}</strong>
                     <span>{momentDay(a.CreatedAt)}</span>
                   </div>
-                  {#if a.Status === 'open' && canManageUsers($profileStore.me?.roles)}
+                  {#if a.Status === 'open' && canManageUsers($profileStore.me)}
                     <div class="rowbtns">
                       <button
                         type="button"

@@ -30,6 +30,8 @@ globalThis.localStorage = {
 
 const entry = `
 import { openSession, recordMark, issueWarnings, todaySessions, sessionMarks } from '/home/grim/Documents/projects/grado/frontend/src/domains/teacher/api.ts';
+import { hasPermission, canManageUsers, canBlockAccess } from '/home/grim/Documents/projects/grado/frontend/src/lib/access.ts';
+import { schoolDay } from '/home/grim/Documents/projects/grado/frontend/src/lib/schoolDay.ts';
 import { issueWarningBatch, correctWarning, studentReport } from '/home/grim/Documents/projects/grado/frontend/src/domains/admin/api.ts';
 const fail = (m) => { console.error('CONTRACT FAIL:', m); process.exitCode = 1; };
 const last = () => globalThis.__calls[globalThis.__calls.length - 1];
@@ -83,6 +85,17 @@ await studentReport('stu-1');
   const c = last();
   if (!c.url.endsWith('/v1/statistics/student/stu-1')) fail('studentReport url ' + c.url);
 }
+
+globalThis.fetch = async (url, init) => {
+  globalThis.__calls.push({ url: String(url), method: init?.method || 'GET', body: init?.body ? JSON.parse(init.body) : undefined });
+  return { ok: true, status: 200, json: async () => ({ date: '2026-10-31', weekday: 5, now: '2026-10-31T00:00:00Z' }) };
+};
+const day = await schoolDay();
+if (day !== '2026-10-31') fail('schoolDay no usa el día del servidor: ' + day);
+if (!hasPermission({ permissions: ['manage-users'] }, 'manage-users')) fail('hasPermission con permisos');
+if (canManageUsers({ permissions: ['record-attendance'] })) fail('canManageUsers con docente');
+if (!canManageUsers({ roles: ['admin'] })) fail('respaldo a roles roto (admin)');
+if (!canBlockAccess({ roles: ['secretary'] })) fail('respaldo a roles roto (secretaría)');
 if (!process.exitCode) console.log('CONTRACT OK: cuerpos del frontend compatibles con el backend');
 `;
 globalThis.__calls = calls;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { onSessionReady } from '$lib/sessionReady';
+  import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -73,10 +73,7 @@
     }
   }
 
-  onMount(() => {
-    void load();
-    return onSessionReady(() => void load());
-  });
+  onMount(() => loadWhenReady(() => void load()));
 
   function openClass(entry: TeacherClass) {
     push(`/clase/${encodeURIComponent(entry.GroupID)}?materia=${encodeURIComponent(entry.SubjectID)}`);

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { onSessionReady } from '$lib/sessionReady';
+  import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -377,10 +377,7 @@
   }
 
   $: roles = $profile.me?.roles ?? [];
-  onMount(() => {
-    void load();
-    return onSessionReady(() => void load());
-  });
+  onMount(() => loadWhenReady(() => void load()));
 
   let exporting = false;
   let exportOpen = false;
@@ -454,7 +451,7 @@
     <button type="button" class="btn" on:click={() => (exportOpen = !exportOpen)} aria-expanded={exportOpen}>
       {$t.admin.exportExcel}
     </button>
-    {#if canManageUsers(roles)}
+    {#if canManageUsers($profile.me)}
       <button type="button" class="btn" on:click={() => { creatingSalon = true; salonFeedback = ''; }}>
         <Icon name="plus" /> {$t.admin.newSalon}
       </button>

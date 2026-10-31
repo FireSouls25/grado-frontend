@@ -111,7 +111,7 @@
   $: yearEndLabel = yearEnd
     ? yearEnd.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
-  $: staffAdmin = canManageUsers($profile.me?.roles ?? []);
+  $: staffAdmin = canManageUsers($profile.me);
   $: closeAllowed = !yearClosed && (yearEnded || earlyOverride) && staffAdmin;
 
   async function confirmReopen() {

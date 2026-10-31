@@ -1236,7 +1236,6 @@ export const es = {
     sexFemale: 'Femenino',
     sexMale: 'Masculino',
     memberSince: 'Miembro desde',
-    accountID: 'ID de cuenta',
     noTeacherTitle: 'Sin ficha personal vinculada',
     noTeacherBody:
       'Tu cuenta todavía no tiene un perfil docente asociado: aquí solo se muestran los datos de la cuenta.',

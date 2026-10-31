@@ -51,12 +51,12 @@
     { key: 'estudiantes' as Key, href: '/admin/estudiantes', icon: 'list' as IconName, label: $t.nav.students },
     { key: 'horario' as Key, href: '/admin/horario', icon: 'calendar' as IconName, label: $t.nav.schedule },
     { key: 'llamados' as Key, href: '/admin/llamados', icon: 'warn' as IconName, label: $t.admin.navWarnings },
-    ...(canManageUsers($profile.me?.roles)
+    ...(canManageUsers($profile.me)
       ? [
           { key: 'usuarios' as Key, href: '/admin/usuarios', icon: 'user' as IconName, label: $t.admin.navUsers }
         ]
       : []),
-    ...(canManageUsers($profile.me?.roles)
+    ...(canManageUsers($profile.me)
       ? [
           { key: 'anos' as Key, href: '/admin/anos', icon: 'cap' as IconName, label: $t.admin.navYears }
         ]

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { onSessionReady } from '$lib/sessionReady';
+  import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -188,10 +188,7 @@
       .toUpperCase();
   }
 
-  onMount(() => {
-    void load();
-    return onSessionReady(() => void load());
-  });
+  onMount(() => loadWhenReady(() => void load()));
 
   $: q = foldSearch(search.trim());
   $: subjectOptions = [...new Set(Object.values(taught).flat().map((s) => s.name))].sort((a, b) =>
@@ -299,7 +296,7 @@
     <button type="button" class="btn" on:click={() => push('/admin/docentes/historial')}>
       {$t.troll.historyAction}
     </button>
-    {#if canManageUsers(roles)}
+    {#if canManageUsers($profile.me)}
       <button type="button" class="btn btn-primary" on:click={() => { creating = true; feedback = ''; error = ''; }}>
         <Icon name="plus" /> {$t.admin.newTeacher}
       </button>
@@ -403,7 +400,7 @@
               </div>
 
               <div class="act-col">
-                {#if canManageUsers(roles)}
+                {#if canManageUsers($profile.me)}
                   <button
                     type="button"
                     class="btn btn-sm"
