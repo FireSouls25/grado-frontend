@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import { api } from '$lib/api/client';
 import { clearRefresh, clearToken, getRefresh, getToken, setRefresh, setToken } from '$lib/api/client';
 import { ApiError } from '$lib/api/types';
+import { profile } from '$lib/shell/profile';
 
 /** Set when a guarded call dies with 401 even after rotation: the login
  *  page shows an expiry notice once, then clears it. */
@@ -88,6 +89,9 @@ function createSession() {
       if (refresh && refresh.trim()) setRefresh(refresh.trim());
       else clearRefresh();
       authNotice.set('');
+      // La ficha es de la sesión anterior hasta probar lo contrario:
+      // se olvida aquí y los shells la recargan al montar.
+      profile.reset();
       scheduleProactive(expiresAt);
       return true;
     },
@@ -104,6 +108,7 @@ function createSession() {
       clearToken();
       clearRefresh();
       set('');
+      profile.reset();
     }
   };
 }

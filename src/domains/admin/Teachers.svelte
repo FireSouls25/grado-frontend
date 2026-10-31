@@ -764,11 +764,8 @@
       align-items: center;
     }
     .trow .who-btn {
-      justify-content: center;
-      text-align: center;
-    }
-    .trow .who {
-      align-items: center;
+      justify-content: flex-start;
+      text-align: left;
     }
     .trow .dir-col,
     .trow .subj-col {

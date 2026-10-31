@@ -35,6 +35,13 @@ function createProfile() {
   return {
     subscribe,
 
+    /** Back to unknown: call on every login/logout so the previous
+     *  account never leaks into the new session (name, roles, photo).
+     *  Shells refresh on mount when idle. */
+    reset() {
+      update(() => ({ state: 'idle', me: null, photoUrl: null, error: null }));
+    },
+
     /** Fetches the account profile (with photo). Safe to call on every
      *  panel open: an already-ready panel still refreshes so a photo
      *  change elsewhere shows up. */
