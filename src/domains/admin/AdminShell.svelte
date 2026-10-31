@@ -20,6 +20,15 @@
   export let year: number;
   export let onYear: ((delta: number) => void) | null = null;
 
+  // Si el perfil falló (backend caído, red), se reintenta solo con
+  // pausa: sin esto el menú y las secciones quedaban vacías hasta
+  // recargar la página a mano.
+  let lastRetry = 0;
+  $: if ($profile.state === 'error' && Date.now() - lastRetry > 10000) {
+    lastRetry = Date.now();
+    void profile.refresh();
+  }
+
   onMount(() => {
     if ($profile.state === 'idle') void profile.refresh();
   });

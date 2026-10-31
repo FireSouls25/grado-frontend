@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { onSessionReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -620,6 +621,7 @@
 
   onMount(() => {
     load();
+    const offReady = onSessionReady(() => load());
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (
@@ -634,7 +636,10 @@
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      offReady();
+      window.removeEventListener('keydown', onKey);
+    };
   });
 
   $: q = search.trim().toLowerCase();
@@ -951,7 +956,7 @@
                     <span>{$t.admin.colStudent}</span>
                     <span class="num-col">{$t.admin.colAbsences}</span>
                     <span class="num-col">{$t.admin.colEvasions}</span>
-                    <span class="num-col">{$t.admin.colRate}</span>
+                    <span class="num-col rate-col">{$t.admin.colRate}</span>
                     <span class="act-col">{$t.a11y.actions}</span>
                   </div>
                   <ul class="prows">
@@ -971,7 +976,10 @@
                         <span class="num-cell" class:alert={row.evasions > 0}>{row.evasions}</span>
                         <div class="rateblock">
                           <div class="rate-top">
-                            <strong class:low={row.rate < RATE_FLOOR}>{row.rate}%</strong>
+                            <span class="rate-id">
+                              <strong class:low={row.rate < RATE_FLOOR} class:ok={row.rate >= RATE_FLOOR}>{row.rate}%</strong>
+                              <small class="rate-what">{$t.admin.colRate.toLowerCase()}</small>
+                            </span>
                             <small>
                               {row.rate - RATE_FLOOR >= 0
                                 ? $t.admin.rateAbove(row.rate - RATE_FLOOR)
@@ -989,6 +997,8 @@
                         <div class="row-actions">
                           {#if guardianPhones[row.id]}
                             <a class="btn btn-sm btn-primary" href={`tel:${guardianPhones[row.id]}`}>{$t.admin.callAction}</a>
+                          {:else}
+                            <button type="button" class="btn btn-sm" disabled title={$t.admin.callNoPhone}>{$t.admin.callAction}</button>
                           {/if}
                           <button type="button" class="btn btn-sm" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.id)}/resumen`)}>
                             {$t.admin.openSummary}
@@ -1538,6 +1548,19 @@
   .rateblock strong.low {
     color: var(--g-grave-ink);
   }
+  .rateblock strong.ok {
+    color: var(--m-present);
+  }
+  .rate-id {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .rate-what {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
   .rateblock small {
     color: var(--muted);
     font-size: 0.72rem;
@@ -1848,8 +1871,8 @@
     }
     .prow-head {
       display: grid;
-      grid-template-columns: 28px minmax(0, 1.5fr) 72px 72px 140px auto;
-      gap: 12px;
+      grid-template-columns: 28px minmax(0, 1.5fr) 64px 64px 176px auto;
+      gap: 16px;
       padding: 0 4px 8px;
       border-bottom: 1px solid var(--line);
       color: var(--muted);
@@ -1859,11 +1882,15 @@
     .prow-head .num-col {
       text-align: right;
     }
+    .prow-head .rate-col {
+      text-align: left;
+    }
     .prow-head .act-col {
       text-align: right;
     }
     .prow {
-      grid-template-columns: 28px minmax(0, 1.5fr) 72px 72px 140px auto;
+      grid-template-columns: 28px minmax(0, 1.5fr) 64px 64px 176px auto;
+      gap: 16px;
       padding: 10px 4px;
     }
     .num-cell {

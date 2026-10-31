@@ -9,6 +9,14 @@
 
   export let active: 'agenda' | 'horario' | null = null;
 
+  // Reintento con pausa si el perfil falló: evita menús vacíos que
+  // solo volvían recargando la página.
+  let lastRetry = 0;
+  $: if ($profile.state === 'error' && Date.now() - lastRetry > 10000) {
+    lastRetry = Date.now();
+    void profile.refresh();
+  }
+
   onMount(() => {
     if ($profile.state === 'idle') void profile.refresh();
   });

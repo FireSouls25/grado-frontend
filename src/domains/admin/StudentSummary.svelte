@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { onSessionReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
@@ -86,12 +87,17 @@
     return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
+  // Dar permiso exige motivo: se abre la hoja de corrección, que lo pide
+  // y lo registra. Quitarlo es directo y no necesita motivo.
   async function togglePermission(sessionID: string, mark: string) {
+    if (mark === 'absence') {
+      correcting = { sessionID, mark };
+      return;
+    }
     if (acting) return;
     acting = sessionID + mark;
     try {
-      const next = mark === 'absence' ? 'absence-permission' : 'absence';
-      const updated = await guarded(() => recordSessionMark(sessionID, id, next as 'absence' | 'absence-permission', ''));
+      const updated = await guarded(() => recordSessionMark(sessionID, id, 'absence', ''));
       if (updated !== null) {
         notify($t.studentSummary.justifiedOk);
         await load();
@@ -196,7 +202,10 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onSessionReady(() => void load());
+  });
 </script>
 
 <AdminShell active="estudiantes" year={currentYear} onYear={null}>

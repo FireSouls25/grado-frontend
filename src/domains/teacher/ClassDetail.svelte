@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { onSessionReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -10,6 +11,7 @@
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
   import { classRoster, isMissing, openSession, recordMark, sessionMarks, todaySessions } from './api';
   import { groupsByYear, listSubjects } from '../admin/api';
   import { notify } from '$lib/ui/notice';
@@ -68,6 +70,15 @@
   // estudiante antes de guardar.
   let late = new Set<string>();
   let lateInit = new Set<string>();
+  // Permisos con motivo registrado: el docente también puede otorgarlos;
+  // el motivo viaja en la nota de la marca.
+  let perm = new Set<string>();
+  let permInit = new Set<string>();
+  let permNotes: Record<string, string> = {};
+  let permNotesInit: Record<string, string> = {};
+  let permTarget: string | null = null;
+  let permDraft = '';
+  let permError = '';
   let groupLabel = '';
   let subjectName = '';
   let sessionID = '';
@@ -130,15 +141,19 @@
       sessionID = list[0].ID;
       const p = new Set<string>();
       const l = new Set<string>();
+      const pm = new Set<string>();
       for (const r of roster) {
         const m = marks[r.StudentID] ?? '';
         if (m === 'late') l.add(r.StudentID);
+        else if (m === 'absence-permission') pm.add(r.StudentID);
         else if (m === '') p.add(r.StudentID);
       }
       present = p;
       late = l;
+      perm = pm;
       presentInit = new Set(p);
       lateInit = new Set(l);
+      permInit = new Set(pm);
     } catch {
       /* sin historial legible: todo presente, como antes */
     }
@@ -162,20 +177,55 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onSessionReady(() => void load());
+  });
 
-  // El docente solo marca presente, falta o atraso: el permiso lo
-  // otorgan la secretaría y el admin en las pantallas de corrección.
-  type RollMark = '' | 'absence' | 'late';
+  type RollMark = '' | 'absence' | 'absence-permission' | 'late';
 
   function pick(id: string, mark: RollMark) {
     if (mark === '') present.add(id);
     else present.delete(id);
     if (mark === 'late') late.add(id);
     else late.delete(id);
+    if (mark === 'absence-permission') perm.add(id);
+    else {
+      perm.delete(id);
+      delete permNotes[id];
+    }
     present = present;
     late = late;
+    perm = perm;
     feedback = '';
+    // El permiso exige motivo registrado: sin nota se pide en el acto.
+    if (mark === 'absence-permission' && !(permNotes[id] ?? '').trim()) {
+      permTarget = id;
+      permDraft = '';
+      permError = '';
+    }
+  }
+
+  function permName(id: string): string {
+    const r = roster.find((x) => x.StudentID === id);
+    return r ? `${r.Surnames}, ${r.Names}` : id;
+  }
+
+  function savePermNote() {
+    if (!permTarget) return;
+    permError = '';
+    if (!permDraft.trim()) {
+      permError = $t.troll.shistory.needPermissionReason;
+      return;
+    }
+    permNotes[permTarget] = permDraft.trim();
+    permTarget = null;
+  }
+
+  function cancelPermNote() {
+    if (permTarget) pick(permTarget, 'absence');
+    permTarget = null;
+    permError = '';
   }
 
 
@@ -183,7 +233,8 @@
   $: presentCount = roster.filter((r) => present.has(r.StudentID)).length;
   $: notPresent = roster.filter((r) => !present.has(r.StudentID));
   $: lateCount = notPresent.filter((r) => late.has(r.StudentID)).length;
-  $: absentCount = notPresent.length - lateCount;
+  $: permCount = notPresent.filter((r) => perm.has(r.StudentID)).length;
+  $: absentCount = notPresent.length - lateCount - permCount;
   $: presentPct = roster.length ? Math.round((presentCount / roster.length) * 100) : 0;
 
   async function ensureSession(): Promise<boolean> {
@@ -212,12 +263,16 @@
     for (const r of roster) next.add(r.StudentID);
     present = next;
     late = new Set();
+    perm = new Set();
+    permNotes = {};
     feedback = '';
   }
 
   function markAllAbsent() {
     present = new Set<string>();
     late = new Set<string>();
+    perm = new Set();
+    permNotes = {};
     feedback = '';
   }
 
@@ -230,7 +285,15 @@
     for (const v of a) if (!b.has(v)) return false;
     return true;
   }
-  $: dirty = !sameSets(present, presentInit) || !sameSets(late, lateInit);
+  function sameNotes(a: Record<string, string>, b: Record<string, string>, ids: Set<string>): boolean {
+    for (const id of ids) if ((a[id] ?? '') !== (b[id] ?? '')) return false;
+    return true;
+  }
+  $: dirty =
+    !sameSets(present, presentInit) ||
+    !sameSets(late, lateInit) ||
+    !sameSets(perm, permInit) ||
+    !sameNotes(permNotes, permNotesInit, perm);
 
   function snapshotRollcall() {
     saveRollcall({
@@ -239,7 +302,7 @@
       Students: roster.length,
       Present: presentCount,
       Absent: absentCount,
-      Permission: 0,
+      Permission: permCount,
       Late: lateCount
     });
   }
@@ -255,25 +318,30 @@
         // Sin sesión en el backend: se conserva el estado local y se dice.
         presentInit = new Set(present);
         lateInit = new Set(late);
+        permInit = new Set(perm);
         snapshotRollcall();
         feedback = $t.attendance.savedLocal;
         return;
       }
-      const markOf = (p: Set<string>, l: Set<string>, id: string): RollMark =>
-        p.has(id) ? '' : l.has(id) ? 'late' : 'absence';
+      const markOf = (p: Set<string>, l: Set<string>, m: Set<string>, id: string): RollMark =>
+        p.has(id) ? '' : l.has(id) ? 'late' : m.has(id) ? 'absence-permission' : 'absence';
+      const noteOf = (m: Set<string>, id: string): string =>
+        m.has(id) ? (permNotes[id] ?? '') : '';
       for (const r of roster) {
         // Marca equivalente de cada estado (presente = "").
-        const wasMark = markOf(presentInit, lateInit, r.StudentID);
-        const isMark = markOf(present, late, r.StudentID);
-        if (wasMark === isMark) continue;
+        const wasMark = markOf(presentInit, lateInit, permInit, r.StudentID);
+        const isMark = markOf(present, late, perm, r.StudentID);
+        if (wasMark === isMark && noteOf(permInit, r.StudentID) === noteOf(perm, r.StudentID)) continue;
         try {
-          await recordMark(sessionID, r.StudentID, isMark, '');
+          await recordMark(sessionID, r.StudentID, isMark, noteOf(perm, r.StudentID));
         } catch {
           /* marca no enviada: se conserva el estado local */
         }
       }
       presentInit = new Set(present);
       lateInit = new Set(late);
+      permInit = new Set(perm);
+      permNotesInit = Object.fromEntries([...perm].map((id) => [id, permNotes[id] ?? '']));
       snapshotRollcall();
       notify($t.attendance.saved);
     } catch (err) {
@@ -318,6 +386,23 @@
       onSaved={() => (alertOpen = false)}
     />
 
+    <Sheet open={permTarget !== null} title={$t.roster.permission} onClose={cancelPermNote}>
+      {#if permTarget}
+        <p class="muted sheet-sub">{permName(permTarget)}</p>
+        <form class="perm-form" on:submit|preventDefault={savePermNote}>
+          <label>
+            <span>{$t.troll.shistory.permissionReasonLabel}</span>
+            <textarea rows={3} bind:value={permDraft} placeholder={$t.troll.shistory.permissionReasonPlaceholder}></textarea>
+          </label>
+          {#if permError}<p class="flash error" role="alert">{permError}</p>{/if}
+          <div class="form-actions">
+            <button type="button" class="btn" on:click={cancelPermNote}>{$t.common.cancel}</button>
+            <button type="submit" class="btn btn-primary">{$t.common.save}</button>
+          </div>
+        </form>
+      {/if}
+    </Sheet>
+
   <div class="sheet">
     {#if loading}
       <Skeleton rows={6} />
@@ -343,6 +428,7 @@
             <p class="sum-row"><span class="dot present"></span> {$t.attendance.presentLabel} <strong>{$t.attendance.studentsCount(presentCount)}</strong></p>
             <p class="sum-row"><span class="dot absent"></span> {$t.attendance.absentLabel} <strong>{$t.attendance.studentsCount(absentCount)}</strong></p>
             <p class="sum-row"><span class="dot late"></span> {$t.attendance.lateLabel} <strong>{$t.attendance.studentsCount(lateCount)}</strong></p>
+            <p class="sum-row"><span class="dot perm"></span> {$t.roster.permission} <strong>{$t.attendance.studentsCount(permCount)}</strong></p>
           </div>
           {#if sessionMissing}
             <p class="note">{$t.attendance.noSessionNote}</p>
@@ -367,7 +453,8 @@
             {#each roster as r (r.StudentID)}
               {@const inPresent = present.has(r.StudentID)}
               {@const isLate = late.has(r.StudentID)}
-              {@const cur = inPresent ? '' : isLate ? 'late' : 'absence'}
+              {@const isPerm = perm.has(r.StudentID)}
+              {@const cur = inPresent ? '' : isLate ? 'late' : isPerm ? 'absence-permission' : 'absence'}
               <li>
                 <span class="who">
                   <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
@@ -397,6 +484,15 @@
                     on:click={() => pick(r.StudentID, 'late')}
                   >
                     {$t.studentSummary.markLate}
+                  </button>
+                  <button
+                    type="button"
+                    class:perm={cur === 'absence-permission'}
+                    aria-pressed={cur === 'absence-permission'}
+                    title={permNotes[r.StudentID] ?? ''}
+                    on:click={() => pick(r.StudentID, 'absence-permission')}
+                  >
+                    {$t.roster.permShort}
                   </button>
                 </span>
               </li>
@@ -687,6 +783,64 @@
   .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
+  }
+  .seg button.perm {
+    background: var(--m-permission-bg);
+    color: var(--m-permission);
+  }
+  .dot.perm {
+    background: var(--m-permission);
+  }
+  .sheet-sub {
+    margin-bottom: 12px;
+  }
+  .muted {
+    color: var(--muted);
+    font-size: 0.84rem;
+  }
+  .perm-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .perm-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .perm-form textarea {
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: var(--ink);
+    width: 100%;
+    resize: vertical;
+  }
+  .perm-form textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .flash.error {
+    background: var(--g-grave-bg);
+    color: var(--g-grave-ink);
+    font-weight: 600;
+    font-size: 0.84rem;
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
   }
   .dot.late {
     background: var(--chip-yellow-ink);

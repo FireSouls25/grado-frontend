@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { onSessionReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -99,6 +100,7 @@
 
   onMount(() => {
     load();
+    const offReady = onSessionReady(() => load());
     if ($profile.state === 'idle') void profile.refresh();
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -114,7 +116,10 @@
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      offReady();
+      window.removeEventListener('keydown', onKey);
+    };
   });
 
   function selectDay(i: number) {

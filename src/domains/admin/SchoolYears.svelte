@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { onSessionReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
@@ -334,7 +335,10 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onSessionReady(() => void load());
+  });
 </script>
 
 <AdminShell active="anos" year={currentYear} onYear={null}>

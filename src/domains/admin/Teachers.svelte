@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { onSessionReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -187,7 +188,10 @@
       .toUpperCase();
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onSessionReady(() => void load());
+  });
 
   $: q = foldSearch(search.trim());
   $: subjectOptions = [...new Set(Object.values(taught).flat().map((s) => s.name))].sort((a, b) =>

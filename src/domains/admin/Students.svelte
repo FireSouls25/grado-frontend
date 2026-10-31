@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { onSessionReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -376,7 +377,10 @@
   }
 
   $: roles = $profile.me?.roles ?? [];
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onSessionReady(() => void load());
+  });
 
   let exporting = false;
   let exportOpen = false;
@@ -612,7 +616,10 @@
                   <span class="c-stat" class:alert={s.Evasions > 0}><strong>{s.Evasions}</strong></span>
                   <span class="c-stat" class:alert={s.Lates > 0}><strong>{s.Lates}</strong></span>
                   <div class="rateblock">
-                    <strong class:low={s.rate < 85}>{s.rate}%</strong>
+                    <span class="rate-id">
+                      <strong class:low={s.rate < 85} class:ok={s.rate >= 85}>{s.rate}%</strong>
+                      <small class="rate-what">{$t.admin.colRate.toLowerCase()}</small>
+                    </span>
                     <span class="rbar"><span class:low={s.rate < 85} style={`width:${s.rate}%`}></span></span>
                   </div>
                   <div class="row-actions">
@@ -1070,6 +1077,20 @@
   }
   .rateblock strong.low {
     color: var(--g-grave-ink);
+  }
+  .rateblock strong.ok {
+    color: var(--m-present);
+  }
+  .rate-id {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 5px;
+  }
+  .rate-what {
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 500;
   }
   .rbar {
     height: 4px;
