@@ -292,7 +292,6 @@ export const es = {
     present: 'Presente',
     absent: 'Falta injustificada',
     absentShort: 'Ausente',
-    permShort: 'Permiso',
     permission: 'Falta con permiso',
     evasion: 'Evasión',
     late: 'Atraso',

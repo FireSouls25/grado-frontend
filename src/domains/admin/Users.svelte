@@ -672,17 +672,25 @@ import Sheet from '$lib/ui/Sheet.svelte';
     align-items: center;
     gap: 8px;
     min-width: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+  }
+  .nameline .pill {
+    flex: none;
   }
   .name {
     font-weight: 600;
     font-size: 0.88rem;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
   .sub {
     color: var(--muted);
     font-size: 0.76rem;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .roles-col,
   .state-col {

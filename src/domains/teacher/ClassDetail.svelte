@@ -11,7 +11,6 @@
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
-  import Sheet from '$lib/ui/Sheet.svelte';
   import { classRoster, isMissing, openSession, recordMark, sessionMarks, todaySessions } from './api';
   import { groupsByYear, listSubjects } from '../admin/api';
   import { notify } from '$lib/ui/notice';
@@ -78,9 +77,6 @@
   let permInit = new Set<string>();
   let permNotes: Record<string, string> = {};
   let permNotesInit: Record<string, string> = {};
-  let permTarget: string | null = null;
-  let permDraft = '';
-  let permError = '';
   let groupLabel = '';
   let subjectName = '';
   let sessionID = '';
@@ -196,8 +192,9 @@
     else present.delete(id);
     if (mark === 'late') late.add(id);
     else late.delete(id);
-    if (mark === 'absence-permission') perm.add(id);
-    else {
+    // El docente no otorga permisos (solo secretaría): al tocar un
+    // heredado se vuelve falta común; crearlos no está disponible.
+    if (perm.has(id) && mark !== 'absence-permission') {
       perm.delete(id);
       delete permNotes[id];
     }
@@ -205,36 +202,7 @@
     late = late;
     perm = perm;
     feedback = '';
-    // El permiso exige motivo registrado: sin nota se pide en el acto.
-    if (mark === 'absence-permission' && !(permNotes[id] ?? '').trim()) {
-      permTarget = id;
-      permDraft = '';
-      permError = '';
-    }
   }
-
-  function permName(id: string): string {
-    const r = roster.find((x) => x.StudentID === id);
-    return r ? `${r.Surnames}, ${r.Names}` : id;
-  }
-
-  function savePermNote() {
-    if (!permTarget) return;
-    permError = '';
-    if (!permDraft.trim()) {
-      permError = $t.troll.shistory.needPermissionReason;
-      return;
-    }
-    permNotes[permTarget] = permDraft.trim();
-    permTarget = null;
-  }
-
-  function cancelPermNote() {
-    if (permTarget) pick(permTarget, 'absence');
-    permTarget = null;
-    permError = '';
-  }
-
 
 
   $: presentCount = roster.filter((r) => present.has(r.StudentID)).length;
@@ -404,22 +372,6 @@
       onSaved={() => (alertOpen = false)}
     />
 
-    <Sheet open={permTarget !== null} title={$t.roster.permission} onClose={cancelPermNote}>
-      {#if permTarget}
-        <p class="muted sheet-sub">{permName(permTarget)}</p>
-        <form class="perm-form" on:submit|preventDefault={savePermNote}>
-          <label>
-            <span>{$t.troll.shistory.permissionReasonLabel}</span>
-            <textarea rows={3} bind:value={permDraft} placeholder={$t.troll.shistory.permissionReasonPlaceholder}></textarea>
-          </label>
-          {#if permError}<p class="flash error" role="alert">{permError}</p>{/if}
-          <div class="form-actions">
-            <button type="button" class="btn" on:click={cancelPermNote}>{$t.common.cancel}</button>
-            <button type="submit" class="btn btn-primary">{$t.common.save}</button>
-          </div>
-        </form>
-      {/if}
-    </Sheet>
 
   <div class="sheet">
     {#if loading}
@@ -502,15 +454,6 @@
                     on:click={() => pick(r.StudentID, 'late')}
                   >
                     {$t.studentSummary.markLate}
-                  </button>
-                  <button
-                    type="button"
-                    class:perm={cur === 'absence-permission'}
-                    aria-pressed={cur === 'absence-permission'}
-                    title={permNotes[r.StudentID] ?? ''}
-                    on:click={() => pick(r.StudentID, 'absence-permission')}
-                  >
-                    {$t.roster.permShort}
                   </button>
                 </span>
               </li>
@@ -801,56 +744,6 @@
   .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
-  }
-  .seg button.perm {
-    background: var(--m-permission-bg);
-    color: var(--m-permission);
-  }
-  .dot.perm {
-    background: var(--m-permission);
-  }
-  .sheet-sub {
-    margin-bottom: 12px;
-  }
-  .muted {
-    color: var(--muted);
-    font-size: 0.84rem;
-  }
-  .perm-form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .perm-form label {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--muted);
-  }
-  .perm-form textarea {
-    border: 1px solid var(--control);
-    border-radius: var(--radius-control);
-    background: var(--surface);
-    padding: 10px 12px;
-    font-size: 0.85rem;
-    font-family: inherit;
-    color: var(--ink);
-    width: 100%;
-    resize: vertical;
-  }
-  .perm-form textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 4px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
   }
   .flash.error {
     background: var(--g-grave-bg);

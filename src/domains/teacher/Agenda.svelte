@@ -30,22 +30,30 @@
     Grade: string;
   }
 
-  // Semana real (lunes a viernes) derivada de la fecha actual: el backend
-  // es la única fuente de clases; sin ruta todavía cada día pinta vacío
-  // honesto en vez de datos falsos.
-  const monday = (() => {
-    const d = new Date();
-    const back = (d.getDay() + 6) % 7;
-    d.setDate(d.getDate() - back);
+  // Semana real (lunes a viernes) derivada del día del servidor: en fin
+  // de semana se muestra la siguiente. El backend es la única fuente de
+  // clases; sin ruta todavía cada día pinta vacío honesto en vez de
+  // datos falsos.
+  function startOfWeek(from: Date): Date {
+    const d = new Date(from);
+    const js = d.getDay();
+    if (js === 0) d.setDate(d.getDate() + 1);
+    else if (js === 6) d.setDate(d.getDate() + 2);
+    else d.setDate(d.getDate() - ((js + 6) % 7));
     d.setHours(0, 0, 0, 0);
     return d;
-  })();
-  const weekDays = [0, 1, 2, 3, 4].map((i) => {
+  }
+  let weekBase: Date | null = null;
+  $: monday = startOfWeek(weekBase ?? new Date());
+  $: weekDays = [0, 1, 2, 3, 4].map((i) => {
     const d = new Date(monday);
     d.setDate(d.getDate() + i);
     return d;
   });
   const jsWeekdays = [1, 2, 3, 4, 5];
+  function clampDay(i: number): number {
+    return Number.isInteger(i) && i >= 0 && i < jsWeekdays.length ? i : 0;
+  }
   // La pestaña de hoy sigue al servidor (reloj local puede mentir).
   let serverIdx: number | null = null;
   const localIdx = (() => {
@@ -54,7 +62,7 @@
   })();
   $: todayIdx = serverIdx ?? localIdx;
 
-  let selectedDay = todayIdx === -1 ? 0 : todayIdx;
+  let selectedDay = todayIdx === -1 ? 0 : clampDay(todayIdx);
   let search = '';
   let searchEl: HTMLInputElement | null = null;
   let warnFor: { gid: string; label: string } | null = null;
@@ -76,12 +84,15 @@
     try {
       try {
         const key = await schoolDay();
-        const js = calendarDate(key)?.getDay() ?? -1;
+        const parsed = calendarDate(key);
+        weekBase = parsed ? new Date(parsed) : null;
+        const js = parsed?.getDay() ?? -1;
         serverIdx = js >= 1 && js <= 5 ? js - 1 : -1;
       } catch {
         serverIdx = null;
       }
-      const weekday = jsWeekdays[selectedDay];
+      selectedDay = clampDay(selectedDay);
+      const weekday = jsWeekdays[selectedDay] ?? 1;
       const classes = await guarded(() => daySchedule(weekday));
       if (classes === null) {
         loading = false;
@@ -135,7 +146,7 @@
   });
 
   function selectDay(i: number) {
-    selectedDay = i;
+    selectedDay = clampDay(i);
     load();
   }
 

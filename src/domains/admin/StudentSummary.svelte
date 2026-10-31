@@ -87,11 +87,18 @@
     return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
-  // Dar permiso exige motivo: se abre la hoja de corrección, que lo pide
-  // y lo registra. Quitarlo es directo y no necesita motivo.
+  // Dar permiso exige motivo: se abre un popup que solo pide el motivo
+  // y lo registra. Quitarlo es directo y no necesita motivo. Modificar
+  // sigue abriendo la hoja completa de corrección.
+  let permFor: { sessionID: string } | null = null;
+  let permReason = '';
+  let permError = '';
+
   async function togglePermission(sessionID: string, mark: string) {
     if (mark === 'absence') {
-      correcting = { sessionID, mark };
+      permFor = { sessionID };
+      permReason = '';
+      permError = '';
       return;
     }
     if (acting) return;
@@ -132,6 +139,32 @@
 
   function reviseName(): string {
     return profile ? `${profile.Names} ${profile.Surnames}` : '';
+  }
+
+  async function savePermReason() {
+    if (!permFor || acting) return;
+    permError = '';
+    if (!permReason.trim()) {
+      permError = $t.troll.shistory.needPermissionReason;
+      return;
+    }
+    acting = permFor.sessionID + 'perm';
+    try {
+      const updated = await guarded(() =>
+        recordSessionMark(permFor!.sessionID, id, 'absence-permission', permReason.trim())
+      );
+      if (updated !== null) {
+        notify($t.studentSummary.justifiedOk);
+        permFor = null;
+        await load();
+      }
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 401)) {
+        permError = err instanceof Error ? err.message : String(err);
+      }
+    } finally {
+      acting = null;
+    }
   }
 
   async function afterCorrection() {
@@ -416,6 +449,26 @@
           onSaved={afterCorrection}
         />
       {/if}
+
+      <Sheet open={permFor !== null} title={$t.studentSummary.justifyAction} onClose={() => (permFor = null)}>
+        <div class="sheet">
+          {#if permFor}
+            {@const m = marks.find((x) => x.SessionID === permFor?.sessionID)}
+            <p class="muted">{m ? `${momentDay(m.Date)} · ${m.ClassLabel}` : ''}</p>
+            <label class="reason">
+              <span>{$t.troll.shistory.permissionReasonLabel}</span>
+              <textarea rows={3} bind:value={permReason} placeholder={$t.troll.shistory.permissionReasonPlaceholder}></textarea>
+            </label>
+            {#if permError}<p class="flash error" role="alert">{permError}</p>{/if}
+            <div class="form-actions">
+              <button type="button" class="btn" on:click={() => (permFor = null)}>{$t.common.cancel}</button>
+              <button type="button" class="btn btn-primary" disabled={!!acting} on:click={savePermReason}>
+                {$t.common.save}
+              </button>
+            </div>
+          {/if}
+        </div>
+      </Sheet>
     {/if}
   </div>
 </AdminShell>
@@ -454,6 +507,44 @@
   .muted {
     color: var(--muted);
     font-size: 0.85rem;
+  }
+  .reason {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .reason textarea {
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: var(--ink);
+    width: 100%;
+    resize: vertical;
+  }
+  .reason textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .flash.error {
+    background: var(--g-grave-bg);
+    color: var(--g-grave-ink);
+    font-weight: 600;
+    font-size: 0.84rem;
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
   }
   .kpis {
     margin: 0;
