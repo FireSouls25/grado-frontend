@@ -66,6 +66,16 @@ perfil con pausa si falló. Contratos viva: e2e del backend
 `scripts/backend-contract.test.mjs` (`npm run test:contract`, en CI) que
 empaqueta los módulos reales de API y exige URLs/cuerpos compatibles.
 
+URLs opacas: `/clase/:slug`, `/admin/estudiantes/:slug[/resumen]`,
+`/admin/docentes/:slug`. `lib/slug.ts` (`resolveId`) traduce una vez
+(con caché) al UUID interno; los enlaces usan `Slug || UUID`.
+Uniforme: checkbox por estudiante en la lista (marcado por defecto);
+solo viajan los cambios (`POST .../uniform`). Se muestra en resumen
+(chip + conteo), ficha e historial de la llamada.
+Descargos: defensa escrita ante una falta (`POST .../defenses`,
+permiso `record-defenses`: admin + secretaría). Popup con motivo
+obligatorio junto al botón de permiso; se muestra junto a la falta.
+
 ## Orden construido y siguiente
 
 1. ✅ Entorno, deps, Tauri, `.env`, `.gitignore` (incluye `reference/`)

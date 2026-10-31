@@ -17,6 +17,7 @@
     groupsByYear,
     classSessionsHistory,
     sessionDetail,
+    mergeTrail,
     type YearGroup,
     type ClassSessionCard,
     type SessionDetailData
@@ -336,7 +337,7 @@
                     </ul>
                   {/if}
                   {#if showRevisions}
-                    <SessionRevisionTrail revisions={detail.Revisions} />
+                    <SessionRevisionTrail revisions={mergeTrail(detail)} />
                   {/if}
                 {/if}
               </div>

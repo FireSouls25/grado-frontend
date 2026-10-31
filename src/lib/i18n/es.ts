@@ -201,6 +201,12 @@ export const es = {
     permissionWithReason: (reason: string) => `Con permiso: ${reason}`,
     openWarnings: 'Ver en Llamados',
     justifiedOk: 'Marca actualizada.',
+    defenseAction: 'Descargo',
+    defenseTitle: 'Descargo del estudiante',
+    defenseReasonLabel: 'Defensa del estudiante',
+    defenseReasonPlaceholder: 'Escribe la defensa ante la falta…',
+    defenseSaved: 'Descargo guardado.',
+    defenseWithReason: (reason: string) => `Con descargo: ${reason}`,
     warningsTitle: 'Llamados de atención',
     warningsEmpty: 'Sin llamados de atención.'
   },
@@ -342,6 +348,10 @@ export const es = {
     permissionHint: 'Pulsa para alternar entre falta injustificada y falta con permiso.',
     lateHint: 'Pulsa para alternar entre falta injustificada y atraso.',
     lateLabel: 'Atrasados',
+    uniformLabel: 'Uniforme',
+    uniformOk: 'Uniforme correcto',
+    uniformFault: 'Sin uniforme',
+    uniformFaults: (count: number) => count === 1 ? '1 falta de uniforme' : `${count} faltas de uniforme`,
     studentsCount: (count: number) =>
       count === 1 ? '1 Estudiante' : `${count} Estudiantes`,
     listTitle: (group: string) => `Listado del Salón (${group})`,

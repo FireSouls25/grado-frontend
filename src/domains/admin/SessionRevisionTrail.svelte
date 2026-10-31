@@ -27,6 +27,14 @@
     return 'is-present';
   }
 
+  function isUniform(r: { Kind?: string }): boolean {
+    return r.Kind === 'uniform';
+  }
+
+  function uniformName(ok: boolean): string {
+    return ok ? $t.attendance.uniformOk : $t.attendance.uniformFault;
+  }
+
   function momentTs(value: string): string {
     if (!value) return '';
     const d = new Date(value);
@@ -51,7 +59,11 @@
             <span class="person">{r.Student}</span>
           {/if}
           <span class="change">
-            {#if r.From}
+            {#if isUniform(r)}
+              <span class={`mk solid ${r.To === 'uniform-ok' ? 'is-present' : 'is-absent'}`}>
+                {uniformName(r.To === 'uniform-ok')}
+              </span>
+            {:else if r.From}
               <span class={`mk ${markClass(r.From)}`}>{markName(r.From)}</span>
               <span class="swap" aria-hidden="true"><Icon name="next" /></span>
             {:else}

@@ -11,7 +11,7 @@
   import AdminShell from './AdminShell.svelte';
   import { guarded, goBack } from '$lib/nav';
   import { profile as profileStore } from '$lib/shell/profile';
-  import { canManageUsers, canWriteWarnings } from '$lib/access';
+  import { canManageUsers, canWriteWarnings, canWriteDefenses } from '$lib/access';
   import { t } from '$lib/i18n';
   import type { StudentProfile, Warning } from '$lib/api/types';
   import {
@@ -21,7 +21,9 @@
     studentAlerts,
     reviewAcademicAlert,
     recordSessionMark,
+    recordDefense,
     sessionDetail,
+    mergeTrail,
     warningRevisions,
     type StudentReport,
     type SessionRevisionRow,
@@ -37,6 +39,7 @@
   import { calendarDate } from '$lib/dates';
   $: roles = $profileStore.me?.roles ?? [];
   $: staffWrite = canWriteWarnings($profileStore.me);
+  $: staffDefense = canWriteDefenses($profileStore.me);
 
   export let params: { id?: string } = {};
   let id = '';
@@ -131,7 +134,7 @@
     trailLoading = true;
     try {
       const detail = await guarded(() => sessionDetail(sessionID));
-      if (detail) trailRows = detail.Revisions;
+      if (detail) trailRows = mergeTrail(detail);
     } catch (err) {
       trailError = err;
     } finally {
@@ -163,6 +166,44 @@
     } catch (err) {
       if (!(err instanceof ApiError && err.status === 401)) {
         permError = err instanceof Error ? err.message : String(err);
+      }
+    } finally {
+      acting = null;
+    }
+  }
+
+  let defenseFor: { sessionID: string } | null = null;
+  let defenseReason = '';
+  let defenseError = '';
+
+  function defenseOf(s: { SessionID: string }): string {
+    return report?.Defenses?.[s.SessionID] ?? '';
+  }
+
+  function openDefense(sessionID: string) {
+    defenseFor = { sessionID };
+    defenseReason = defenseOf({ SessionID: sessionID });
+    defenseError = '';
+  }
+
+  async function saveDefense() {
+    if (!defenseFor || acting) return;
+    defenseError = '';
+    if (!defenseReason.trim()) {
+      defenseError = $t.troll.shistory.needPermissionReason;
+      return;
+    }
+    acting = defenseFor.sessionID + 'defense';
+    try {
+      await guarded(() =>
+        recordDefense(defenseFor!.sessionID, id, defenseReason.trim())
+      );
+      notify($t.studentSummary.defenseSaved);
+      defenseFor = null;
+      await load();
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 401)) {
+        defenseError = err instanceof Error ? err.message : String(err);
       }
     } finally {
       acting = null;
@@ -271,6 +312,7 @@
           <div><dt>{$t.studentSummary.excused}</dt><dd>{report.Excused}</dd></div>
           <div><dt>{$t.studentSummary.evasions}</dt><dd>{report.Evasions}</dd></div>
           <div><dt>{$t.studentSummary.lates}</dt><dd>{report.Lates}</dd></div>
+        <div><dt>{$t.attendance.uniformLabel}</dt><dd class:low={(report.UniformFaults ?? 0) > 0}>{report.UniformFaults ?? 0}</dd></div>
           <div><dt>{$t.roster.warnGravityMild}</dt><dd>{report.WarningsMild}</dd></div>
           <div><dt>{$t.roster.warnGravityModerate}</dt><dd>{report.WarningsModerate}</dd></div>
           <div><dt>{$t.roster.warnGravitySevere}</dt><dd>{report.WarningsSevere}</dd></div>
@@ -296,6 +338,12 @@
                     {#if s.Mark === 'absence-permission' && s.Note}
                       <small class="permnote">{$t.studentSummary.permissionWithReason(s.Note)}</small>
                     {/if}
+                    {#if s.UniformOK === false}
+                      <small class="permnote warn">{$t.attendance.uniformFault}</small>
+                    {/if}
+                    {#if defenseOf(s)}
+                      <small class="permnote defense">{$t.studentSummary.defenseWithReason(defenseOf(s))}</small>
+                    {/if}
                   </span>
                   <div class="rowbtns">
                     {#if s.Mark === 'absence' || s.Mark === 'absence-permission'}
@@ -307,6 +355,16 @@
                       >
                         {s.Mark === 'absence' ? $t.studentSummary.justifyAction : $t.studentSummary.unjustifiedAction}
                       </button>
+                      {#if staffDefense}
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          disabled={!!acting}
+                          on:click={() => openDefense(s.SessionID)}
+                        >
+                          {$t.studentSummary.defenseAction}
+                        </button>
+                      {/if}
                     {/if}
                     <button
                       type="button"
@@ -453,6 +511,26 @@
         />
       {/if}
 
+      <Sheet open={defenseFor !== null} title={$t.studentSummary.defenseTitle} onClose={() => (defenseFor = null)}>
+        <div class="sheet">
+          {#if defenseFor}
+            {@const dm = marks.find((x) => x.SessionID === defenseFor?.sessionID)}
+            <p class="muted">{dm ? `${momentDay(dm.Date)} · ${dm.ClassLabel}` : ''}</p>
+            <label class="reason">
+              <span>{$t.studentSummary.defenseReasonLabel}</span>
+              <textarea rows={3} bind:value={defenseReason} placeholder={$t.studentSummary.defenseReasonPlaceholder}></textarea>
+            </label>
+            {#if defenseError}<p class="flash error" role="alert">{defenseError}</p>{/if}
+            <div class="form-actions">
+              <button type="button" class="btn" on:click={() => (defenseFor = null)}>{$t.common.cancel}</button>
+              <button type="button" class="btn btn-primary" disabled={!!acting} on:click={saveDefense}>
+                {$t.common.save}
+              </button>
+            </div>
+          {/if}
+        </div>
+      </Sheet>
+
       <Sheet open={permFor !== null} title={$t.studentSummary.justifyAction} onClose={() => (permFor = null)}>
         <div class="sheet">
           {#if permFor}
@@ -510,6 +588,13 @@
   .muted {
     color: var(--muted);
     font-size: 0.85rem;
+  }
+  .permnote.warn {
+    color: var(--g-grave-ink);
+    font-weight: 600;
+  }
+  .permnote.defense {
+    color: var(--accent);
   }
   .reason {
     display: flex;

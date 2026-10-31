@@ -193,6 +193,10 @@
     return years >= 0 && years < 130 ? years : null;
   }
 
+  function defenseOf(s: { SessionID: string }): string {
+    return report?.Defenses?.[s.SessionID] ?? '';
+  }
+
   function longDate(value: string): string {
     if (!value) return '';
     const d = calendarDate(value);
@@ -512,6 +516,12 @@
                       <span>{longDate(s.Date)}</span>
                       <span class="muted">{s.ClassLabel} · {$t.studentDetail.periodLabel(s.Period)}</span>
                       <span class={`chip ${s.Mark === '' ? 'chip-green' : 'chip-yellow'}`}>{markLabel(s.Mark)}</span>
+                      {#if s.UniformOK === false}
+                        <span class="chip chip-pink">{$t.attendance.uniformFault}</span>
+                      {/if}
+                      {#if defenseOf(s)}
+                        <span class="muted small">{ $t.studentSummary.defenseWithReason(defenseOf(s)) }</span>
+                      {/if}
                     </li>
                   {/each}
                 </ul>

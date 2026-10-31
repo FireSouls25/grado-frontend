@@ -7,7 +7,11 @@
   // (secretaría y admin; el docente no corrige).
   import Sheet from '$lib/ui/Sheet.svelte';
   import { t } from '$lib/i18n';
-  import { recordSessionMark } from './api';
+  import { recordSessionMark, recordDefense } from './api';
+  import { guarded } from '$lib/nav';
+  import { ApiError } from '$lib/api/types';
+  import { canWriteDefenses } from '$lib/access';
+  import { profile } from '$lib/shell/profile';
 
   type CorrectMark = '' | 'absence' | 'absence-permission' | 'evasion' | 'late';
   type SegMark = '' | 'absence' | 'evasion' | 'late';
@@ -25,6 +29,10 @@
   let note = '';
   let error = '';
   let saving = false;
+  let descFor: string | null = null;
+  let descReason = '';
+  let descError = '';
+  let descSaving = false;
 
   function baseOf(current: string): SegMark {
     if (current === 'evasion') return 'evasion';
@@ -56,6 +64,37 @@
     note = '';
     error = '';
     saving = false;
+    descFor = null;
+    descReason = '';
+    descError = '';
+    descSaving = false;
+  }
+
+  function openDesc(id: string, current: string) {
+    descFor = id;
+    descReason = '';
+    descError = '';
+  }
+
+  async function saveDesc(id: string) {
+    if (!id || descSaving) return;
+    descError = '';
+    if (!descReason.trim()) {
+      descError = $t.troll.shistory.needPermissionReason;
+      return;
+    }
+    descSaving = true;
+    try {
+      const updated = await guarded(() => recordDefense(sessionId, id, descReason.trim()));
+      if (updated !== null) {
+        descFor = null;
+        onSaved();
+      }
+    } catch (err) {
+      descError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      descSaving = false;
+    }
   }
 
   $: if (open) reset();
@@ -133,7 +172,38 @@
         >
           {$t.roster.permission}
         </button>
+        {#if canWriteDefenses($profile.me) && (finalOf(s.id, s.current) === 'absence' || finalOf(s.id, s.current) === 'absence-permission')}
+          <button
+            type="button"
+            class="permbtn"
+            title={$t.studentSummary.defenseTitle}
+            on:click={() => openDesc(s.id, s.current)}
+          >
+            {$t.studentSummary.defenseAction}
+          </button>
+        {/if}
       </li>
+      {#if descFor === s.id}
+        <li class="descrow">
+          <label>
+            <span>{$t.studentSummary.defenseReasonLabel}</span>
+            <input
+              class="motivo"
+              type="text"
+              placeholder={$t.studentSummary.defenseReasonPlaceholder}
+              bind:value={descReason}
+              maxlength="280"
+            />
+          </label>
+          {#if descError}<p class="flash error" role="alert">{descError}</p>{/if}
+          <div class="actions">
+            <button type="button" class="mini" on:click={() => (descFor = null)}>{$t.common.cancel}</button>
+            <button type="button" class="mini primary" disabled={descSaving} on:click={() => saveDesc(s.id)}>
+              {descSaving ? $t.troll.saving : $t.common.save}
+            </button>
+          </div>
+        </li>
+      {/if}
     {/each}
   </ul>
   {#if anyPermOn}
@@ -182,6 +252,20 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 10px 12px;
+  }
+  .roll li.descrow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .roll li.descrow label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .roll li.descrow .motivo {
+    width: 100%;
   }
   .who {
     flex: 1;

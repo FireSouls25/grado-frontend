@@ -29,11 +29,11 @@ globalThis.localStorage = {
 };
 
 const entry = `
-import { openSession, recordMark, issueWarnings, todaySessions, sessionMarks } from '/home/grim/Documents/projects/grado/frontend/src/domains/teacher/api.ts';
-import { hasPermission, canManageUsers, canBlockAccess } from '/home/grim/Documents/projects/grado/frontend/src/lib/access.ts';
+import { openSession, recordMark, recordUniform, issueWarnings, todaySessions, sessionMarks } from '/home/grim/Documents/projects/grado/frontend/src/domains/teacher/api.ts';
+import { hasPermission, canManageUsers, canBlockAccess, canWriteDefenses } from '/home/grim/Documents/projects/grado/frontend/src/lib/access.ts';
 import { schoolDay } from '/home/grim/Documents/projects/grado/frontend/src/lib/schoolDay.ts';
 import { resolveId, isUuid } from '/home/grim/Documents/projects/grado/frontend/src/lib/slug.ts';
-import { issueWarningBatch, correctWarning, studentReport } from '/home/grim/Documents/projects/grado/frontend/src/domains/admin/api.ts';
+import { issueWarningBatch, correctWarning, recordDefense, studentReport } from '/home/grim/Documents/projects/grado/frontend/src/domains/admin/api.ts';
 const fail = (m) => { console.error('CONTRACT FAIL:', m); process.exitCode = 1; };
 const last = () => globalThis.__calls[globalThis.__calls.length - 1];
 await openSession('gid-1');
@@ -97,6 +97,21 @@ if (!hasPermission({ permissions: ['manage-users'] }, 'manage-users')) fail('has
 if (canManageUsers({ permissions: ['record-attendance'] })) fail('canManageUsers con docente');
 if (!canManageUsers({ roles: ['admin'] })) fail('respaldo a roles roto (admin)');
 if (!canBlockAccess({ roles: ['secretary'] })) fail('respaldo a roles roto (secretaría)');
+if (!canWriteDefenses({ permissions: ['record-defenses'] })) fail('canWriteDefenses con permiso');
+if (canWriteDefenses({ roles: ['teacher'] })) fail('canWriteDefenses con docente');
+if (!canWriteDefenses({ roles: ['secretary'] })) fail('respaldo descargo secretaría');
+await recordUniform('s-1', 'stu-1', false);
+{
+  const c = last();
+  if (!c.url.endsWith('/v1/sessions/s-1/uniform') || c.method !== 'POST') fail('recordUniform ' + c.method + ' ' + c.url);
+  if (c.body?.studentID !== 'stu-1' || c.body?.ok !== false) fail('recordUniform body: ' + JSON.stringify(c.body));
+}
+await recordDefense('s-1', 'stu-1', 'Se varó el bus');
+{
+  const c = last();
+  if (!c.url.endsWith('/v1/sessions/s-1/defenses') || c.method !== 'POST') fail('recordDefense ' + c.method + ' ' + c.url);
+  if (c.body?.studentID !== 'stu-1' || !c.body?.text) fail('recordDefense body: ' + JSON.stringify(c.body));
+}
 globalThis.fetch = async (url, init) => {
   globalThis.__calls.push({ url: String(url), method: init?.method || 'GET', body: init?.body ? JSON.parse(init.body) : undefined });
   return { ok: true, status: 200, json: async () => ({ kind: 'student', id: 'stu-9' }) };

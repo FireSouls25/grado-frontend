@@ -447,12 +447,26 @@ export async function classSessionsHistory(
 }
 
 export interface SessionRevisionRow {
+  Kind?: string;
   Student: string;
   From: string;
   To: string;
   Author: string;
   ChangedAt: string;
-  Note: string;
+  Note?: string;
+}
+
+/** Junta marcas y uniforme en un solo historial ordenado. */
+export function mergeTrail(detail: SessionDetailData): SessionRevisionRow[] {
+  const rows = [...(detail.Revisions ?? [])];
+  for (const u of detail.UniformHistory ?? []) rows.push({ ...u });
+  return rows.sort((a, b) => (a.ChangedAt < b.ChangedAt ? -1 : a.ChangedAt > b.ChangedAt ? 1 : 0));
+}
+
+export interface Defense {
+  Text: string;
+  CreatedBy: string;
+  CreatedAt: string;
 }
 
 export interface SessionDetailData {
@@ -467,6 +481,9 @@ export interface SessionDetailData {
   };
   Marks: Record<string, string>;
   Revisions: SessionRevisionRow[];
+  Uniform?: Record<string, boolean>;
+  UniformHistory?: SessionRevisionRow[];
+  Defenses?: Record<string, Defense>;
 }
 
 /** One roll call with current marks and the full revision trail. */
@@ -474,6 +491,16 @@ export async function sessionDetail(id: string): Promise<SessionDetailData | nul
   const r = await api.get<SessionDetailData>(`/v1/sessions/${encodeURIComponent(id)}`);
   if (!r) return null;
   return { ...r, Revisions: r.Revisions ?? [] };
+}
+
+/** Records one student's written defense against a fault ("descargo").
+ *  Empty text clears it. Admins and secretaries only. */
+export async function recordDefense(sessionID: string, studentID: string, text: string): Promise<Defense | null> {
+  const updated = await api.post<Defense>(`/v1/sessions/${encodeURIComponent(sessionID)}/defenses`, {
+    studentID,
+    text
+  });
+  return updated ?? null;
 }
 
 /** Corrects one student's mark inside a roll call (admins included). */
@@ -863,6 +890,8 @@ export interface StudentSessionEntry {
   Mark: string;
   /** Latest revision note, if any: the recorded permission reason. */
   Note?: string;
+  /** False only when a uniform fault was recorded; missing is proper. */
+  UniformOK?: boolean;
 }
 
 export interface StudentReport {
@@ -873,12 +902,14 @@ export interface StudentReport {
   Excused: number;
   Evasions: number;
   Lates: number;
+  UniformFaults?: number;
   WarningsMild: number;
   WarningsModerate: number;
   WarningsSevere: number;
   FaultsMinor: number;
   FaultsOrdinary: number;
   FaultsSevere: number;
+  Defenses?: Record<string, string>;
 }
 
 // Full cross-year report of one student (admin-only in the backend).

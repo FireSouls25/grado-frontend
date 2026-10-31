@@ -117,6 +117,12 @@ export async function todaySessions(groupID: string, day: string): Promise<{ ID:
   return (await api.get<{ ID: string }[]>(`/v1/sessions/history?${q}`)) ?? [];
 }
 
+/** Explicit uniform states of one roll call (missing = proper). */
+export async function sessionUniform(id: string): Promise<Record<string, boolean> | null> {
+  const r = await api.get<{ Uniform?: Record<string, boolean> }>(`/v1/sessions/${encodeURIComponent(id)}`);
+  return r?.Uniform ?? null;
+}
+
 /** Current marks of one roll call, by student. */
 export async function sessionMarks(id: string): Promise<Record<string, string> | null> {
   const r = await api.get<{ Marks?: Record<string, string> }>(`/v1/sessions/${encodeURIComponent(id)}`);
@@ -138,6 +144,15 @@ export interface StudentIncident {
   Title: string;
   HappenedAt: string;
   Severity: string;
+}
+
+/** Records one student's uniform state (true = proper). Only changes
+ *  travel; missing students count as proper uniform. */
+export async function recordUniform(sessionID: string, studentID: string, ok: boolean): Promise<unknown> {
+  return api.post(`/v1/sessions/${encodeURIComponent(sessionID)}/uniform`, {
+    studentID,
+    ok
+  });
 }
 
 /** The student's own fault history (same readers as warnings). */

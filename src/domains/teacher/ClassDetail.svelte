@@ -11,7 +11,7 @@
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
-  import { classRoster, isMissing, openSession, recordMark, sessionMarks, todaySessions } from './api';
+  import { classRoster, isMissing, openSession, recordMark, recordUniform, sessionMarks, sessionUniform, todaySessions } from './api';
   import { groupsByYear, listSubjects } from '../admin/api';
   import { notify } from '$lib/ui/notice';
   import { dateKey, saveRollcall } from './rollcall';
@@ -76,6 +76,10 @@
   // el motivo viaja en la nota de la marca.
   let perm = new Set<string>();
   let permInit = new Set<string>();
+  // Uniforme: checkbox por estudiante, marcado por defecto. Solo se
+  // guardan los cambios respecto a lo último registrado.
+  let uniformOff = new Set<string>();
+  let uniformOffInit = new Set<string>();
   let permNotes: Record<string, string> = {};
   let permNotesInit: Record<string, string> = {};
   let groupLabel = '';
@@ -162,6 +166,19 @@
       presentInit = new Set(p);
       lateInit = new Set(l);
       permInit = new Set(pm);
+      try {
+        const uniform = await guarded(() => sessionUniform(list[0].ID));
+        const off = new Set<string>();
+        if (uniform) {
+          for (const r of roster) {
+            if (uniform[r.StudentID] === false) off.add(r.StudentID);
+          }
+        }
+        uniformOff = off;
+        uniformOffInit = new Set(off);
+      } catch {
+        /* sin uniforme legible: todo marcado, como antes */
+      }
     } catch {
       /* sin historial legible: todo presente, como antes */
     }
@@ -189,6 +206,13 @@
 
   type RollMark = '' | 'absence' | 'absence-permission' | 'late';
 
+  function toggleUniform(id: string) {
+    if (uniformOff.has(id)) uniformOff.delete(id);
+    else uniformOff.add(id);
+    uniformOff = uniformOff;
+    feedback = '';
+  }
+
   function pick(id: string, mark: RollMark) {
     if (mark === '') present.add(id);
     else present.delete(id);
@@ -211,6 +235,7 @@
   $: notPresent = roster.filter((r) => !present.has(r.StudentID));
   $: lateCount = notPresent.filter((r) => late.has(r.StudentID)).length;
   $: permCount = notPresent.filter((r) => perm.has(r.StudentID)).length;
+  $: uniformFaults = roster.filter((r) => uniformOff.has(r.StudentID)).length;
   $: absentCount = notPresent.length - lateCount - permCount;
   $: presentPct = roster.length ? Math.round((presentCount / roster.length) * 100) : 0;
 
@@ -276,7 +301,8 @@
     !sameSets(present, presentInit) ||
     !sameSets(late, lateInit) ||
     !sameSets(perm, permInit) ||
-    !sameNotes(permNotes, permNotesInit, perm);
+    !sameNotes(permNotes, permNotesInit, perm) ||
+    !sameSets(uniformOff, uniformOffInit);
 
   function snapshotRollcall() {
     saveRollcall({
@@ -302,6 +328,7 @@
         presentInit = new Set(present);
         lateInit = new Set(late);
         permInit = new Set(perm);
+        uniformOffInit = new Set(uniformOff);
         snapshotRollcall();
         feedback = $t.attendance.savedLocal;
         return;
@@ -326,10 +353,21 @@
           /* marca no enviada: se conserva el estado local */
         }
       }
+      for (const r of roster) {
+        const wasOff = uniformOffInit.has(r.StudentID);
+        const isOff = uniformOff.has(r.StudentID);
+        if (wasOff === isOff) continue;
+        try {
+          await recordUniform(sessionID, r.StudentID, !isOff);
+        } catch {
+          /* uniforme no enviado: se conserva el estado local */
+        }
+      }
       presentInit = new Set(present);
       lateInit = new Set(late);
       permInit = new Set(perm);
       permNotesInit = Object.fromEntries([...perm].map((id) => [id, permNotes[id] ?? '']));
+      uniformOffInit = new Set(uniformOff);
       snapshotRollcall();
       notify($t.attendance.saved);
     } catch (err) {
@@ -401,6 +439,7 @@
             <p class="sum-row"><span class="dot absent"></span> {$t.attendance.absentLabel} <strong>{$t.attendance.studentsCount(absentCount)}</strong></p>
             <p class="sum-row"><span class="dot late"></span> {$t.attendance.lateLabel} <strong>{$t.attendance.studentsCount(lateCount)}</strong></p>
             <p class="sum-row"><span class="dot perm"></span> {$t.roster.permission} <strong>{$t.attendance.studentsCount(permCount)}</strong></p>
+            <p class="sum-row"><span class="dot uniform"></span> {$t.attendance.uniformFault} <strong>{$t.attendance.studentsCount(uniformFaults)}</strong></p>
           </div>
           {#if sessionMissing}
             <p class="note">{$t.attendance.noSessionNote}</p>
@@ -458,6 +497,14 @@
                     {$t.studentSummary.markLate}
                   </button>
                 </span>
+                <label class="uniform-check" title={$t.attendance.uniformLabel}>
+                  <input
+                    type="checkbox"
+                    checked={!uniformOff.has(r.StudentID)}
+                    on:change={() => toggleUniform(r.StudentID)}
+                  />
+                  <span>{$t.attendance.uniformLabel}</span>
+                </label>
               </li>
             {/each}
           </ul>
@@ -757,6 +804,29 @@
   }
   .dot.late {
     background: var(--chip-yellow-ink);
+  }
+  .dot.perm {
+    background: var(--m-permission);
+  }
+  .dot.uniform {
+    background: var(--accent);
+  }
+  .uniform-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .uniform-check input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
   }
   .hint {
     color: var(--muted);

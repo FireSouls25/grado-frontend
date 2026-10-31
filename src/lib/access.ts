@@ -38,6 +38,7 @@ export const Perm = {
   manageSchedules: 'manage-schedules',
   viewWarnings: 'view-warnings',
   managePromotions: 'manage-promotions',
+  recordDefenses: 'record-defenses',
   manageOwners: 'manage-owners'
 } as const;
 
@@ -53,6 +54,8 @@ function legacyGrants(perm: string, roles: string[]): boolean {
     case Perm.recordIncidents:
       return has('admin', 'teacher');
     case Perm.managePromotions:
+      return has('admin', 'secretary');
+    case Perm.recordDefenses:
       return has('admin', 'secretary');
     case Perm.recordAttendance:
       return has('admin', 'teacher', 'secretary');
@@ -92,6 +95,11 @@ export function canWriteWarnings(who: Who | undefined | null): boolean {
 /** Distribuir salones del año siguiente: admin y secretaría. */
 export function canPromote(who: Who | undefined | null): boolean {
   return hasPermission(who, Perm.managePromotions);
+}
+
+/** Registrar descargos: admin y secretaría (los docentes no). */
+export function canWriteDefenses(who: Who | undefined | null): boolean {
+  return hasPermission(who, Perm.recordDefenses);
 }
 
 /** Corregir asistencia: docentes, admin y secretaría. */
