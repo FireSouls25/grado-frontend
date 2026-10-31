@@ -978,7 +978,7 @@
   @media (min-width: 820px) {
     .colhead {
       display: grid;
-      grid-template-columns: minmax(200px, 1.6fr) repeat(4, 76px) 120px auto;
+      grid-template-columns: minmax(200px, 1.6fr) repeat(4, 76px) 120px 224px;
       gap: 12px;
       padding: 0 4px 8px;
       border-bottom: 1px solid var(--line);
@@ -993,7 +993,7 @@
       text-align: right;
     }
     .stu-row {
-      grid-template-columns: minmax(200px, 1.6fr) repeat(4, 76px) 120px auto;
+      grid-template-columns: minmax(200px, 1.6fr) repeat(4, 76px) 120px 224px;
       gap: 12px;
     }
   }

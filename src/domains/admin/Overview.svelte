@@ -1901,7 +1901,7 @@
     }
     .prow-head {
       display: grid;
-      grid-template-columns: 28px minmax(0, 1.5fr) 64px 64px 176px auto;
+      grid-template-columns: 28px minmax(0, 1.5fr) 64px 64px 176px 312px;
       gap: 16px;
       padding: 0 4px 8px;
       border-bottom: 1px solid var(--line);
@@ -1919,7 +1919,7 @@
       text-align: right;
     }
     .prow {
-      grid-template-columns: 28px minmax(0, 1.5fr) 64px 64px 176px auto;
+      grid-template-columns: 28px minmax(0, 1.5fr) 64px 64px 176px 312px;
       gap: 16px;
       padding: 10px 4px;
     }

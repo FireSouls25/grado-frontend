@@ -743,7 +743,7 @@
   @media (min-width: 820px) {
     .colhead {
       display: grid;
-      grid-template-columns: minmax(220px, 1.4fr) 150px minmax(180px, 1.2fr) auto;
+      grid-template-columns: minmax(220px, 1.4fr) 150px minmax(180px, 1.2fr) 264px;
       gap: 14px;
       padding: 0 4px 8px;
       border-bottom: 1px solid var(--line);
@@ -751,14 +751,37 @@
       font-size: 0.75rem;
       font-weight: 500;
     }
+    .colhead > span {
+      text-align: center;
+    }
     .colhead .act-col {
-      justify-content: flex-end;
+      justify-content: center;
     }
     .trow {
       display: grid;
-      grid-template-columns: minmax(220px, 1.4fr) 150px minmax(180px, 1.2fr) auto;
+      grid-template-columns: minmax(220px, 1.4fr) 150px minmax(180px, 1.2fr) 264px;
       gap: 14px;
       align-items: center;
+    }
+    .trow .who-btn {
+      justify-content: center;
+      text-align: center;
+    }
+    .trow .who {
+      align-items: center;
+    }
+    .trow .dir-col,
+    .trow .subj-col {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      text-align: center;
+    }
+    .trow .act-col .btn {
+      flex: 1;
+      justify-content: center;
+      white-space: nowrap;
     }
   }
   /* Form inside Sheet */

@@ -93,7 +93,12 @@ export function queryParam(prop: string, key: string): string {
 /** Run an API call: on 401 rotate once and retry; when the session is
  *  really dead (revoked, disabled, rotated elsewhere) sign out locally,
  *  flag the expiry notice and land on login. 403 keeps back-or-home. */
-export async function guarded<T>(fn: () => Promise<T>): Promise<T | null> {
+export interface GuardedOptions {
+  /** Adónde ir ante un 403. Sin esto se vuelve atrás o al inicio. */
+  forbidden?: () => void;
+}
+
+export async function guarded<T>(fn: () => Promise<T>, opts?: GuardedOptions): Promise<T | null> {
   try {
     return await fn();
   } catch (err) {
@@ -111,7 +116,8 @@ export async function guarded<T>(fn: () => Promise<T>): Promise<T | null> {
       return null;
     }
     if (err instanceof ApiError && err.status === 403) {
-      await backOrHome();
+      if (opts?.forbidden) opts.forbidden();
+      else await backOrHome();
       return null;
     }
     throw err;

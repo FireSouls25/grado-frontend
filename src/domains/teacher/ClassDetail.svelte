@@ -113,7 +113,12 @@
     feedback = '';
     try {
       todayKey = await schoolDay();
-      const data = await guarded(() => classRoster(groupID));
+      const data = await guarded(() => classRoster(groupID), {
+        forbidden: () => {
+          notify($t.attendance.deniedRedirect);
+          push('/agenda');
+        }
+      });
       if (data === null) return; // 401/403 already navigated away
       roster = [...data].sort(bySurname);
       void resolveLabels();
@@ -247,6 +252,12 @@
       sessionID = created.ID;
       return true;
     } catch (err) {
+      // Un 403 es lista ajena: a la agenda propia, no a un error.
+      if (err instanceof ApiError && err.status === 403) {
+        notify($t.attendance.deniedRedirect);
+        push('/agenda');
+        return false;
+      }
       // Solo el 404 significa "backend sin sesiones": cualquier otro
       // error (año cerrado, red, validación) debe verse tal cual.
       if (err instanceof ApiError && isMissing(err)) {
@@ -336,7 +347,12 @@
         if (wasMark === isMark && noteOf(permInit, r.StudentID) === noteOf(perm, r.StudentID)) continue;
         try {
           await recordMark(sessionID, r.StudentID, isMark, noteOf(perm, r.StudentID));
-        } catch {
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 403) {
+            notify($t.attendance.deniedRedirect);
+            push('/agenda');
+            return;
+          }
           /* marca no enviada: se conserva el estado local */
         }
       }
