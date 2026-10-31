@@ -100,6 +100,8 @@ if (!canBlockAccess({ roles: ['secretary'] })) fail('respaldo a roles roto (secr
 if (!canWriteDefenses({ permissions: ['record-defenses'] })) fail('canWriteDefenses con permiso');
 if (canWriteDefenses({ roles: ['teacher'] })) fail('canWriteDefenses con docente');
 if (!canWriteDefenses({ roles: ['secretary'] })) fail('respaldo descargo secretaría');
+if (!canWriteDefenses({ permissions: ['record-defenses'] })) fail('canWriteDefenses con permiso');
+if (canWriteDefenses({ roles: ['teacher'] })) fail('canWriteDefenses niega docente');
 await recordUniform('s-1', 'stu-1', false);
 {
   const c = last();

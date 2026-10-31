@@ -8,11 +8,11 @@
 
   $: myRoles = $profile.me?.roles ?? [];
   $: own = isTeacher(myRoles) ? 'teacher' : isSecretary(myRoles) ? 'secretary' : 'admin';
-  let tab: string = own;
-  $: if (!tab) tab = own;
-  type HelpRole = { id: string; title: string; steps: { title: string; body: string }[] };
+  type HelpStep = { title: string; body: string; detail?: string };
+  type HelpRole = { id: string; title: string; steps: HelpStep[] };
   $: helpRoles = $t.help.roles as unknown as readonly HelpRole[];
-  $: active = helpRoles.find((r) => r.id === tab) ?? helpRoles[0];
+  $: active = helpRoles.find((r) => r.id === own) ?? helpRoles[0];
+  let expanded: Record<string, boolean> = {};
 </script>
 
 <div class="page">
@@ -20,20 +20,8 @@
     <TopActions settings={false} help={false} />
   </TopBar>
   <div class="sheet">
+    <h2 class="role-title">{active.title}</h2>
     <p class="intro">{$t.help.intro}</p>
-    <div class="tabs" role="tablist">
-      {#each helpRoles as r (r.id)}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === r.id}
-          class:selected={tab === r.id}
-          on:click={() => (tab = r.id)}
-        >
-          {r.title}
-        </button>
-      {/each}
-    </div>
     <div class="guides">
       {#each active.steps as step, i (step.title)}
         <article class="guide">
@@ -41,6 +29,19 @@
           <div class="gtext">
             <h3>{step.title}</h3>
             <p>{step.body}</p>
+            {#if step.detail}
+              <button
+                type="button"
+                class="more"
+                aria-expanded={!!expanded[step.title]}
+                on:click={() => (expanded = { ...expanded, [step.title]: !expanded[step.title] })}
+              >
+                {$t.help.moreDetails}
+              </button>
+              {#if expanded[step.title]}
+                <p class="detail">{step.detail}</p>
+              {/if}
+            {/if}
           </div>
         </article>
       {/each}
@@ -51,32 +52,17 @@
 
 <style>
   .page {
-    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding-bottom: calc(24px + env(safe-area-inset));
+  }
+  .role-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 6px;
   }
   .intro {
     color: var(--muted);
     font-size: 0.85rem;
     margin-bottom: 12px;
-  }
-  .tabs {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
-  }
-  .tabs button {
-    border: 1px solid var(--line);
-    background: var(--surface-2);
-    border-radius: 999px;
-    padding: 7px 14px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--muted);
-  }
-  .tabs button.selected {
-    background: var(--ink);
-    border-color: var(--ink);
-    color: var(--surface);
   }
   .guides {
     display: flex;
@@ -119,6 +105,22 @@
     color: var(--muted);
     font-size: 0.82rem;
     line-height: 1.5;
+  }
+  .more {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 2px 0;
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .detail {
+    background: var(--surface);
+    border: 1px dashed var(--line);
+    border-radius: var(--radius-control);
+    padding: 8px 10px;
   }
   .fine {
     display: flex;

@@ -3,11 +3,12 @@
   import { push } from 'svelte-spa-router';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
+  import Toast from '$lib/ui/Toast.svelte';
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import Dropdown from '$lib/ui/Dropdown.svelte';
-  import { notify } from '$lib/ui/notice';
+  import { notice, dismissNotice, notify } from '$lib/ui/notice';
   import { t } from '$lib/i18n';
   import { ApiError } from '$lib/api/types';
   import { profile } from '$lib/shell/profile';
@@ -216,6 +217,11 @@
   // Cambio de contraseña: cierra todas las sesiones al guardar.
   let pwOpen = false;
   let pwSaving = false;
+  let mailOpen = false;
+  let mailSaving = false;
+  let mailError: unknown = null;
+  let mailEmail = '';
+  let mailCurrent = '';
   let pwError = '';
   let pwCurrent = '';
   let pwNew = '';
@@ -227,6 +233,33 @@
     pwCurrent = '';
     pwNew = '';
     pwShow = false;
+  }
+
+  function toggleMail() {
+    mailOpen = !mailOpen;
+    mailError = null;
+    mailEmail = me?.email ?? '';
+    mailCurrent = '';
+  }
+
+  async function saveMail() {
+    if (mailSaving) return;
+    mailError = null;
+    if (!mailEmail.trim() || !/[^\s@]+@[^\s@]+\.[^\s@]+/.test(mailEmail.trim())) {
+      mailError = $t.admin.formEmailInvalid;
+      return;
+    }
+    mailSaving = true;
+    try {
+      await profile.changeEmail(mailEmail.trim(), mailCurrent);
+      mailOpen = false;
+      notify($t.profile.updated);
+      await profile.refresh();
+    } catch (err) {
+      mailError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      mailSaving = false;
+    }
   }
 
   async function savePassword() {
@@ -258,6 +291,7 @@
     <TopActions settings={false} help={false} />
   </TopBar>
   <p class="lede">{$t.profile.pageSubtitle}</p>
+  <Toast message={$notice} onClose={dismissNotice} />
 
   {#if $profile.state === 'loading' || $profile.state === 'idle'}
     <Skeleton rows={4} />
@@ -403,6 +437,30 @@
           {/if}
           <div class="row"><dt>{$t.profile.roles}</dt><dd>{me.roles.map(roleLabel).join(', ')}</dd></div>
         </dl>
+      </section>
+    {/if}
+
+    {#if !teacher}
+      <section class="card" aria-label={$t.profile.updateEmail}>
+        <button type="button" class="pw-toggle" aria-expanded={mailOpen} on:click={toggleMail}>
+          {$t.profile.updateEmail}
+        </button>
+        {#if mailOpen}
+          <form class="pwform" on:submit|preventDefault={saveMail}>
+            <label>
+              <span>{$t.profile.emailNew}</span>
+              <input type="email" bind:value={mailEmail} autocomplete="off" autocapitalize="none" />
+            </label>
+            <label>
+              <span>{$t.profile.passwordCurrent}</span>
+              <input type="password" bind:value={mailCurrent} autocomplete="current-password" />
+            </label>
+            {#if mailError}<p class="flash" role="alert">{mailError instanceof Error ? mailError.message : mailError}</p>{/if}
+            <button type="submit" class="primary" disabled={mailSaving}>
+              {mailSaving ? '…' : $t.common.save}
+            </button>
+          </form>
+        {/if}
       </section>
     {/if}
 

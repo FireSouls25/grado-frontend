@@ -72,6 +72,12 @@ function createProfile() {
      *  a stolen bearer cannot silently take over the account. */
     async changePassword(currentPassword: string, newPassword: string) {
       await api.put('/v1/me/password', { currentPassword, newPassword });
+    },
+
+    /** Swaps the login email of accounts without a teacher ficha
+     *  (admin, secretaries): same current-password check as passwords. */
+    async changeEmail(email: string, currentPassword: string) {
+      await api.put('/v1/me/email', { email, currentPassword });
     }
   };
 }

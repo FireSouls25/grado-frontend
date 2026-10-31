@@ -2,7 +2,6 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
   import { theme, type Theme } from '$lib/theme/theme';
-  import { session } from '../../domains/auth/session';
   import { push } from 'svelte-spa-router';
 
   export let onNavigate: (() => void) | null = null;
@@ -18,11 +17,6 @@
     push('/perfil');
   }
 
-  async function signOut() {
-    if (onNavigate) onNavigate();
-    await session.logout();
-    push('/login');
-  }
 </script>
 
 <div class="panel">
@@ -55,10 +49,7 @@
         <Icon name="user" />
         <span>{$t.profile.pageTitle}</span>
       </button>
-      <button class="btn btn-danger signout" type="button" on:click={signOut}>
-        <Icon name="logout" />
-        <span>{$t.settings.signOut}</span>
-      </button>
+
     </div>
   </section>
 </div>
@@ -119,16 +110,10 @@
   }
   .acct-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 8px;
   }
-  @media (max-width: 460px) {
-    .acct-actions {
-      grid-template-columns: 1fr;
-    }
-  }
-  .profile-btn,
-  .signout {
+  .profile-btn {
     width: 100%;
     min-height: 40px;
   }

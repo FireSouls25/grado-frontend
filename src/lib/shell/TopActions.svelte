@@ -4,6 +4,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
+import { session } from '../../domains/auth/session';
   import { t } from '$lib/i18n';
   import { theme } from '$lib/theme/theme';
   import { notifications, timeAgo, weekdayName, type NoticeStrings } from '$lib/notifications';
@@ -22,6 +23,14 @@
   let panelOpen = false;
   let panel: HTMLDivElement | null = null;
   let settingsOpen = false;
+  let profileOpen = false;
+  let profileWrap: HTMLDivElement | null = null;
+
+  async function signOut() {
+    profileOpen = false;
+    await session.logout();
+    push('/login');
+  }
   
 
   function strings(): NoticeStrings {
@@ -56,6 +65,7 @@
   function onWindowClick(e: MouseEvent) {
     const target = e.target as Node;
     if (panelOpen && panel && !panel.contains(target)) panelOpen = false;
+    if (profileOpen && profileWrap && !profileWrap.contains(target)) profileOpen = false;
   }
 
   function go(href: string | null) {
@@ -125,15 +135,36 @@
       <Icon name="help" />
     </button>
   {/if}
-  <button
-    class="icon-btn"
-    type="button"
-    on:click={() => push('/perfil')}
-    aria-label={$t.a11y.profile}
-    title={$t.a11y.profile}
-  >
-    <Icon name="user" />
-  </button>
+  <div class="bellwrap" bind:this={profileWrap}>
+    <button
+      class="icon-btn"
+      type="button"
+      on:click={() => (profileOpen = !profileOpen)}
+      aria-label={$t.a11y.profile}
+      title={$t.a11y.profile}
+      aria-expanded={profileOpen}
+    >
+      <Icon name="user" />
+    </button>
+    {#if profileOpen}
+      <div class="panel" role="menu" aria-label={$t.a11y.profile}>
+        <button
+          type="button"
+          on:click={() => {
+            profileOpen = false;
+            push('/perfil');
+          }}
+        >
+          <Icon name="user" />
+          <span>{$t.profile.viewInfo}</span>
+        </button>
+        <button type="button" on:click={signOut}>
+          <Icon name="logout" />
+          <span>{$t.profile.signOut}</span>
+        </button>
+      </div>
+    {/if}
+  </div>
   {#if settings}
     <button
       class="icon-btn"
@@ -228,6 +259,32 @@
   }
   .panelhead strong {
     font-size: 0.85rem;
+  }
+  .panel[role='menu'] {
+    width: max-content;
+    min-width: 200px;
+    padding: 6px;
+  }
+  .panel[role='menu'] button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 9px 12px;
+    border-radius: var(--radius-control);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .panel[role='menu'] button:hover {
+    background: var(--surface-2);
+  }
+  .panel[role='menu'] button :global(svg) {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--muted);
   }
   .mark {
     color: var(--accent);

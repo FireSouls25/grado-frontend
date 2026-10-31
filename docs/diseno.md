@@ -109,6 +109,8 @@ tasa bajo umbral (tinta grave + delta), no tiñendo la marca.
 - **Tabs Overview/Salones/Historial**: control segmentado (pista tint,
   activo en píldora blanca con sombra); alineado en fila con búsqueda,
   periodo y tema a 44px de alto.
+- **Lista docente**: casilla de uniforme a la izquierda del nombre, luego identidad y segmento Presente/Evasión/Atraso; sin opción de permiso (los docentes no otorgan permisos ni descargos, solo secretaría y administración).
+- **Lista de docentes (admin)**: segmento Presente/Evasión/Atraso/Permiso; el permiso exige motivo escrito y queda registrado.
 - **Tablas admin** (riesgo, estudiantes, docentes, usuarios): encabezado y
   filas comparten la misma plantilla de columnas **fija** (nunca `auto` en
   la columna de acciones); la columna libre cambia de ancho entre
