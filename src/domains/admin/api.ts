@@ -83,6 +83,8 @@ export async function recordTeacherDay(day: string, marks: TeacherDayInput[]): P
 
 export interface TeacherSummary {
   ID: string;
+  /** Alias corto para las URLs; el UUID sigue siendo la identidad. */
+  Slug?: string;
   Names: string;
   Surnames: string;
   DocumentID: string;
@@ -830,6 +832,8 @@ export interface ClassReport {
   Sessions: number;
   Students: {
     StudentID: string;
+    /** Alias corto para los enlaces; el UUID sigue siendo la identidad. */
+    Slug?: string;
     Names: string;
     Surnames: string;
     Sessions: number;
@@ -889,6 +893,7 @@ export interface RecentWarning {
   ID: string;
   StudentID: string;
   StudentName: string;
+  StudentSlug?: string;
   ClassID: string;
   ClassLabel: string;
   TeacherID: string;

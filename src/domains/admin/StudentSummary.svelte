@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { resolveId } from '$lib/slug';
   import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -38,7 +39,8 @@
   $: staffWrite = canWriteWarnings($profileStore.me);
 
   export let params: { id?: string } = {};
-  $: id = decodeURIComponent(params.id ?? '');
+  let id = '';
+  $: rawSlug = decodeURIComponent(params.id ?? '');
 
   const currentYear = new Date().getFullYear();
 
@@ -211,6 +213,7 @@
   }
 
   async function load() {
+    id = await resolveId(rawSlug);
     state = 'loading';
     loadError = null;
     try {
@@ -246,7 +249,7 @@
     onBack={() => goBack('/admin/estudiantes')}
   >
     {#if profile}
-      <button type="button" class="btn btn-primary" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(id)}`)}>
+      <button type="button" class="btn btn-primary" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(rawSlug || id)}`)}>
         {$t.studentSummary.openFull}
       </button>
     {/if}
@@ -375,7 +378,7 @@
           <button
             type="button"
             class="btn btn-sm"
-            on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(id)}&nombre=${encodeURIComponent(reviseName())}`)}
+            on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(rawSlug || id)}&nombre=${encodeURIComponent(reviseName())}`)}
           >
             {$t.studentSummary.openWarnings}
           </button>

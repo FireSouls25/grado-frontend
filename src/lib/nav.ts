@@ -2,8 +2,11 @@ import { push } from 'svelte-spa-router';
 import { api } from './api/client';
 import type { Me } from './api/types';
 import { ApiError } from './api/types';
-import { readable } from 'svelte/store';
+import { get, readable } from 'svelte/store';
 import { authNotice, refreshNow, session, sessionExpired } from '../domains/auth/session';
+import { profile } from './shell/profile';
+import { notify } from './ui/notice';
+import { t } from './i18n';
 
 /** Current hash path, reactive. Hash routing needs no server fallback. */
 export const path = readable<string>(
@@ -64,10 +67,15 @@ export function goBack(fallback = '/') {
   push(fallback);
 }
 
-/** Frontend side of the backend denial contract: on 403 go back, else home. */
+/** Frontend side of the backend denial contract: on 403 the session
+ *  stays alive and the user lands on their own home with an explicit
+ *  "not authorized" notice. History-back is a trap here (it can return
+ *  to the denied page or drop out of the app), so home always wins. */
 export async function backOrHome(): Promise<void> {
-  if (window.history.length > 1) {
-    window.history.back();
+  notify(get(t).login.forbiddenRedirect);
+  const home = get(profile).me?.home;
+  if (home) {
+    push(home);
     return;
   }
   try {

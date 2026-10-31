@@ -36,6 +36,7 @@ export const es = {
     sessionExpiredTitle: 'Sesión vencida',
     sessionExpired: 'Tu sesión terminó. Entra de nuevo para continuar.',
     goLogin: 'Iniciar sesión',
+    forbiddenRedirect: 'No tienes autorización para ver eso; te llevamos a tu inicio.',
     passwordChanged: 'Contraseña actualizada. Entra de nuevo con tu nueva contraseña.',
     features: [
       {

@@ -370,7 +370,7 @@
               <button
                 type="button"
                 class="who-btn"
-                on:click={() => push(`/admin/docentes/${encodeURIComponent(teacher.ID)}`)}
+                on:click={() => push(`/admin/docentes/${encodeURIComponent(teacher.Slug || teacher.ID)}`)}
               >
                 <span class="avatar" aria-hidden="true">{initialsOf(teacher.Surnames, teacher.Names)}</span>
                 <span class="who">
@@ -412,7 +412,7 @@
                 <button
                   type="button"
                   class="btn btn-sm"
-                  on:click={() => push(`/admin/docentes/${encodeURIComponent(teacher.ID)}`)}
+                  on:click={() => push(`/admin/docentes/${encodeURIComponent(teacher.Slug || teacher.ID)}`)}
                 >
                   {$t.troll.openFile}
                 </button>

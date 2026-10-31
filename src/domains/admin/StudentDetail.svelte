@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { resolveId } from '$lib/slug';
   import { loadWhenReady } from '$lib/sessionReady';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
@@ -29,7 +30,8 @@
   import { calendarDate } from '$lib/dates';
 
   export let params: { id?: string } = {};
-  $: studentID = decodeURIComponent(params.id ?? '');
+  let studentID = '';
+  $: rawSlug = decodeURIComponent(params.id ?? '');
 
   const currentYear = new Date().getFullYear();
   const printDate = new Date().toLocaleDateString('es-CO', {
@@ -50,6 +52,7 @@
   let photoInput: HTMLInputElement | null = null;
 
   async function load() {
+    studentID = await resolveId(rawSlug);
     state = 'loading';
     loadError = null;
     try {

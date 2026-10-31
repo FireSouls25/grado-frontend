@@ -50,6 +50,8 @@ export function isMissing(err: unknown): boolean {
 
 export interface TeacherClass {
   GroupID: string;
+  /** Alias corto para las URLs; el UUID sigue siendo la identidad. */
+  GroupSlug?: string;
   ClassLabel: string;
   SubjectID: string;
   SubjectName: string;

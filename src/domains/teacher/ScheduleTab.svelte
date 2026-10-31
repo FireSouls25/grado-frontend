@@ -76,7 +76,7 @@
   onMount(() => loadWhenReady(() => void load()));
 
   function openClass(entry: TeacherClass) {
-    push(`/clase/${encodeURIComponent(entry.GroupID)}?materia=${encodeURIComponent(entry.SubjectID)}`);
+    push(`/clase/${encodeURIComponent(entry.GroupSlug || entry.GroupID)}?materia=${encodeURIComponent(entry.SubjectID)}`);
   }
 </script>
 

@@ -94,6 +94,8 @@ export interface RosterEntry {
   Names: string;
   Surnames: string;
   DocumentID: string;
+  /** Alias corto para los enlaces; el UUID sigue siendo la identidad. */
+  Slug?: string;
 }
 
 export interface Session {

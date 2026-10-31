@@ -9,13 +9,14 @@
   import TeacherShell from './TeacherShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import { classRoster, isMissing, issueWarnings } from './api';
+  import { resolveId } from '$lib/slug';
   import type { RosterEntry } from '$lib/api/types';
   import { guarded, goBack } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
 
   export let params: { groupID?: string } = {};
   export let querystring: string = '';
-  $: groupID = decodeURIComponent(params.groupID ?? '');
+  let groupID = '';
 
   function queryParam(key: string): string {
     try {
@@ -75,6 +76,7 @@
   async function load() {
     loading = true;
     try {
+      groupID = await resolveId(decodeURIComponent(params.groupID ?? ''));
       const data = await guarded(() => classRoster(groupID));
       if (data === null) return;
       roster = [...data].sort(bySurname);

@@ -81,6 +81,7 @@
         StudentID: r.StudentID,
         Surnames: r.Surnames,
         Names: r.Names,
+        Slug: r.Slug ?? '',
         Presences: 0,
         Absences: 0,
         Excused: 0,
@@ -586,7 +587,7 @@
                       <button
                         type="button"
                         class="name-btn"
-                        on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.StudentID)}/resumen`)}
+                        on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.Slug || s.StudentID)}/resumen`)}
                       >
                         <strong>{s.Surnames}, {s.Names}</strong>
                       </button>
@@ -623,14 +624,14 @@
                     <button
                       type="button"
                       class="btn btn-sm"
-                      on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.StudentID)}/resumen`)}
+                      on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.Slug || s.StudentID)}/resumen`)}
                     >
                       {$t.admin.openSummary}
                     </button>
                     <button
                       type="button"
                       class="btn btn-sm"
-                      on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.StudentID)}`)}
+                      on:click={() => push(`/admin/estudiantes/${encodeURIComponent(s.Slug || s.StudentID)}`)}
                     >
                       {$t.admin.openFile}
                     </button>

@@ -13,6 +13,7 @@
   import WarningRevisionTrail from './WarningRevisionTrail.svelte';
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
+  import { resolveId } from '$lib/slug';
   import { guarded, queryParam, goBack } from '$lib/nav';
   import { profile } from '$lib/shell/profile';
   import { canManageUsers, canWriteWarnings } from '$lib/access';
@@ -164,7 +165,7 @@
 
   // Grouped by salon: sections collapse in place, students alphabetical.
   $: salonGroups = (() => {
-    const bySalon = new Map<string, Map<string, { id: string; name: string; items: RecentWarning[] }>>();
+    const bySalon = new Map<string, Map<string, { id: string; slug: string; name: string; items: RecentWarning[] }>>();
     for (const w of filtered) {
       const label = w.ClassLabel || $t.warnings.noSalon;
       let students = bySalon.get(label);
@@ -175,7 +176,7 @@
       const key = w.StudentID || w.StudentName;
       let row = students.get(key);
       if (!row) {
-        row = { id: w.StudentID, name: w.StudentName || '—', items: [] };
+        row = { id: w.StudentID, slug: w.StudentSlug || w.StudentID, name: w.StudentName || '—', items: [] };
         students.set(key, row);
       }
       row.items.push(w);
@@ -197,6 +198,7 @@
 
   // Student popup: full history with detail, modify and trail.
   let detailID: string | null = null;
+  let detailSlug: string | null = null;
   let detailName = '';
   let detailWarnings: Warning[] = [];
   let detailLoading = false;
@@ -206,7 +208,8 @@
   let revsLoading: Record<string, boolean> = {};
 
   async function openStudent(id: string, name: string) {
-    detailID = id;
+    detailSlug = id;
+    detailID = await resolveId(id);
     detailName = name;
     detailWarnings = [];
     editingID = null;
@@ -367,7 +370,7 @@
                     <span class="count" role="status">{$t.warnings.callsLabel(s.items.length)}</span>
                   </button>
                   {#if s.id}
-                    <button type="button" class="mini" on:click={() => push(`/admin/estudiantes/${s.id}`)}>
+                    <button type="button" class="mini" on:click={() => push(`/admin/estudiantes/${s.slug || s.id}`)}>
                       {$t.warnings.openFile}
                     </button>
                   {/if}
@@ -384,7 +387,7 @@
     <div class="dhead">
       <strong>{detailName}</strong>
       {#if detailID}
-        <button type="button" class="mini" on:click={() => { closeStudent(); push(`/admin/estudiantes/${detailID}`); }}>
+        <button type="button" class="mini" on:click={() => { closeStudent(); push(`/admin/estudiantes/${detailSlug || detailID}`); }}>
           {$t.warnings.openFile}
         </button>
       {/if}

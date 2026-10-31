@@ -145,7 +145,16 @@
     };
   });
 
+  // La pestaña sigue al día real salvo que el docente ya haya elegido
+  // manualmente otra: el servidor puede resolver después del montaje.
+  let touchedDay = false;
+  $: if (!touchedDay && todayIdx !== -1 && selectedDay !== todayIdx) {
+    selectedDay = todayIdx;
+    load();
+  }
+
   function selectDay(i: number) {
+    touchedDay = true;
     selectedDay = clampDay(i);
     load();
   }
@@ -173,7 +182,7 @@
   $: doneCount = selectedDay === todayIdx ? baseList.filter((c) => statusOf(c) === 'done').length : 0;
 
   function openClass(item: AgendaItem) {
-    push(`/clase/${encodeURIComponent(item.GroupID)}?materia=${encodeURIComponent(item.SubjectID)}`);
+    push(`/clase/${encodeURIComponent(item.GroupSlug || item.GroupID)}?materia=${encodeURIComponent(item.SubjectID)}`);
   }
 
   // Resumen local del llamado de hoy para una tarjeta (solo si el docente

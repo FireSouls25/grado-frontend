@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { resolveId } from '$lib/slug';
   import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
@@ -49,6 +50,7 @@
 
   interface RiskRow {
     id: string;
+    slug: string;
     name: string;
     presences: number;
     absences: number;
@@ -104,7 +106,7 @@
   let weekTotals = { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0 };
   let weekKnown = false;
   let teacherMonth = { present: 0, absent: 0, late: 0, known: false };
-  let unassignedTeachers: { id: string; name: string }[] = [];
+  let unassignedTeachers: { id: string; slug: string; name: string }[] = [];
   let bareSubjectNames: string[] = [];
   let salonsNoDirector: { gid: string; label: string }[] = [];
   let guardianPhones: Record<string, string> = {};
@@ -219,7 +221,7 @@
     reportsKnown = false;
     const byStudent = new Map<
       string,
-      { names: string; surnames: string; presences: number; absences: number; excused: number; evasions: number; lates: number; sessions: number }
+      { slug: string; names: string; surnames: string; presences: number; absences: number; excused: number; evasions: number; lates: number; sessions: number }
     >();
     const labelOf = new Map(groups.map((g) => [g.GroupID, g.ClassLabel]));
     const settled = await mapSettled(groups, 5, (g) => classReport(g.GroupID));
@@ -256,6 +258,7 @@
       }
       for (const s of report.Students) {
         const prev = byStudent.get(s.StudentID) ?? {
+          slug: s.Slug ?? '',
           names: s.Names,
           surnames: s.Surnames,
           presences: 0,
@@ -271,6 +274,7 @@
         prev.evasions += s.Evasions;
         prev.lates += s.Lates;
         prev.sessions += s.Sessions;
+        if (!prev.slug && s.Slug) prev.slug = s.Slug;
         byStudent.set(s.StudentID, prev);
       }
     });
@@ -282,6 +286,7 @@
     risk = [...byStudent.entries()]
       .map(([id, s]) => ({
         id,
+        slug: (s as { slug?: string }).slug || id,
         name: `${s.surnames}, ${s.names}`.trim().replace(/^,/, '').trim() || id,
         presences: s.presences,
         absences: s.absences,
@@ -296,7 +301,22 @@
     await loadSecondary();
     await loadTeacherExtras();
     await loadToday();
+    await fillAlertSlugs();
     buildTasks();
+  }
+
+  let alertSlugs: Record<string, string> = {};
+
+  async function fillAlertSlugs() {
+    alertSlugs = {};
+    for (const a of openAlerts) {
+      if (!a.StudentID || alertSlugs[a.StudentID]) continue;
+      try {
+        alertSlugs[a.StudentID] = await resolveId(a.StudentID);
+      } catch {
+        alertSlugs[a.StudentID] = a.StudentID;
+      }
+    }
   }
 
   const clock = (n: number) => {
@@ -349,7 +369,7 @@
   async function loadTeacherExtras() {
     const myRun = ++loadRun;
     const stale = () => myRun !== loadRun;
-    const unassigned: { id: string; name: string }[] = [];
+    const unassigned: { id: string; slug: string; name: string }[] = [];
     const bare: string[] = [];
     const phones: Record<string, string> = {};
     const directed = new Set(teacherList.map((x) => x.HomeroomClassID).filter(Boolean));
@@ -382,7 +402,7 @@
         const x = teacherList[i];
         if (x && x.Active && !seenUn.has(x.ID)) {
           seenUn.add(x.ID);
-          unassigned.push({ id: x.ID, name: `${x.Surnames} ${x.Names}`.trim() });
+          unassigned.push({ id: x.ID, slug: x.Slug || x.ID, name: `${x.Surnames} ${x.Names}`.trim() });
         }
       }
     });
@@ -558,7 +578,7 @@
         sev: grave ? 'grave' : 'medio',
         title: `${$t.admin.reviewAction}: ${row.name}`,
         meta: `${row.rate}% · ${row.absences} ${$t.admin.colAbsences} · ${row.evasions} ${$t.admin.colEvasions}`,
-        href: `/admin/estudiantes/${encodeURIComponent(row.id)}/resumen`,
+        href: `/admin/estudiantes/${encodeURIComponent(row.slug || row.id)}/resumen`,
         actionLabel: $t.admin.openSummary,
         call: guardianPhones[row.id] ?? null,
         reviewId: null,
@@ -571,7 +591,7 @@
         sev: 'medio',
         title: `${teacher.Surnames} ${teacher.Names}`.trim(),
         meta: $t.admin.inactive,
-        href: `/admin/docentes/${encodeURIComponent(teacher.ID)}`,
+        href: `/admin/docentes/${encodeURIComponent(teacher.Slug || teacher.ID)}`,
         actionLabel: $t.admin.reviewAction,
         call: null,
         reviewId: null,
@@ -625,7 +645,7 @@
         sev: 'grave',
         title: `${$t.academicAlert.title}: ${a.StudentName || a.StudentID.slice(0, 8)}`,
         meta: a.Reason,
-        href: `/admin/estudiantes/${encodeURIComponent(a.StudentID)}/resumen`,
+        href: `/admin/estudiantes/${encodeURIComponent(alertSlugs[a.StudentID] || a.StudentID)}/resumen`,
         actionLabel: staffReview ? null : $t.admin.openSummary,
         call: null,
         reviewId: staffReview ? a.ID : null,
@@ -1030,10 +1050,10 @@
                           {:else}
                             <button type="button" class="btn btn-sm" disabled title={$t.admin.callNoPhone}>{$t.admin.callAction}</button>
                           {/if}
-                          <button type="button" class="btn btn-sm" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.id)}/resumen`)}>
+                          <button type="button" class="btn btn-sm" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.slug || row.id)}/resumen`)}>
                             {$t.admin.openSummary}
                           </button>
-                          <button type="button" class="btn btn-sm" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.id)}`)}>
+                          <button type="button" class="btn btn-sm" on:click={() => push(`/admin/estudiantes/${encodeURIComponent(row.slug || row.id)}`)}>
                             {$t.admin.openFile}
                           </button>
                         </div>
@@ -1077,7 +1097,7 @@
                     <ul class="trows">
                       {#each unassignedTeachers.slice(0, 4) as x (x.id)}
                         <li>
-                          <button type="button" on:click={() => push(`/admin/docentes/${encodeURIComponent(x.id)}`)}>
+                          <button type="button" on:click={() => push(`/admin/docentes/${encodeURIComponent(x.slug || x.id)}`)}>
                             <span class="avatar" aria-hidden="true">{initials(x.name)}</span>
                             <span class="who">
                               <strong>{x.name}</strong>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { resolveId } from '$lib/slug';
   import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
@@ -44,7 +45,8 @@
   $: roles = $profile.me?.roles ?? [];
 
   export let params: { id?: string } = {};
-  $: id = decodeURIComponent(params.id ?? '');
+  let id = '';
+  $: rawSlug = decodeURIComponent(params.id ?? '');
 
   let state: 'loading' | 'error' | 'ready' = 'loading';
   let detail: TeacherDetail | null = null;
@@ -234,6 +236,7 @@
   onMount(() => loadWhenReady(() => void load()));
 
   async function load() {
+    id = await resolveId(rawSlug);
     state = 'loading';
     loadError = null;
     try {

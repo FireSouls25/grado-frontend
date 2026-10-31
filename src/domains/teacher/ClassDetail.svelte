@@ -15,6 +15,7 @@
   import { groupsByYear, listSubjects } from '../admin/api';
   import { notify } from '$lib/ui/notice';
   import { dateKey, saveRollcall } from './rollcall';
+  import { resolveId } from '$lib/slug';
   import { calendarDate } from '$lib/dates';
   import { schoolDay } from '$lib/schoolDay';
   import type { RosterEntry } from '$lib/api/types';
@@ -23,7 +24,7 @@
 
   export let params: { groupID?: string } = {};
   export let querystring: string = '';
-  $: groupID = decodeURIComponent(params.groupID ?? '');
+  let groupID = '';
 
   function queryParam(key: string): string {
     try {
@@ -108,6 +109,7 @@
     loading = true;
     feedback = '';
     try {
+      groupID = await resolveId(decodeURIComponent(params.groupID ?? ''));
       todayKey = await schoolDay();
       const data = await guarded(() => classRoster(groupID), {
         forbidden: () => {

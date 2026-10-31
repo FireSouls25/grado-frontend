@@ -32,6 +32,7 @@ const entry = `
 import { openSession, recordMark, issueWarnings, todaySessions, sessionMarks } from '/home/grim/Documents/projects/grado/frontend/src/domains/teacher/api.ts';
 import { hasPermission, canManageUsers, canBlockAccess } from '/home/grim/Documents/projects/grado/frontend/src/lib/access.ts';
 import { schoolDay } from '/home/grim/Documents/projects/grado/frontend/src/lib/schoolDay.ts';
+import { resolveId, isUuid } from '/home/grim/Documents/projects/grado/frontend/src/lib/slug.ts';
 import { issueWarningBatch, correctWarning, studentReport } from '/home/grim/Documents/projects/grado/frontend/src/domains/admin/api.ts';
 const fail = (m) => { console.error('CONTRACT FAIL:', m); process.exitCode = 1; };
 const last = () => globalThis.__calls[globalThis.__calls.length - 1];
@@ -96,6 +97,20 @@ if (!hasPermission({ permissions: ['manage-users'] }, 'manage-users')) fail('has
 if (canManageUsers({ permissions: ['record-attendance'] })) fail('canManageUsers con docente');
 if (!canManageUsers({ roles: ['admin'] })) fail('respaldo a roles roto (admin)');
 if (!canBlockAccess({ roles: ['secretary'] })) fail('respaldo a roles roto (secretaría)');
+globalThis.fetch = async (url, init) => {
+  globalThis.__calls.push({ url: String(url), method: init?.method || 'GET', body: init?.body ? JSON.parse(init.body) : undefined });
+  return { ok: true, status: 200, json: async () => ({ kind: 'student', id: 'stu-9' }) };
+};
+if (!isUuid('fcdcba87-d0fe-4b39-b15e-969dd4bc745f')) fail('isUuid no reconoce UUID');
+if (isUuid('abc12345')) fail('isUuid confunde slug con UUID');
+if (await resolveId('fcdcba87-d0fe-4b39-b15e-969dd4bc745f') !== 'fcdcba87-d0fe-4b39-b15e-969dd4bc745f') fail('resolveId debe pasar UUID sin fetch');
+{
+  const callsBefore = globalThis.__calls.length;
+  if (await resolveId('abc12345') !== 'stu-9') fail('resolveId no resuelve slug');
+  if (!globalThis.__calls.slice(callsBefore).some(c => c.url.endsWith('/v1/s/abc12345'))) fail('resolveId no llama a /v1/s/{slug}');
+  await resolveId('abc12345');
+  if (globalThis.__calls.length !== callsBefore + 1) fail('resolveId no cachea');
+}
 if (!process.exitCode) console.log('CONTRACT OK: cuerpos del frontend compatibles con el backend');
 `;
 globalThis.__calls = calls;
