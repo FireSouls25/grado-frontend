@@ -364,13 +364,13 @@
     <button type="button" class="btn" on:click={() => (warnOpen = true)}>
       <Icon name="warn" /> {$t.agenda.warnAction}
     </button>
+    <button type="button" class="btn" on:click={() => (alertOpen = true)}>
+      <Icon name="bell" /> {$t.academicAlert.action}
+    </button>
     <TopActions />
   </TopBar>
 
   <div class="quick-actions">
-    <button type="button" class="btn btn-sm" on:click={() => (alertOpen = true)}>
-      {$t.academicAlert.action}
-    </button>
     <button type="button" class="btn btn-sm" on:click={() => push('/agenda')}>{$t.attendance.back}</button>
   </div>
   <WarningNewSheet

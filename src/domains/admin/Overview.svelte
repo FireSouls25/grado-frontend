@@ -146,6 +146,19 @@
     return s.charAt(0).toUpperCase() + s.slice(1);
   })();
 
+  // Las cargas pueden solaparse (montaje + sesión lista): sin esta
+  // guarda, dos corridas entrelazan sus pushes y duplican claves.
+  let loadRun = 0;
+
+  function uniqById<T extends { ID: string }>(rows: T[]): T[] {
+    const seen = new Set<string>();
+    return rows.filter((r) => {
+      if (seen.has(r.ID)) return false;
+      seen.add(r.ID);
+      return true;
+    });
+  }
+
   async function load() {
     state = 'loading';
     loadError = null;
@@ -163,7 +176,7 @@
         state = 'ready';
         return;
       }
-      teacherList = [...teacherData];
+      teacherList = uniqById([...teacherData]);
       teachersKnown = true;
       try {
         groups = [...groupData].sort((a, b) => a.Grade - b.Grade || a.GroupNo - b.GroupNo);
@@ -334,10 +347,11 @@
   }
 
   async function loadTeacherExtras() {
-    teacherMonth = { present: 0, absent: 0, late: 0, known: false };
-    unassignedTeachers = [];
-    bareSubjectNames = [];
-    guardianPhones = {};
+    const myRun = ++loadRun;
+    const stale = () => myRun !== loadRun;
+    const unassigned: { id: string; name: string }[] = [];
+    const bare: string[] = [];
+    const phones: Record<string, string> = {};
     const directed = new Set(teacherList.map((x) => x.HomeroomClassID).filter(Boolean));
     salonsNoDirector = groups
       .filter((g) => !directed.has(g.ClassLabel))
@@ -359,29 +373,40 @@
       absent.n += result.value.Summary.Absent;
       late.n += result.value.Summary.Late;
     });
+    if (stale()) return;
     teacherMonth = { present: present.n, absent: absent.n, late: late.n, known: teacherList.length > 0 };
+    const seenUn = new Set<string>();
     sched.forEach((result, i) => {
       if (result.status !== 'fulfilled') return;
       if ((result.value ?? []).length === 0) {
         const x = teacherList[i];
-        if (x && x.Active) unassignedTeachers.push({ id: x.ID, name: `${x.Surnames} ${x.Names}`.trim() });
+        if (x && x.Active && !seenUn.has(x.ID)) {
+          seenUn.add(x.ID);
+          unassigned.push({ id: x.ID, name: `${x.Surnames} ${x.Names}`.trim() });
+        }
       }
     });
-    unassignedTeachers = [...unassignedTeachers];
+    unassignedTeachers = unassigned;
     try {
       const subs = (await guarded(() => listSubjects())) ?? [];
       const settled = await mapSettled(subs, 4, (s) => subjectAssignments(s.ID));
+      if (stale()) return;
+      const seenBare = new Set<string>();
       settled.forEach((result, i) => {
         if (result.status !== 'fulfilled') return;
         const open = (result.value ?? []).filter((a) => !a.EndedAt || a.EndedAt.startsWith('0001')).length;
-        if (open === 0 && subs[i]) bareSubjectNames.push(subs[i].Name);
+        if (open === 0 && subs[i] && !seenBare.has(subs[i].Name)) {
+          seenBare.add(subs[i].Name);
+          bare.push(subs[i].Name);
+        }
       });
+      bareSubjectNames = bare;
     } catch {
-      bareSubjectNames = [];
+      if (!stale()) bareSubjectNames = [];
     }
     try {
       const settled = await mapSettled(risk.slice(0, 5), 4, (r) => studentProfile(r.id));
-      const phones: Record<string, string> = {};
+      if (stale()) return;
       settled.forEach((result, i) => {
         if (result.status !== 'fulfilled' || !result.value) return;
         const p = result.value;
@@ -390,7 +415,7 @@
       });
       guardianPhones = phones;
     } catch {
-      guardianPhones = {};
+      if (!stale()) guardianPhones = {};
     }
     try {
       openAlerts = (await guarded(() => listAcademicAlerts())) ?? [];
@@ -607,7 +632,12 @@
         done: false
       });
     }
-    tasks = next;
+    const seenTask = new Set<string>();
+    tasks = next.filter((x) => {
+      if (seenTask.has(x.id)) return false;
+      seenTask.add(x.id);
+      return true;
+    });
   }
 
   function changeYear(delta: number) {

@@ -14,6 +14,8 @@
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
   import { daySchedule, isMissing, type TeacherClass } from './api';
   import { loadRollcall } from './rollcall';
+  import { calendarDate } from '$lib/dates';
+  import { schoolDay } from '$lib/schoolDay';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { profile } from '$lib/shell/profile';
@@ -44,10 +46,13 @@
     return d;
   });
   const jsWeekdays = [1, 2, 3, 4, 5];
-  const todayIdx = (() => {
+  // La pestaña de hoy sigue al servidor (reloj local puede mentir).
+  let serverIdx: number | null = null;
+  const localIdx = (() => {
     const js = new Date().getDay();
     return js >= 1 && js <= 5 ? js - 1 : -1;
   })();
+  $: todayIdx = serverIdx ?? localIdx;
 
   let selectedDay = todayIdx === -1 ? 0 : todayIdx;
   let search = '';
@@ -69,6 +74,13 @@
     loading = true;
     loadError = null;
     try {
+      try {
+        const key = await schoolDay();
+        const js = calendarDate(key)?.getDay() ?? -1;
+        serverIdx = js >= 1 && js <= 5 ? js - 1 : -1;
+      } catch {
+        serverIdx = null;
+      }
       const weekday = jsWeekdays[selectedDay];
       const classes = await guarded(() => daySchedule(weekday));
       if (classes === null) {
