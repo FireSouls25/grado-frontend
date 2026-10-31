@@ -68,6 +68,10 @@
   let rollNote = '';
   let saving = false;
   let formError = '';
+  let permNotes: Record<string, string> = {};
+  let permTarget: string | null = null;
+  let permDraft = '';
+  let permError = '';
 
   $: markedCount = Object.keys(sel).length;
 
@@ -113,7 +117,31 @@
   }
 
   function setStatus(id: string, status: TeacherMarkStatus) {
+    if (status !== 'permission') delete permNotes[id];
     sel = { ...sel, [id]: status };
+  }
+
+  function openPerm(id: string) {
+    permTarget = id;
+    permDraft = permNotes[id] ?? '';
+    permError = '';
+  }
+
+  function savePermNote() {
+    if (!permTarget) return;
+    permError = '';
+    if (!permDraft.trim()) {
+      permError = $t.troll.needPermission;
+      return;
+    }
+    permNotes[permTarget] = permDraft.trim();
+    sel = { ...sel, [permTarget]: 'permission' };
+    permTarget = null;
+  }
+
+  function cancelPermNote() {
+    permTarget = null;
+    permError = '';
   }
 
   function markAllPresent() {
@@ -124,10 +152,10 @@
 
   async function save() {
     formError = '';
-    if (
-      Object.values(sel).some((st) => st === 'permission') &&
-      !rollNote.trim()
-    ) {
+    const missingNote = Object.entries(sel).some(
+      ([id, st]) => st === 'permission' && !(permNotes[id] ?? '').trim() && !rollNote.trim()
+    );
+    if (missingNote) {
       formError = $t.troll.needPermission;
       return;
     }
@@ -139,7 +167,7 @@
         Object.entries(sel).map(([teacherID, status]) => ({
           teacherID,
           status,
-          note: status === 'present' ? '' : rollNote.trim()
+          note: status === 'present' ? '' : permNotes[teacherID]?.trim() || rollNote.trim()
         }))
       );
       notify($t.troll.saved);
@@ -241,16 +269,39 @@
               >
                 {$t.troll.statusLate}
               </button>
-              <button
-                type="button"
-                class:perm={current === 'permission'}
-                aria-pressed={current === 'permission'}
-                on:click={() => setStatus(row.TeacherID, 'permission')}
-              >
-                {$t.troll.statusPermission}
-              </button>
             </span>
+            <button
+              type="button"
+              class="btn btn-sm"
+              class:on={current === 'permission'}
+              title={$t.troll.statusPermission}
+              on:click={() => openPerm(row.TeacherID)}
+            >
+              {$t.troll.statusPermission}
+            </button>
           </li>
+          {#if permTarget === row.TeacherID}
+            <li class="descrow">
+              <label>
+                <span>{$t.troll.noteLabel} · {$t.troll.statusPermission}</span>
+                <input
+                  class="motivo"
+                  type="text"
+                  placeholder={$t.troll.notePlaceholder}
+                  aria-label={$t.troll.statusPermission}
+                  bind:value={permDraft}
+                  maxlength="140"
+                />
+              </label>
+              {#if permError}<p class="flash error" role="alert">{permError}</p>{/if}
+              <div class="actions">
+                <button type="button" class="mini" on:click={cancelPermNote}>{$t.common.cancel}</button>
+                <button type="button" class="mini primary" on:click={savePermNote}>
+                  {$t.common.save}
+                </button>
+              </div>
+            </li>
+          {/if}
         {/each}
       </ul>
     {/if}
@@ -402,9 +453,39 @@
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
   }
-  .seg button.perm {
-    background: var(--m-permission-bg);
-    color: var(--m-permission);
+  .roll li.descrow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .roll li.descrow label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .roll li.descrow .motivo {
+    min-width: 0;
+    max-width: none;
+  }
+  .roll li.descrow .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .mini {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+  .mini.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
   }
   .flash.error {
     background: var(--g-grave-bg);

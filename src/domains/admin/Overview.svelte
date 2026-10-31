@@ -719,7 +719,7 @@
   $: donutTotals = scopedTotals;
   $: marksTotal = donutTotals.presences + donutTotals.absences + donutTotals.excused + donutTotals.evasions + donutTotals.lates;
   $: hasDonut = marksTotal > 0;
-  $: donutRate = hasDonut ? Math.round((donutTotals.presences / marksTotal) * 100) : 0;
+  $: donutRate = hasDonut ? Math.round(((donutTotals.presences + donutTotals.excused + donutTotals.lates) / marksTotal) * 100) : 0;
 
   $: overviewWarnings = overview?.Warnings;
   $: gravityCounts = overviewWarnings
@@ -755,9 +755,8 @@
           data: has
             ? [
                 { value: marks.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#1e7b4f') } },
-                { value: marks.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#b83a2a') } },
                 { value: marks.excused, name: $t.admin.markPermission, itemStyle: { color: cssVar('--m-permission', '#1b6c80') } },
-                { value: marks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#733952') } },
+                { value: marks.absences + marks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#733952') } },
                 { value: marks.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#a86f0c') } }
               ]
             : []
@@ -934,9 +933,8 @@
                 </div>
                 <div class="legend pills">
                   <span><i class="sw k-present"></i>{$t.admin.markPresent} <strong>{donutTotals.presences}</strong></span>
-                  <span><i class="sw k-absent"></i>{$t.admin.markAbsence} <strong>{donutTotals.absences}</strong></span>
                   <span><i class="sw k-permission"></i>{$t.admin.markPermission} <strong>{donutTotals.excused}</strong></span>
-                  <span><i class="sw k-evasion"></i>{$t.admin.markEvasion} <strong>{donutTotals.evasions}</strong></span>
+                  <span><i class="sw k-evasion"></i>{$t.admin.markEvasion} <strong>{donutTotals.absences + donutTotals.evasions}</strong></span>
                   <span><i class="sw k-late"></i>{$t.admin.markLate} <strong>{donutTotals.lates}</strong></span>
                 </div>
               </section>
