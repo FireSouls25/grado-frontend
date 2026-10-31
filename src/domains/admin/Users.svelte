@@ -739,7 +739,7 @@ import Sheet from '$lib/ui/Sheet.svelte';
   @media (min-width: 820px) {
     .trow {
       display: grid;
-      grid-template-columns: minmax(220px, 1.4fr) 170px 110px auto;
+      grid-template-columns: minmax(220px, 1.4fr) 170px 110px 200px;
       gap: 14px;
       align-items: center;
     }

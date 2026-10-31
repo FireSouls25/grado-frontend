@@ -45,11 +45,26 @@ Colores solo vía `var(--*)` (global.css); textos UI solo vía `t` (es.ts).
 Base en `VITE_API_URL` (`.env`, sensible fuera del repo; `.env.example`
 documenta las claves). El cliente envía `Authorization: Bearer <token>`
 desde la sesión (login real contra `POST /v1/login`) y traduce errores al
-contrato del backend: 401 → login, 403 → atrás o home del rol
-(`lib/nav.ts`). Endpoints usados hoy: `GET /v1/me`. Los de horario,
-lista, apertura de sesión y lote de llamados aún no existen en el
-backend (`domains/teacher/api.ts`, marcados `@pending-backend`): fallan
-suave a vacíos y se encienden solos cuando el backend los exponga.
+contrato del backend: 401 → rotación y, si muere, popup global de sesión
+vencida + login; 403 → atrás o home del rol, salvo `forbidden` propio
+(como la lista ajena, que vuelve a la agenda del docente) (`lib/nav.ts`).
+
+Permisos reutilizables: `GET /v1/me` trae `permissions` y `lib/access.ts`
+(`hasPermission` + `can*`) solo lee esa lista, con respaldo a la matriz
+por rol si el backend aún no la envía. Añadir un permiso es tocar el mapa
+de roles del backend y usar `hasPermission` aquí.
+
+Día lectivo del servidor: `GET /v1/today` (fecha de Bogotá, nunca UTC
+crudo) vía `lib/schoolDay.ts`; la lista, la agenda y el historial
+consultan y rotulan con ese día, no con el reloj del equipo.
+
+Carga resiliente: `lib/sessionReady.ts` (`loadWhenReady`) recarga cada
+pantalla cuando la sesión vuelve a estar lista; los shells reintentan el
+perfil con pausa si falló. Contratos viva: e2e del backend
+(`backend/src/tests/e2e/teacher_flow_test.go`,
+`group_scope_test.go`) con los cuerpos exactos del SPA, más
+`scripts/backend-contract.test.mjs` (`npm run test:contract`, en CI) que
+empaqueta los módulos reales de API y exige URLs/cuerpos compatibles.
 
 ## Orden construido y siguiente
 

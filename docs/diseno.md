@@ -109,6 +109,14 @@ tasa bajo umbral (tinta grave + delta), no tiñendo la marca.
 - **Tabs Overview/Salones/Historial**: control segmentado (pista tint,
   activo en píldora blanca con sombra); alineado en fila con búsqueda,
   periodo y tema a 44px de alto.
+- **Tablas admin** (riesgo, estudiantes, docentes, usuarios): encabezado y
+  filas comparten la misma plantilla de columnas **fija** (nunca `auto` en
+  la columna de acciones); la columna libre cambia de ancho entre
+  contenedores y descuadra todo. Tasas con % + palabra explícita
+  ("asistencia", verde si ≥ piso, rojo si no). Botón ausente = botón
+  desactivado con motivo, nunca celda vacía (conserva el ancho).
+  Docentes: títulos y datos centrados, botones de acción del mismo ancho
+  (`flex: 1`).
 - **Filas de riesgo**: rank + avatar con iniciales + nombre/tendencia +
   píldora de salón + conteos separados por medida + bloque de tasa +
   píldora de gravedad. En móvil solo rank, avatar, nombre y tasa.
