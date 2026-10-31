@@ -33,6 +33,7 @@
   import WarningCorrectForm from './WarningCorrectForm.svelte';
   import WarningRevisionTrail from './WarningRevisionTrail.svelte';
   import SessionCorrectSheet from './SessionCorrectSheet.svelte';
+  import PermissionSheet from '$lib/ui/PermissionSheet.svelte';
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
   import { ApiError } from '$lib/api/types';
@@ -96,14 +97,15 @@
   // y lo registra. Quitarlo es directo y no necesita motivo. Modificar
   // sigue abriendo la hoja completa de corrección.
   let permFor: { sessionID: string } | null = null;
-  let permReason = '';
-  let permError = '';
+  let defenseFor: { sessionID: string } | null = null;
+
+  function defenseOf(st: { SessionID: string }): string {
+    return report?.Defenses?.[st.SessionID] ?? '';
+  }
 
   async function togglePermission(sessionID: string, mark: string) {
     if (mark === 'absence') {
       permFor = { sessionID };
-      permReason = '';
-      permError = '';
       return;
     }
     if (acting) return;
@@ -146,65 +148,35 @@
     return profile ? `${profile.Names} ${profile.Surnames}` : '';
   }
 
-  async function savePermReason() {
+  async function savePermReason(draft: string) {
     if (!permFor || acting) return;
-    permError = '';
-    if (!permReason.trim()) {
-      permError = $t.troll.shistory.needPermissionReason;
-      return;
-    }
     acting = permFor.sessionID + 'perm';
     try {
       const updated = await guarded(() =>
-        recordSessionMark(permFor!.sessionID, id, 'absence-permission', permReason.trim())
+        recordSessionMark(permFor!.sessionID, id, 'absence-permission', draft)
       );
       if (updated !== null) {
         notify($t.studentSummary.justifiedOk);
         permFor = null;
         await load();
       }
-    } catch (err) {
-      if (!(err instanceof ApiError && err.status === 401)) {
-        permError = err instanceof Error ? err.message : String(err);
-      }
     } finally {
       acting = null;
     }
   }
 
-  let defenseFor: { sessionID: string } | null = null;
-  let defenseReason = '';
-  let defenseError = '';
-
-  function defenseOf(s: { SessionID: string }): string {
-    return report?.Defenses?.[s.SessionID] ?? '';
-  }
-
   function openDefense(sessionID: string) {
     defenseFor = { sessionID };
-    defenseReason = defenseOf({ SessionID: sessionID });
-    defenseError = '';
   }
 
-  async function saveDefense() {
+  async function saveDefense(draft: string) {
     if (!defenseFor || acting) return;
-    defenseError = '';
-    if (!defenseReason.trim()) {
-      defenseError = $t.troll.shistory.needPermissionReason;
-      return;
-    }
     acting = defenseFor.sessionID + 'defense';
     try {
-      await guarded(() =>
-        recordDefense(defenseFor!.sessionID, id, defenseReason.trim())
-      );
+      await guarded(() => recordDefense(defenseFor!.sessionID, id, draft));
       notify($t.studentSummary.defenseSaved);
       defenseFor = null;
       await load();
-    } catch (err) {
-      if (!(err instanceof ApiError && err.status === 401)) {
-        defenseError = err instanceof Error ? err.message : String(err);
-      }
     } finally {
       acting = null;
     }
@@ -513,45 +485,25 @@
         />
       {/if}
 
-      <Sheet open={defenseFor !== null} title={$t.studentSummary.defenseTitle} onClose={() => (defenseFor = null)}>
-        <div class="sheet">
-          {#if defenseFor}
-            {@const dm = marks.find((x) => x.SessionID === defenseFor?.sessionID)}
-            <p class="muted">{dm ? `${momentDay(dm.Date)} · ${dm.ClassLabel}` : ''}</p>
-            <label class="reason">
-              <span>{$t.studentSummary.defenseReasonLabel}</span>
-              <textarea rows={3} bind:value={defenseReason} placeholder={$t.studentSummary.defenseReasonPlaceholder}></textarea>
-            </label>
-            {#if defenseError}<p class="flash error" role="alert">{defenseError}</p>{/if}
-            <div class="form-actions">
-              <button type="button" class="btn" on:click={() => (defenseFor = null)}>{$t.common.cancel}</button>
-              <button type="button" class="btn btn-primary" disabled={!!acting} on:click={saveDefense}>
-                {$t.common.save}
-              </button>
-            </div>
-          {/if}
-        </div>
-      </Sheet>
+      <PermissionSheet
+        open={defenseFor !== null}
+        title={$t.studentSummary.defenseTitle}
+        subtitle={(() => { const dm = marks.find((x) => defenseFor && x.SessionID === defenseFor.sessionID); return dm ? `${momentDay(dm.Date)} · ${dm.ClassLabel}` : ''; })()}
+        reasonLabel={$t.studentSummary.defenseReasonLabel}
+        reasonPlaceholder={$t.studentSummary.defenseReasonPlaceholder}
+        onClose={() => (defenseFor = null)}
+        onSave={saveDefense}
+      />
 
-      <Sheet open={permFor !== null} title={$t.studentSummary.justifyAction} onClose={() => (permFor = null)}>
-        <div class="sheet">
-          {#if permFor}
-            {@const m = marks.find((x) => x.SessionID === permFor?.sessionID)}
-            <p class="muted">{m ? `${momentDay(m.Date)} · ${m.ClassLabel}` : ''}</p>
-            <label class="reason">
-              <span>{$t.troll.shistory.permissionReasonLabel}</span>
-              <textarea rows={3} bind:value={permReason} placeholder={$t.troll.shistory.permissionReasonPlaceholder}></textarea>
-            </label>
-            {#if permError}<p class="flash error" role="alert">{permError}</p>{/if}
-            <div class="form-actions">
-              <button type="button" class="btn" on:click={() => (permFor = null)}>{$t.common.cancel}</button>
-              <button type="button" class="btn btn-primary" disabled={!!acting} on:click={savePermReason}>
-                {$t.common.save}
-              </button>
-            </div>
-          {/if}
-        </div>
-      </Sheet>
+      <PermissionSheet
+        open={permFor !== null}
+        title={$t.studentSummary.justifyAction}
+        subtitle={(() => { const pm = marks.find((x) => permFor && x.SessionID === permFor.sessionID); return pm ? `${momentDay(pm.Date)} · ${pm.ClassLabel}` : ''; })()}
+        reasonLabel={$t.troll.shistory.permissionReasonLabel}
+        reasonPlaceholder={$t.troll.shistory.permissionReasonPlaceholder}
+        onClose={() => (permFor = null)}
+        onSave={savePermReason}
+      />
     {/if}
   </div>
 </AdminShell>
@@ -606,44 +558,6 @@
   }
   .permnote.defense {
     color: var(--accent);
-  }
-  .reason {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--muted);
-  }
-  .reason textarea {
-    border: 1px solid var(--control);
-    border-radius: var(--radius-control);
-    background: var(--surface-2);
-    padding: 10px 12px;
-    font-size: 0.85rem;
-    font-family: inherit;
-    color: var(--ink);
-    width: 100%;
-    resize: vertical;
-  }
-  .reason textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
-  }
-  .flash.error {
-    background: var(--g-grave-bg);
-    color: var(--g-grave-ink);
-    font-weight: 600;
-    font-size: 0.84rem;
-    border-radius: var(--radius-control);
-    padding: 8px 12px;
   }
   .kpis {
     margin: 0;

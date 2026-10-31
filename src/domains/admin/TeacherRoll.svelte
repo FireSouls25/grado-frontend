@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import PermissionSheet from '$lib/ui/PermissionSheet.svelte';
   import { t } from '$lib/i18n';
   import TopBar from '$lib/ui/TopBar.svelte';
   import TopActions from '$lib/shell/TopActions.svelte';
@@ -70,8 +71,7 @@
   let formError = '';
   let permNotes: Record<string, string> = {};
   let permTarget: string | null = null;
-  let permDraft = '';
-  let permError = '';
+  let permTargetName = '';
 
   $: markedCount = Object.keys(sel).length;
 
@@ -121,27 +121,22 @@
     sel = { ...sel, [id]: status };
   }
 
-  function openPerm(id: string) {
+  function openPerm(id: string, name: string) {
     permTarget = id;
-    permDraft = permNotes[id] ?? '';
-    permError = '';
-  }
-
-  function savePermNote() {
-    if (!permTarget) return;
-    permError = '';
-    if (!permDraft.trim()) {
-      permError = $t.troll.needPermission;
-      return;
-    }
-    permNotes[permTarget] = permDraft.trim();
-    sel = { ...sel, [permTarget]: 'permission' };
-    permTarget = null;
+    permTargetName = name;
   }
 
   function cancelPermNote() {
     permTarget = null;
-    permError = '';
+    permTargetName = '';
+  }
+
+  async function savePermNote(reason: string) {
+    if (!permTarget) return;
+    permNotes[permTarget] = reason;
+    sel = { ...sel, [permTarget]: 'permission' };
+    permTarget = null;
+    permTargetName = '';
   }
 
   function markAllPresent() {
@@ -244,6 +239,15 @@
               </span>
               <span class="name">{row.TeacherName}</span>
             </span>
+            <button
+              type="button"
+              class="btn btn-sm permbtn"
+              class:on={current === 'permission'}
+              title={$t.troll.statusPermission}
+              on:click={() => openPerm(row.TeacherID, row.TeacherName)}
+            >
+              {$t.troll.statusPermission}
+            </button>
             <span class="seg" role="group" aria-label={row.TeacherName}>
               <button
                 type="button"
@@ -270,40 +274,18 @@
                 {$t.troll.statusLate}
               </button>
             </span>
-            <button
-              type="button"
-              class="btn btn-sm"
-              class:on={current === 'permission'}
-              title={$t.troll.statusPermission}
-              on:click={() => openPerm(row.TeacherID)}
-            >
-              {$t.troll.statusPermission}
-            </button>
           </li>
-          {#if permTarget === row.TeacherID}
-            <li class="descrow">
-              <label>
-                <span>{$t.troll.noteLabel} · {$t.troll.statusPermission}</span>
-                <input
-                  class="motivo"
-                  type="text"
-                  placeholder={$t.troll.notePlaceholder}
-                  aria-label={$t.troll.statusPermission}
-                  bind:value={permDraft}
-                  maxlength="140"
-                />
-              </label>
-              {#if permError}<p class="flash error" role="alert">{permError}</p>{/if}
-              <div class="actions">
-                <button type="button" class="mini" on:click={cancelPermNote}>{$t.common.cancel}</button>
-                <button type="button" class="mini primary" on:click={savePermNote}>
-                  {$t.common.save}
-                </button>
-              </div>
-            </li>
-          {/if}
         {/each}
       </ul>
+      <PermissionSheet
+        open={permTarget !== null}
+        title={$t.troll.statusPermission}
+        subtitle={permTargetName}
+        reasonLabel={$t.troll.noteLabel}
+        reasonPlaceholder={$t.troll.notePlaceholder}
+        onClose={cancelPermNote}
+        onSave={savePermNote}
+      />
     {/if}
   </div>
 </AdminShell>
@@ -453,39 +435,10 @@
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
   }
-  .roll li.descrow {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .roll li.descrow label {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 0.85rem;
-    font-weight: 600;
-  }
-  .roll li.descrow .motivo {
-    min-width: 0;
-    max-width: none;
-  }
-  .roll li.descrow .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-  .mini {
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
-    background: var(--surface);
-    min-height: 32px;
-    padding: 0 12px;
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-  .mini.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+  .btn.permbtn.on {
+    background: var(--m-permission-bg);
+    color: var(--m-permission);
+    border-color: var(--m-permission);
   }
   .flash.error {
     background: var(--g-grave-bg);
