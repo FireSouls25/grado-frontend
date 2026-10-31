@@ -67,6 +67,7 @@
   let sel: Record<string, TeacherMarkStatus> = {};
   let rollNote = '';
   let saving = false;
+  let formError = '';
 
   $: markedCount = Object.keys(sel).length;
 
@@ -122,7 +123,16 @@
   }
 
   async function save() {
+    formError = '';
+    if (
+      Object.values(sel).some((st) => st === 'permission') &&
+      !rollNote.trim()
+    ) {
+      formError = $t.troll.needPermission;
+      return;
+    }
     saving = true;
+    loadError = null;
     try {
       await recordTeacherDay(
         day,
@@ -181,6 +191,7 @@
           {saving ? $t.troll.saving : $t.troll.saveRoll}
         </button>
       </div>
+      {#if formError}<p class="flash error" role="alert">{formError}</p>{/if}
     </div>
 
     {#if dayKind !== '' && state === 'ready'}
@@ -229,6 +240,14 @@
                 on:click={() => setStatus(row.TeacherID, 'late')}
               >
                 {$t.troll.statusLate}
+              </button>
+              <button
+                type="button"
+                class:perm={current === 'permission'}
+                aria-pressed={current === 'permission'}
+                on:click={() => setStatus(row.TeacherID, 'permission')}
+              >
+                {$t.troll.statusPermission}
               </button>
             </span>
           </li>
@@ -382,5 +401,18 @@
   .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
+  }
+  .seg button.perm {
+    background: var(--m-permission-bg);
+    color: var(--m-permission);
+  }
+  .flash.error {
+    background: var(--g-grave-bg);
+    color: var(--g-grave-ink);
+    font-weight: 600;
+    font-size: 0.84rem;
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
+    margin: 10px 0 0;
   }
 </style>

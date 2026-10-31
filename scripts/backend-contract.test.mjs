@@ -33,7 +33,7 @@ import { openSession, recordMark, recordUniform, issueWarnings, todaySessions, s
 import { hasPermission, canManageUsers, canBlockAccess, canWriteDefenses } from '/home/grim/Documents/projects/grado/frontend/src/lib/access.ts';
 import { schoolDay } from '/home/grim/Documents/projects/grado/frontend/src/lib/schoolDay.ts';
 import { resolveId, isUuid } from '/home/grim/Documents/projects/grado/frontend/src/lib/slug.ts';
-import { issueWarningBatch, correctWarning, recordDefense, studentReport } from '/home/grim/Documents/projects/grado/frontend/src/domains/admin/api.ts';
+import { issueWarningBatch, correctWarning, recordDefense, recordTeacherDay, studentReport } from '/home/grim/Documents/projects/grado/frontend/src/domains/admin/api.ts';
 const fail = (m) => { console.error('CONTRACT FAIL:', m); process.exitCode = 1; };
 const last = () => globalThis.__calls[globalThis.__calls.length - 1];
 await openSession('gid-1');
@@ -125,6 +125,12 @@ if (await resolveId('fcdcba87-d0fe-4b39-b15e-969dd4bc745f') !== 'fcdcba87-d0fe-4
   if (!globalThis.__calls.slice(callsBefore).some(c => c.url.endsWith('/v1/s/abc12345'))) fail('resolveId no llama a /v1/s/{slug}');
   await resolveId('abc12345');
   if (globalThis.__calls.length !== callsBefore + 1) fail('resolveId no cachea');
+}
+await recordTeacherDay('2026-10-30', [{ teacherID: 't1', status: 'permission', note: 'Cita médica' }]);
+{
+  const c = last();
+  if (!c.url.endsWith('/v1/teachers/attendance') || c.method !== 'POST') fail('recordTeacherDay ' + c.method + ' ' + c.url);
+  if (!c.body?.marks?.[0] || c.body.marks[0].status !== 'permission') fail('recordTeacherDay body: ' + JSON.stringify(c.body));
 }
 if (!process.exitCode) console.log('CONTRACT OK: cuerpos del frontend compatibles con el backend');
 `;

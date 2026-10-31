@@ -101,6 +101,8 @@
   function markClass(m: string): string {
     return m === 'absence' || m === 'absent'
       ? 'is-absent'
+      : m === 'permission'
+        ? 'is-permission'
       : m === 'late'
         ? 'is-late'
         : m === 'evasion'
@@ -109,6 +111,7 @@
   }
 
   function statusName(s: string): string {
+    if (s === 'permission') return $t.troll.statusPermission;
     return s === 'absent' ? $t.troll.statusAbsent : s === 'late' ? $t.troll.statusLate : $t.troll.statusPresent;
   }
 
@@ -496,6 +499,10 @@
     color: var(--chip-purple-ink);
     border-color: var(--chip-purple-ink);
   }
+  .mk.is-permission {
+    color: var(--m-permission);
+    border-color: var(--m-permission);
+  }
   .mk.solid.is-present {
     background: var(--chip-green-bg);
     border-color: transparent;
@@ -510,6 +517,10 @@
   }
   .mk.solid.is-evasion {
     background: var(--chip-purple-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-permission {
+    background: var(--m-permission-bg);
     border-color: transparent;
   }
   .swap {

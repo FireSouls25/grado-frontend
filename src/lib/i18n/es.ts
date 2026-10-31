@@ -300,7 +300,6 @@ export const es = {
     absent: 'Falta injustificada',
     absentShort: 'Evasión',
     permission: 'Falta con permiso',
-    permShort: 'Permiso',
     evasion: 'Evasión',
     late: 'Atraso',
     warn: 'Llamado de atención',
@@ -371,7 +370,7 @@ export const es = {
     emptyRosterTitle: 'Salón sin lista',
     emptyRosterBody:
       'El backend aún no expone la nómina de este salón. Vuelve a intentarlo más tarde.',
-    saveHint: 'Marca con el check a quienes asistieron y usa las etiquetas para permiso o atraso. Sin marca cuenta como ausente.',
+    saveHint: 'Marca con el check a quienes asistieron y usa las etiquetas para evasión o atraso. Sin marca cuenta como ausente.',
     deniedRedirect: 'Esa lista no es de tus salones; te llevamos a tu agenda.',
     markAllPresent: 'Marcar todos presentes',
     markAllAbsent: 'Marcar todos ausentes',
@@ -495,19 +494,23 @@ export const es = {
       present === total ? 'Lista completa' : `${present} de ${total} presentes`,
     noRecord: 'Aún sin lista este día.',
     statusPresent: 'Presente',
-    statusAbsent: 'Ausente',
-    statusLate: 'Tarde',
+    statusAbsent: 'Evasión',
+    statusLate: 'Atraso',
+    statusPermission: 'Permiso',
+    needPermission: 'El permiso exige motivo: escríbelo en la nota para guardar.',
     notePlaceholder: 'Nota (permiso, cita médica…)',
     noteLabel: 'Nota',
     historyTitle: 'Asistencia',
     historyEmpty: 'Sin marcas en este mes: toma la lista diaria para empezar el registro.',
     presentCount: 'Días presente',
-    absentCount: 'Ausencias',
+    absentCount: 'Evasiones',
+    permissionCount: 'Permisos',
     lateCount: 'Atrasos',
     noMarkDays: 'Sin marca',
     legendPresent: 'Presente',
-    legendAbsent: 'Ausente',
-    legendLate: 'Tarde',
+    legendAbsent: 'Evasión',
+    legendLate: 'Atraso',
+    legendPermission: 'Permiso',
     legendNone: 'Sin lista',
     rollAction: 'Llamar lista',
     historyAction: 'Historial',
@@ -1294,8 +1297,8 @@ export const es = {
             body: 'Junto a cada nombre hay una casilla marcada: quítala si el uniforme está mal. Se guarda con la lista y aparece en el resumen del estudiante, en su ficha y en las estadísticas.'
           },
           {
-            title: 'Permiso en clase',
-            body: 'El botón Permiso de cada fila pide el motivo (obligatorio) y lo guarda junto a la falta. Lo verás en el resumen como «Con permiso» y ya no cuenta como falta en el porcentaje.'
+            title: 'Permisos y descargos',
+            body: 'Los permisos de estudiantes y sus descargos los gestionan secretaría y administración, no el docente: si una falta tuya queda con permiso verás «Con permiso» en el resumen. En cambio, en la lista diaria de docentes sí puedes recibir un permiso con motivo cuando faltes.'
           },
           {
             title: 'Llamado de atención',
@@ -1322,6 +1325,10 @@ export const es = {
           {
             title: 'Descargos',
             body: 'Junto al botón de permiso de cada falta verás Descargo: escribe la defensa del estudiante y se guarda junto a la falta. Solo la secretaría y la administración pueden registrarlos.'
+          },
+          {
+            title: 'Lista diaria de docentes',
+            body: 'En Docentes > Llamar lista tomas la asistencia del personal con Presente, Evasión, Atraso o Permiso (con motivo obligatorio, que queda registrado). La lista es por día y se puede corregir.'
           },
           {
             title: 'Corregir asistencia',

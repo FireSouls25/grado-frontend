@@ -17,7 +17,7 @@ function missing(resource: string): ApiError {
 // Same honesty rule as the teacher domain: any error means "no data yet".
 // Same honesty rule as the teacher domain: any error means "no data yet".
 
-export type TeacherMarkStatus = 'present' | 'absent' | 'late';
+export type TeacherMarkStatus = 'present' | 'absent' | 'late' | 'permission';
 
 export interface TeacherDayMark {
   TeacherID: string;
