@@ -9,12 +9,13 @@ import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const require = createRequire('/home/grim/Documents/projects/grado/frontend/package.json');
+// Derivadas del propio script: en CI el checkout vive en otra ruta
+// (/home/runner/...) y los absolutos del autor no existen.
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const require = createRequire(new URL('../package.json', import.meta.url));
 const { buildSync } = require('esbuild');
-
-const ROOT = '/home/grim/Documents/projects/grado/frontend';
 
 const calls = [];
 globalThis.fetch = async (url, init) => {
@@ -29,11 +30,11 @@ globalThis.localStorage = {
 };
 
 const entry = `
-import { openSession, recordMark, recordUniform, issueWarnings, todaySessions, sessionMarks } from '/home/grim/Documents/projects/grado/frontend/src/domains/teacher/api.ts';
-import { hasPermission, canManageUsers, canBlockAccess, canWriteDefenses } from '/home/grim/Documents/projects/grado/frontend/src/lib/access.ts';
-import { schoolDay } from '/home/grim/Documents/projects/grado/frontend/src/lib/schoolDay.ts';
-import { resolveId, isUuid } from '/home/grim/Documents/projects/grado/frontend/src/lib/slug.ts';
-import { issueWarningBatch, correctWarning, recordDefense, recordTeacherDay, studentReport } from '/home/grim/Documents/projects/grado/frontend/src/domains/admin/api.ts';
+import { openSession, recordMark, recordUniform, issueWarnings, todaySessions, sessionMarks } from '${ROOT}/src/domains/teacher/api.ts';
+import { hasPermission, canManageUsers, canBlockAccess, canWriteDefenses } from '${ROOT}/src/lib/access.ts';
+import { schoolDay } from '${ROOT}/src/lib/schoolDay.ts';
+import { resolveId, isUuid } from '${ROOT}/src/lib/slug.ts';
+import { issueWarningBatch, correctWarning, recordDefense, recordTeacherDay, studentReport } from '${ROOT}/src/domains/admin/api.ts';
 const fail = (m) => { console.error('CONTRACT FAIL:', m); process.exitCode = 1; };
 const last = () => globalThis.__calls[globalThis.__calls.length - 1];
 await openSession('gid-1');
