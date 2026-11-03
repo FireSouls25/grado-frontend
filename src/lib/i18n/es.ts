@@ -988,6 +988,7 @@ export const es = {
     loadingGroups: 'Cargando salones…',
     groupDetailTitle: (label: string, year: number) => `Salón ${label} · ${year}`,
     noDirector: 'Sin director asignado',
+    teachersLoadError: 'No se pudo cargar la nómina de docentes.',
     backSalons: 'Volver a salones',
     globalRoster: 'Todos los estudiantes',
     loadingRoster: 'Cargando nóminas…',

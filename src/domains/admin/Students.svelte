@@ -63,6 +63,7 @@
   // La nómina de docentes llega aparte de los grupos: hasta que carga,
   // las tarjetas no afirman nada (evita "sin director" fantasmas).
   let teachersReady = false;
+  let teachersError: unknown = null;
   let reports: Record<string, ClassReport> = {};
   let rosters: Record<string, RosterEntry[]> = {};
   let reportsDone = false;
@@ -210,10 +211,12 @@
 
   async function loadTeachers() {
     teachersReady = false;
+    teachersError = null;
     try {
       teacherList = (await guarded(() => teachers())) ?? [];
-    } catch {
+    } catch (err) {
       teacherList = [];
+      teachersError = err;
     } finally {
       teachersReady = true;
     }
@@ -522,6 +525,12 @@
             </button>
           {/if}
         </div>
+        {#if teachersError}
+          <p class="flash warn" role="alert">
+            {$t.admin.teachersLoadError}
+            <button type="button" class="btn btn-sm" on:click={loadTeachers}>{$t.common.retry}</button>
+          </p>
+        {/if}
         <div class="salonlist" role="group" aria-label={$t.admin.studentsTitle}>
           {#each groups as g (g.GroupID)}
             {@const dir = directorOf(g.ClassLabel)}
@@ -1244,6 +1253,10 @@
     font-size: 0.84rem;
     border-radius: var(--radius-control);
     padding: 8px 12px;
+  }
+  .flash.warn {
+    background: var(--chip-yellow-bg);
+    color: var(--chip-yellow-ink);
   }
   .flash.error {
     background: var(--g-grave-bg);
