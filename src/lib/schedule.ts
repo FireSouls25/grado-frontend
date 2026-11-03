@@ -5,9 +5,13 @@
 // feedback in the confirm step.
 
 export const SCHOOL_START_MIN = 7 * 60;
-export const SCHOOL_END_MIN = 14 * 60;
-export const MIN_DURATION_MIN = 60;
-export const STEP_MIN = 30;
+export const SCHOOL_END_MIN = 17 * 60;
+export const MIN_DURATION_MIN = 45;
+export const STEP_MIN = 5;
+// Grilla elástica: una fila por cada 5 minutos entre START y END. Los
+// bloques ocupan filas exactas (30 min = 6 filas) y los huecos se ven
+// proporcionales; la hora por defecto sigue siendo el bloque de 60.
+export const GRID_MIN = 5;
 
 export interface Slot {
   Weekday: number;

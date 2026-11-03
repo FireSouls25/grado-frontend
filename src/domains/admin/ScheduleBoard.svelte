@@ -13,7 +13,7 @@
   import Sheet from '$lib/ui/Sheet.svelte';
   import { notify } from '$lib/ui/notice';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
-  import { WEEK_ORDER, rangeLabel, toClock, SCHOOL_END_MIN, MIN_DURATION_MIN } from '$lib/schedule';
+  import { WEEK_ORDER, rangeLabel, toClock, SCHOOL_START_MIN, SCHOOL_END_MIN, MIN_DURATION_MIN, GRID_MIN } from '$lib/schedule';
   import { guarded, goBack } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { isMissing } from '../teacher/api';
@@ -164,7 +164,7 @@
   function openAdd(day: number | null = null, startMin: number | null = null, subjectID: string | null = null) {
     editingEntry = null;
     sheetDay = day;
-    // La última media hora no cabe en 1 h: arranca una hora antes del cierre.
+    // Cerca del cierre no cabe la duración mínima: arranca antes.
     sheetStart =
       startMin !== null && startMin + MIN_DURATION_MIN > SCHOOL_END_MIN
         ? SCHOOL_END_MIN - MIN_DURATION_MIN
@@ -182,7 +182,7 @@
     const subjectID = e.dataTransfer?.getData('text/subject-id') || dragSubject || '';
     dragSubject = null;
     if (!subjectID) return;
-    keptGhost = { subjectID, day, start: startMin, duration: 60 };
+    keptGhost = { subjectID, day, start: startMin, duration: MIN_DURATION_MIN };
     ghostFading = false;
     openAdd(day, startMin, subjectID);
   }
@@ -195,7 +195,7 @@
       subjectID: p.subjectID,
       day: p.weekday,
       start: p.startMin,
-      duration: Math.max(60, p.durationMin)
+      duration: Math.max(MIN_DURATION_MIN, p.durationMin)
     };
     if (
       keptGhost.subjectID !== next.subjectID ||
@@ -235,7 +235,7 @@
   let ghostFading = false;
   $: liveGhost =
     dragSubject && dropTarget
-      ? { subjectID: dragSubject, day: dropTarget.day, start: dropTarget.start, duration: 60 }
+      ? { subjectID: dragSubject, day: dropTarget.day, start: dropTarget.start, duration: MIN_DURATION_MIN }
       : null;
   $: ghost = liveGhost ?? keptGhost;
 
@@ -273,10 +273,14 @@
   $: boardDays = [...$t.admin.scheduleWeekdays, ...$t.admin.scheduleWeekend];
   $: dayLabel = (w: number) => boardDays[w === 0 ? 6 : w - 1] ?? '';
   $: dayCol = (w: number) => WEEK_ORDER.indexOf(w) + 2;
-  // Media-horas 07:00–14:00: la fila n empieza en 420+n*30.
-  $: hours = [7, 8, 9, 10, 11, 12, 13];
+  // Filas de 5 minutos desde el inicio: la fila n empieza en
+  // START+(n-2)*5. La hora h ocupa 12 filas.
+  $: rowsPerHour = 60 / GRID_MIN;
+  $: totalRows = (SCHOOL_END_MIN - SCHOOL_START_MIN) / GRID_MIN;
+  $: hours = Array.from({ length: (SCHOOL_END_MIN - SCHOOL_START_MIN) / 60 }, (_, i) => SCHOOL_START_MIN / 60 + i);
   $: hourLabel = (h: number) => (h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`);
-  $: rowOf = (min: number) => Math.round((min - 420) / 30) + 2;
+  $: rowOf = (min: number) => Math.floor((min - SCHOOL_START_MIN) / GRID_MIN) + 2;
+  $: spanOf = (dur: number) => Math.max(1, Math.round(dur / GRID_MIN));
   $: subjectOf = (id: string) => subjectsList.find((s) => s.ID === id);
   $: teacherName = (id: string) => {
     const found = teacherList.find((x) => x.ID === id);
@@ -402,22 +406,29 @@
       <ErrorState error={entriesError} onRetry={() => pickedGroup && loadEntries(pickedGroup.GroupID)} />
     {:else}
       <div class="gridwrap">
-        <div class="grid" role="grid" tabindex={-1} aria-label={`${$t.admin.scheduleTitle} ${pickedGroup.ClassLabel} ${year}`} on:dragleave={onGridDragLeave}>
+        <div
+          class="grid"
+          role="grid"
+          tabindex={-1}
+          aria-label={`${$t.admin.scheduleTitle} ${pickedGroup.ClassLabel} ${year}`}
+          on:dragleave={onGridDragLeave}
+          style={`grid-template-rows: auto repeat(${totalRows}, 6px);`}
+        >
           <div class="corner" aria-hidden="true"></div>
           {#each WEEK_ORDER as w}
             <div class="day" role="columnheader">{dayLabel(w)}</div>
           {/each}
           {#each hours as h}
-            <div class="hour" style={`grid-row: ${(h - 7) * 2 + 2} / span 2`}>{hourLabel(h)}</div>
+            <div class="hour" style={`grid-row: ${rowOf(h * 60)} / span ${rowsPerHour};`}>{hourLabel(h)}</div>
           {/each}
           {#each WEEK_ORDER as w}
             {#each hours as h}
-              {@const cellStart = 420 + (h - 7) * 60}
+              {@const cellStart = SCHOOL_START_MIN + (h - SCHOOL_START_MIN / 60) * 60}
               <button
                 type="button"
                 class="cell"
                 class:droptarget={dropTarget?.day === w && dropTarget?.start === cellStart}
-                style={`grid-column: ${dayCol(w)}; grid-row: ${(h - 7) * 2 + 2} / span 2;`}
+                style={`grid-column: ${dayCol(w)}; grid-row: ${rowOf(cellStart)} / span ${rowsPerHour};`}
                 aria-label={`${dayLabel(w)} ${toClock(cellStart)}`}
                 on:click={() => openAdd(w, cellStart)}
                 on:dragover={onDragOverCell}
@@ -431,7 +442,7 @@
             <div
               class="block ghost"
               class:fadeout={ghostFading}
-              style={`grid-column: ${dayCol(ghost.day)}; grid-row: ${rowOf(ghost.start)} / span ${Math.max(2, Math.round(ghost.duration / 30))}; --block: ${gsubj?.Color || 'var(--accent)'};`}
+              style={`grid-column: ${dayCol(ghost.day)}; grid-row: ${rowOf(ghost.start)} / span ${spanOf(ghost.duration)}; --block: ${gsubj?.Color || 'var(--accent)'};`}
               aria-hidden="true"
             >
               <strong>{gsubj?.Name ?? '—'}</strong>
@@ -443,7 +454,7 @@
             <button
               type="button"
               class="block"
-              style={`grid-column: ${dayCol(e.Weekday)}; grid-row: ${rowOf(e.Start)} / span ${Math.max(1, Math.round((e.End - e.Start) / 30))}; --block: ${subj?.Color || 'var(--muted)'};`}
+              style={`grid-column: ${dayCol(e.Weekday)}; grid-row: ${rowOf(e.Start)} / span ${spanOf(e.End - e.Start)}; --block: ${subj?.Color || 'var(--muted)'};`}
               aria-label={`${subj?.Name ?? $t.common.noData} ${teacherName(e.TeacherID)} ${dayLabel(e.Weekday)} ${rangeLabel(e.Start, e.End)}`}
               on:click={() => openEdit(e)}
             >
@@ -824,10 +835,9 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: 56px repeat(7, minmax(104px, 1fr));
-    grid-template-rows: auto repeat(14, 28px);
+    grid-template-columns: 64px repeat(7, minmax(104px, 1fr));
     column-gap: 10px;
-    row-gap: 6px;
+    row-gap: 2px;
     padding: 12px;
     min-width: 680px;
   }
@@ -855,14 +865,14 @@
   }
   .hour {
     grid-column: 1;
-    color: var(--muted);
-    font-size: 0.72rem;
-    font-weight: 600;
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
-    padding: 2px 6px 0 0;
+    padding: 0 8px 0 0;
   }
   .cell {
     border-radius: 8px;

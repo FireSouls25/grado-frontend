@@ -303,9 +303,9 @@
       <div class="dur">
         <span>{$t.admin.entryDuration}</span>
         <div class="stepper">
-          <button type="button" aria-label="−30 min" on:click={() => bumpDuration(-STEP_MIN)}>−</button>
+          <button type="button" aria-label="−5 min" on:click={() => bumpDuration(-STEP_MIN)}>−</button>
           <strong>{$t.admin.durationLabel(durationMin)}</strong>
-          <button type="button" aria-label="+30 min" on:click={() => bumpDuration(STEP_MIN)}>+</button>
+          <button type="button" aria-label="+5 min" on:click={() => bumpDuration(STEP_MIN)}>+</button>
         </div>
         {#if startValid}<small class="hint">{$t.admin.entryEnd(toClock(endMin))}</small>{/if}
       </div>
