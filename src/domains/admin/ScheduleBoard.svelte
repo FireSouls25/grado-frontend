@@ -442,7 +442,7 @@
           tabindex={-1}
           aria-label={`${$t.admin.scheduleTitle} ${pickedGroup.ClassLabel} ${year}`}
           on:dragleave={onGridDragLeave}
-          style={`grid-template-rows: auto repeat(${totalRows}, 6px);`}
+          style={`grid-template-rows: auto repeat(${totalRows}, 7px);`}
         >
           <div class="corner" aria-hidden="true"></div>
           {#each WEEK_ORDER as w}
