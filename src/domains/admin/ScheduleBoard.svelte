@@ -360,14 +360,29 @@
   }
   $: if (entries) void loadJointGroups();
   $: jointLabel = (jid: string) => (jointGroups[jid] ?? []).join(', ');
-  // Fuera del rango visible (después de las 3 PM): no se pintan para no
-  // romper la grilla; se avisa con el conteo.
-  $: visibleEntries = entries.filter((e) => e.End <= BOARD_END_MIN);
-  $: hiddenEntries = entries.filter((e) => e.End > BOARD_END_MIN);
+  // Fuera del rango visible (desde las 3 PM): no se pintan para no
+  // romper la grilla; se avisa con el conteo. Los que EMPIEZAN antes
+  // se recortan visualmente (la etiqueta conserva las horas reales).
+  $: visibleEntries = entries.filter((e) => e.Start < BOARD_END_MIN);
+  $: hiddenEntries = entries.filter((e) => e.Start >= BOARD_END_MIN);
+  $: clippedEnd = (e: { Start: number; End: number }) => Math.min(e.End, BOARD_END_MIN);
   $: teacherName = (id: string) => {
     const found = teacherList.find((x) => x.ID === id);
     return found ? `${found.Surnames} ${found.Names}`.trim() : id.slice(0, 8);
   };
+
+  // "10-1" va después de "9-1": compara por grado y grupo
+  // numéricos, no por texto (donde "10" < "2").
+  function compareLabels(a: string, b: string): number {
+    const pa = a.match(/^(\d+)-(\d+)$/);
+    const pb = b.match(/^(\d+)-(\d+)$/);
+    if (pa && pb) {
+      const g = Number(pa[1]) - Number(pb[1]);
+      if (g !== 0) return g;
+      return Number(pa[2]) - Number(pb[2]);
+    }
+    return a.localeCompare(b, 'es');
+  }
 
   async function loadGroups() {
     if (year === optionsYear) return;
@@ -391,8 +406,8 @@
       }
       salonOptions = data
         .map((g) => g.ClassLabel)
-        .sort((a, b) => a.localeCompare(b, 'es'));
-      groups = [...data].sort((a, b) => a.ClassLabel.localeCompare(b.ClassLabel, 'es'));
+        .sort(compareLabels);
+      groups = [...data].sort((a, b) => compareLabels(a.ClassLabel, b.ClassLabel));
       if (!salon && salonOptions.length > 0) salon = salonOptions[0];
       // Solo se marca como cargado tras éxito: en error optionsYear queda
       // sin tocar para que el reintento no haga early-return.
@@ -541,7 +556,8 @@
             <button
               type="button"
               class="block"
-              style={`grid-column: ${dayCol(e.Weekday)}; grid-row: ${rowOf(e.Start)} / span ${spanOf(e.End - e.Start)}; --block: ${subj?.Color || 'var(--muted)'};`}
+              class:truncated={e.End > BOARD_END_MIN}
+              style={`grid-column: ${dayCol(e.Weekday)}; grid-row: ${rowOf(e.Start)} / span ${spanOf(clippedEnd(e) - e.Start)}; --block: ${subj?.Color || 'var(--muted)'};`}
               aria-label={`${subj?.Name ?? $t.common.noData} ${teacherName(e.TeacherID)} ${dayLabel(e.Weekday)} ${rangeLabel(e.Start, e.End)}`}
               on:click={() => openEdit(e)}
             >
@@ -1070,6 +1086,9 @@
     border-color: var(--accent);
     pointer-events: none;
     animation: ghostin 0.15s ease both;
+  }
+  .block.truncated {
+    border-bottom: 3px dashed var(--block);
   }
   .block.ghost.fadeout {
     animation: ghostout 0.22s ease both;
