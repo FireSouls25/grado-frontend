@@ -188,6 +188,8 @@ export interface ScheduleEntry {
   Weekday: number;
   Start: number;
   End: number;
+  /** Taller conjunto: bloques con la misma llave son una sola clase. */
+  JointID: string;
 }
 
 export interface ScheduleInput {
@@ -197,6 +199,8 @@ export interface ScheduleInput {
   weekday: number;
   start: string;
   end: string;
+  /** Enlaza como taller conjunto con estos bloques existentes. */
+  jointWith?: string[];
 }
 
 /** Weekly slots filtered by teacher and/or salon, optionally one weekday.
@@ -217,6 +221,23 @@ export async function scheduleEntries(filter: {
  *  fail with stable 400 codes the editor renders inline. */
 export async function createEntry(input: ScheduleInput): Promise<ScheduleEntry> {
   return api.post<ScheduleEntry>('/v1/schedule', input);
+}
+
+/** Teacher entries overlapping a probe slot: the same detection creation
+ *  runs, read-only. Backs the joint-workshop offer. */
+export async function scheduleConflicts(filter: {
+  teacherID: string;
+  weekday: number;
+  start: string;
+  end: string;
+}): Promise<ScheduleEntry[]> {
+  const q = new URLSearchParams({
+    teacherID: filter.teacherID,
+    weekday: String(filter.weekday),
+    start: filter.start,
+    end: filter.end
+  });
+  return (await api.get<ScheduleEntry[]>(`/v1/schedule/conflicts?${q.toString()}`)) ?? [];
 }
 
 /** Replaces one weekly slot, re-checking everything. */

@@ -308,6 +308,35 @@
     return want;
   };
   $: subjectOf = (id: string) => subjectsList.find((s) => s.ID === id);
+  // Salones del mismo taller: agrupa por llave conjunta con las listas
+  // del docente (los hermanos viven en otros salones).
+  let jointGroups: Record<string, string[]> = {};
+  let jointReq = 0;
+  async function loadJointGroups() {
+    const mine = ++jointReq;
+    const ids = [...new Set(entries.filter((e) => e.JointID).map((e) => e.JointID))];
+    const out: Record<string, string[]> = {};
+    for (const jid of ids) {
+      const labels = new Set<string>();
+      for (const e of entries.filter((e) => e.JointID === jid)) {
+        const g = groups.find((g) => g.GroupID === e.ClassGroupID);
+        labels.add(g ? g.ClassLabel : e.ClassGroupID.slice(0, 8));
+      }
+      const owners = [...new Set(entries.filter((e) => e.JointID === jid).map((e) => e.TeacherID))];
+      for (const t of owners) {
+        const list = (await guarded(() => fetchTeacherEntries(t))) ?? [];
+        if (mine !== jointReq) return;
+        for (const e of list.filter((e) => e.JointID === jid)) {
+          const g = groups.find((g) => g.GroupID === e.ClassGroupID);
+          labels.add(g ? g.ClassLabel : e.ClassGroupID.slice(0, 8));
+        }
+      }
+      out[jid] = [...labels].sort((a, b) => a.localeCompare(b, 'es'));
+    }
+    if (mine === jointReq) jointGroups = out;
+  }
+  $: if (entries) void loadJointGroups();
+  $: jointLabel = (jid: string) => (jointGroups[jid] ?? []).join(', ');
   // Fuera del rango visible (después de las 3 PM): no se pintan para no
   // romper la grilla; se avisa con el conteo.
   $: visibleEntries = entries.filter((e) => e.End <= BOARD_END_MIN);
@@ -496,6 +525,9 @@
               <strong>{subj?.Name ?? '—'}</strong>
               <small>{rangeLabel(e.Start, e.End)}</small>
               <small class="t">{teacherName(e.TeacherID)}</small>
+              {#if e.JointID}
+                <small class="t joint">{$t.admin.jointBadge}: {jointLabel(e.JointID)}</small>
+              {/if}
             </button>
           {/each}
         </div>

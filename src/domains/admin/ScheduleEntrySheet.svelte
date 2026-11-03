@@ -165,7 +165,7 @@
     phase = 'confirm';
   }
 
-  async function save() {
+  async function save(jointWith: string[] = []) {
     saving = true;
     error = '';
     const input = {
@@ -174,18 +174,38 @@
       subjectID,
       weekday,
       start: toClock(startMin),
-      end: toClock(endMin)
+      end: toClock(endMin),
+      ...(jointWith.length ? { jointWith } : {})
     };
     try {
       if (editingId) await updateEntry(editingId, input);
       else await createEntry(input);
       onSaved(editingId ? 'updated' : 'created');
     } catch (err) {
-      error = err instanceof ApiError ? err.message : $t.common.loadError;
-      phase = 'edit';
+      if (
+        !editingId &&
+        err instanceof ApiError &&
+        (err.code === 'schedules.err_teacher_conflict' || err.code === 'schedules.err_class_conflict')
+      ) {
+        // El choque llegó del servidor: recarga choques y ofrece el
+        // taller conjunto sin volver al formulario.
+        error = err.message;
+        await loadTeacherEntries();
+      } else {
+        error = err instanceof ApiError ? err.message : $t.common.loadError;
+        phase = 'edit';
+      }
     } finally {
       saving = false;
     }
+  }
+
+  async function saveJoint() {
+    // Solo choques de docente sin choque de salón pueden ser conjunto:
+    // el mismo salón traslapado nunca se comparte.
+    const ids = teacherClashes.map((c) => c.ID);
+    if (!ids.length) return;
+    await save(ids);
   }
 
   async function remove() {
@@ -237,11 +257,19 @@
           <p>{$t.admin.conflictGroup}: {subjectOf(c.SubjectID)?.Name} · {teacherName(c.TeacherID)} · {dayLabel(c.Weekday)} {rangeLabel(c.Start, c.End)}</p>
         {/each}
       </div>
+      {#if !editingId && teacherClashes.length > 0 && groupClashes.length === 0}
+        <p class="muted">{$t.admin.jointExplains}</p>
+        <div class="actions">
+          <button class="ghost" type="button" on:click={saveJoint} disabled={saving}>
+            {$t.admin.jointCreate} ({teacherClashes.length})
+          </button>
+        </div>
+      {/if}
     {/if}
     {#if error}<p class="flash error" role="alert">{error}</p>{/if}
     <div class="actions">
       <button class="ghost" type="button" on:click={() => (phase = 'edit')}>{$t.admin.backToEdit}</button>
-      <button class="primary" type="button" on:click={save} disabled={saving}>
+      <button class="primary" type="button" on:click={() => save()} disabled={saving}>
         {saving ? $t.common.retrying : $t.admin.confirmAction}
       </button>
     </div>
