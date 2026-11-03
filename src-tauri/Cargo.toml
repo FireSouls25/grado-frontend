@@ -4,6 +4,10 @@ version = "0.1.0"
 description = "Grado: historial escolar (asistencia, faltas y convivencia)"
 edition = "2021"
 
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
