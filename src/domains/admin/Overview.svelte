@@ -211,6 +211,11 @@
   }
 
   async function loadReports() {
+    // Dos montajes (montaje + sesión lista) corren load() en paralelo:
+    // sin esta guarda ambas corridas suman al mismo conteo y el KPI
+    // muestra el doble (84/42). La corrida vieja se descarta.
+    const myRun = ++loadRun;
+    const stale = () => myRun !== loadRun;
     totals = { presences: 0, absences: 0, excused: 0, evasions: 0, lates: 0, sessions: 0 };
     salonRates = [];
     salonTotals = [];
@@ -227,6 +232,7 @@
     >();
     const labelOf = new Map(groups.map((g) => [g.GroupID, g.ClassLabel]));
     const settled = await mapSettled(groups, 5, (g) => classReport(g.GroupID));
+    if (stale()) return;
     settled.forEach((result) => {
       if (result.status !== 'fulfilled') return;
       const report = result.value;
