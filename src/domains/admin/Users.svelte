@@ -278,7 +278,9 @@ import Sheet from '$lib/ui/Sheet.svelte';
 
   $: sections = sectionOrder
     .map((key) => ({ key, title: sectionTitle(key), rows: visible.filter((u) => sectionOf(u) === key) }))
-    .filter((s) => s.rows.length > 0);
+    // La sección Docentes también existe cuando no hay cuentas de docente
+    // pero sí perfiles sin acceso: ellos se renderizan dentro de ella.
+    .filter((s) => s.rows.length > 0 || (s.key === 'teacher' && visibleUnlinked.length > 0));
 
   async function toggleActive(u: UserAccount) {
     if (acting) return;
@@ -394,7 +396,7 @@ import Sheet from '$lib/ui/Sheet.svelte';
         <section class="role-section" aria-label={section.title}>
           <div class="section-head">
             <h2>{section.title}</h2>
-            <span class="count" role="status">{$t.users.count(section.rows.length)}</span>
+            <span class="count" role="status">{$t.users.count(section.rows.length + (section.key === 'teacher' ? visibleUnlinked.length : 0))}</span>
           </div>
           <ul class="roster">
             {#each section.rows as u (u.ID)}
