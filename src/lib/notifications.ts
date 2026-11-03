@@ -105,30 +105,38 @@ function createEngine() {
   const { subscribe, set, update } = writable<EngineState>({ notices: [], unread: 0, loading: false });
   let timer: ReturnType<typeof setInterval> | null = null;
 
+  // Abrir el panel quita el contador pero CONSERVA la lista: el bug
+  // era vaciarla al abrir y mostrar "sin avisos" con campana encendida.
   function markSeen() {
     update((s) => {
       const dismissed = loadDismissed();
       for (const n of s.notices) dismissed[n.id] = n.sig;
       saveDismissed(dismissed);
-      return { notices: [], unread: 0, loading: s.loading };
+      return { notices: s.notices, unread: 0, loading: s.loading };
     });
   }
 
+  // "Marcar leídas" vacía además el panel; la lista se reconstruye sola
+  // con el estado fresco (solo vuelve lo que siga vigente).
+  function clearSeen() {
+    markSeen();
+    update((s) => ({ notices: [], unread: 0, loading: s.loading }));
+  }
+
   function pushNotices(items: Notice[]) {
-    const dismissed = loadDismissed();
     update((s) => {
+      const dismissed = loadDismissed();
       const known = new Map(s.notices.map((n) => [n.id, n]));
+      // La lista es siempre el estado fresco (nunca se vacía por abrir
+      // el panel); la campana solo cuenta lo no visto.
+      const fresh: Notice[] = [];
       for (const item of items) {
-        // Un aviso descartado solo revive si su contenido cambio
-        // (misma alerta, situacion nueva) o si es un evento nuevo.
-        if (dismissed[item.id] === item.sig) continue;
-        delete dismissed[item.id];
         const prev = known.get(item.id);
-        known.set(item.id, prev && prev.sig === item.sig ? { ...item, at: prev.at } : item);
+        fresh.push(prev && prev.sig === item.sig ? { ...item, at: prev.at } : item);
       }
-      saveDismissed(dismissed);
-      const notices = [...known.values()].sort((a, b) => b.at - a.at).slice(0, 50);
-      return { notices, unread: notices.length, loading: s.loading };
+      const notices = fresh.sort((a, b) => b.at - a.at).slice(0, 50);
+      const unread = notices.filter((n) => dismissed[n.id] !== n.sig).length;
+      return { notices, unread, loading: s.loading };
     });
   }
 
@@ -295,7 +303,7 @@ function createEngine() {
     }
   }
 
-  return { subscribe, start, stop, refresh, markSeen };
+  return { subscribe, start, stop, refresh, markSeen, clearSeen };
 }
 
 export const notifications = createEngine();

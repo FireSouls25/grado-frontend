@@ -12,13 +12,15 @@ import { session } from '../../domains/auth/session';
   export let settings = true;
   export let help = true;
 
-  const order = ['light', 'dark', 'auto'] as const;
+  const order = ['light', 'dark'] as const;
   function cycleTheme() {
-    const next = order[(order.indexOf($theme) + 1) % order.length];
+    // Solo claro/oscuro: 'auto' vive en Ajustes; ciclarlo aquí parecía
+    // exigir dos clics (con sistema en oscuro, auto se ve igual).
+    const next = $theme === 'light' ? 'dark' : 'light';
     theme.set(next);
   }
 
-  const themeIcon = () => ($theme === 'light' ? 'sun' : $theme === 'dark' ? 'moon' : 'auto');
+  const themeIcon = () => ($theme === 'dark' ? 'moon' : 'sun');
 
   let panelOpen = false;
   let panel: HTMLDivElement | null = null;
@@ -100,7 +102,7 @@ import { session } from '../../domains/auth/session';
       <div class="panel" role="dialog" aria-label={$t.notifications.title}>
         <div class="panelhead">
           <strong>{$t.notifications.title}</strong>
-          <button type="button" class="mark" on:click={() => notifications.markSeen()}>
+          <button type="button" class="mark" on:click={() => notifications.clearSeen()}>
             {$t.notifications.markAllRead}
           </button>
         </div>
