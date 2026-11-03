@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="es">
   <head>
+    <!-- Fuentes críticas antes del primer pintado: evita el destello
+      de texto (FOUT) que choca con las animaciones de entrada. -->
+    <link rel="preload" href="/fonts/ibm-plex-sans-400-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/ibm-plex-sans-400-latin-ext.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/ibm-plex-sans-600-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/ibm-plex-sans-600-latin-ext.woff2" as="font" type="font/woff2" crossorigin />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#f4f6f8" />
