@@ -57,6 +57,45 @@ export async function classRoster(groupID: string): Promise<RosterEntry[]> {
   );
 }
 
+/** Bloque crudo de horario tal como lo devuelve el backend: la clase y la
+ *  materia son ids, la hora son minutos desde la medianoche (420 = 07:00).
+ *  Las etiquetas legibles se resuelven aparte con los catálogos reales. */
+export interface ScheduleEntry {
+  ID: string;
+  ClassGroupID: string;
+  TeacherID: string;
+  SubjectID: string;
+  Weekday: number;
+  Start: number; // minutes since midnight
+  End: number;
+}
+
+/** Weekly schedule entries for a weekday (real backend shape). */
+export async function dayScheduleOn(weekday: number): Promise<ScheduleEntry[]> {
+  return (await api.get<ScheduleEntry[]>(`/v1/teachers/me/schedule?weekday=${weekday}`)) ?? [];
+}
+
+export interface ClassGroupRow {
+  ID: string;
+  Grade: number;
+  GroupNo: number;
+}
+
+/** Catálogo de salones del año; el docente lo puede leer (view-class-stats). */
+export async function listClasses(year: number): Promise<ClassGroupRow[]> {
+  return (await api.get<ClassGroupRow[]>(`/v1/classes?year=${year}`)) ?? [];
+}
+
+export interface SubjectRow {
+  ID: string;
+  Name: string;
+}
+
+/** Catálogo de materias; el docente lo puede leer (view-class-stats). */
+export async function listSubjects(): Promise<SubjectRow[]> {
+  return (await api.get<SubjectRow[]>('/v1/subjects')) ?? [];
+}
+
 export async function openSession(groupID: string): Promise<SessionDetail> {
   return api.post<SessionDetail>('/v1/sessions/open', { classGroupID: groupID });
 }

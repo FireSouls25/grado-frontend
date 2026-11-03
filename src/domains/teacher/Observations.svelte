@@ -9,14 +9,18 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import TeacherTabs from './TeacherTabs.svelte';
   import {
-    daySchedule,
+    dayScheduleOn,
+    listClasses,
+    listSubjects,
     classRoster,
     getObservationCatalog,
     myObservations,
     recordObservation,
     isMissing,
     type Situation,
-    type ObservationRow
+    type ObservationRow,
+    type ClassGroupRow,
+    type SubjectRow
   } from './api';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
@@ -109,18 +113,49 @@
 
   async function loadClasses() {
     try {
-      const weekday = new Date().getDay() >= 1 && new Date().getDay() <= 5 ? new Date().getDay() : 1;
-      const list = await guarded(() => daySchedule(weekday));
-      dayScheduleClasses = (list ?? []).map((c) => ({
-        GroupID: c.GroupID,
-        ClassLabel: c.ClassLabel,
-        SubjectName: c.SubjectName
+      const today = new Date();
+      const weekday = today.getDay() >= 1 && today.getDay() <= 5 ? today.getDay() : 1;
+      const entries = (await guarded(() => dayScheduleOn(weekday))) ?? [];
+      if (entries.length === 0) {
+        dayScheduleClasses = [];
+        return;
+      }
+      // Etiquetas legibles solo de los catálogos reales del backend.
+      [groups, subs] = await Promise.all([
+        (await guarded(() => listClasses(today.getFullYear()))) ?? [],
+        (await guarded(() => listSubjects())) ?? []
+      ]);
+      // Dedup por salón manteniendo el orden por hora: un docente puede
+      // tener dos bloques con la misma clase el mismo día.
+      const seen = new Map<string, string[]>();
+      for (const e of [...entries].sort((a, b) => a.Start - b.Start)) {
+        const names = seen.get(e.ClassGroupID) ?? [];
+        seen.set(e.ClassGroupID, names);
+        const name = subjectName(e.SubjectID);
+        if (name && !names.includes(name)) names.push(name);
+      }
+      dayScheduleClasses = [...seen.entries()].map(([id, subjects]) => ({
+        GroupID: id,
+        ClassLabel: groupLabel(id),
+        SubjectName: subjects.join(', ')
       }));
     } catch {
       // Sin horario del día igual se puede registrar: la clase es opcional
       // en el backend, pero ofrecemos primero las reales del docente.
       dayScheduleClasses = [];
     }
+  }
+
+  // Catálogos de etiquetas (cargados una sola vez por sesión de página).
+  let groups: ClassGroupRow[] = [];
+  let subs: SubjectRow[] = [];
+  function groupLabel(groupID: string): string {
+    const found = groups.find((g) => g.ID === groupID);
+    return found ? `${found.Grade}-${found.GroupNo}` : '';
+  }
+  function subjectName(subjectID: string): string {
+    const found = subs.find((s) => s.ID === subjectID);
+    return found ? found.Name : '';
   }
 
   async function openForm() {
