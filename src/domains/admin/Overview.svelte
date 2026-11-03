@@ -16,6 +16,7 @@
   import { theme, type Theme } from '$lib/theme/theme';
   import { ApiError } from '$lib/api/types';
   import { guarded } from '$lib/nav';
+  import { foldSearch } from '$lib/search';
   import { profile } from '$lib/shell/profile';
   import { canManageUsers } from '$lib/access';
   import { mapSettled } from '$lib/async';
@@ -697,7 +698,36 @@
   });
 
   $: q = search.trim().toLowerCase();
+  $: fq = foldSearch(search.trim());
   $: visibleRisk = risk.filter((r) => (q ? r.name.toLowerCase().includes(q) : true));
+  // Spotlight: coincidencias separadas por categoría sobre lo ya
+  // cargado (riesgo, llamados, docentes, salones, clases de hoy).
+  $: spot = !fq
+    ? null
+    : {
+        students: risk
+          .filter((r) => foldSearch(r.name).includes(fq))
+          .slice(0, 5),
+        warnings: warnings
+          .filter((w) => foldSearch(`${w.StudentName} ${w.Title} ${w.ClassLabel}`).includes(fq))
+          .slice(0, 5),
+        teachers: teacherList
+          .filter((x) => foldSearch(`${x.Names} ${x.Surnames}`).includes(fq))
+          .slice(0, 5),
+        groups: groups
+          .filter((g) => foldSearch(g.ClassLabel).includes(fq))
+          .slice(0, 5),
+        classes: todayClasses
+          .filter((c) => foldSearch(`${c.label} ${c.subject} ${c.teacher}`).includes(fq))
+          .slice(0, 5)
+      };
+  $: spotEmpty =
+    spot !== null &&
+    spot.students.length === 0 &&
+    spot.warnings.length === 0 &&
+    spot.teachers.length === 0 &&
+    spot.groups.length === 0 &&
+    spot.classes.length === 0;
   $: openTasks = tasks.filter((t) => !t.done).length;
 
   $: scopeOptions = [
@@ -852,6 +882,79 @@
     </div>
 
     <div class="content">
+      {#if spot !== null}
+        <section class="sheet spot" aria-label={$t.admin.consoleSearchLabel}>
+          {#if spotEmpty}
+            <EmptyState icon="search" title={$t.admin.spotEmpty} body={search} />
+          {:else}
+            {#if spot.students.length > 0}
+              <p class="spothead">{$t.admin.spotStudents}</p>
+              <ul class="spotlist">
+                {#each spot.students as r (r.id)}
+                  <li><button
+                    type="button"
+                    on:click={() => {
+                      search = '';
+                      push(`/admin/estudiantes/${encodeURIComponent(r.slug || r.id)}`);
+                    }}>{r.name}</button></li>
+                {/each}
+              </ul>
+            {/if}
+            {#if spot.warnings.length > 0}
+              <p class="spothead">{$t.admin.spotWarnings}</p>
+              <ul class="spotlist">
+                {#each spot.warnings as w (w.ID)}
+                  <li><button
+                    type="button"
+                    on:click={() => {
+                      search = '';
+                      push('/admin/llamados');
+                    }}>{w.StudentName} · {w.Title} · {w.ClassLabel}</button></li>
+                {/each}
+              </ul>
+            {/if}
+            {#if spot.teachers.length > 0}
+              <p class="spothead">{$t.admin.spotTeachers}</p>
+              <ul class="spotlist">
+                {#each spot.teachers as x (x.ID)}
+                  <li><button
+                    type="button"
+                    on:click={() => {
+                      search = '';
+                      push(`/admin/docentes/${encodeURIComponent(x.Slug || x.ID)}`);
+                    }}>{x.Surnames}, {x.Names}</button></li>
+                {/each}
+              </ul>
+            {/if}
+            {#if spot.groups.length > 0}
+              <p class="spothead">{$t.admin.spotGroups}</p>
+              <ul class="spotlist">
+                {#each spot.groups as g (g.GroupID)}
+                  <li><button
+                    type="button"
+                    on:click={() => {
+                      search = '';
+                      push('/admin/estudiantes');
+                    }}>{g.ClassLabel}</button></li>
+                {/each}
+              </ul>
+            {/if}
+            {#if spot.classes.length > 0}
+              <p class="spothead">{$t.admin.spotClasses}</p>
+              <ul class="spotlist">
+                {#each spot.classes as c (c.gid + c.start)}
+                  <li><button
+                    type="button"
+                    on:click={() => {
+                      search = '';
+                      push('/admin/horario');
+                    }}>{c.label} · {c.subject} · {c.teacher}</button></li>
+                {/each}
+              </ul>
+            {/if}
+          {/if}
+        </section>
+      {/if}
       <div class="feed">
         <div class="sheet">
           {#if state === 'loading'}
@@ -1277,6 +1380,40 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+  }
+  /* Spotlight: coincidencias separadas por categoría. */
+  .spot {
+    gap: 6px;
+  }
+  .spothead {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 8px 0 0;
+  }
+  .spothead:first-child {
+    margin-top: 0;
+  }
+  .spotlist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .spotlist button {
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+  .spotlist button:hover {
+    background: var(--surface-2);
   }
   /* Divided KPI strip: 5 equal cells in one flat container */
   .kpi-strip {

@@ -12,6 +12,7 @@
   import { ApiError } from '$lib/api/types';
   import { foldSearch } from '$lib/search';
   import { situationText, kindChip, todayISO } from './situations';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
 
   // Llamado de atención en popup grande desde la agenda: mismo lenguaje
   // y mismo guardado que la pantalla /llamado/:groupID (POST
@@ -48,6 +49,15 @@
 
   $: textOf = (id: string) => situationText($t.obs.situations, id);
   $: chosenKind = catalog.find((s) => s.ID === situationID)?.Kind ?? 0;
+  $: situationOptions = [1, 2, 3].flatMap((k) =>
+    catalog
+      .filter((s) => s.Kind === k)
+      .map((s) => ({
+        value: s.ID,
+        label: `${s.ID} · ${textOf(s.ID)}`,
+        group: k === 1 ? $t.obs.situationGroupOne : k === 2 ? $t.obs.situationGroupTwo : $t.obs.situationGroupThree
+      }))
+  );
   $: visible = roster.filter((r) =>
     query.trim() ? foldSearch(`${r.Surnames} ${r.Names}`).includes(foldSearch(query.trim())) : true
   );
@@ -165,30 +175,16 @@
     <div class="grid">
       <section class="fields">
         <p class="origin">{originLabel || groupID}</p>
-        <label class="field">
-          <span class="label">{$t.obs.fSituation} *</span>
-          <span class="select-wrap">
-            <select bind:value={situationID} aria-label={$t.obs.fSituation}>
-              <option value="">{`— ${$t.obs.pickSituation} —`}</option>
-              <optgroup label={$t.obs.situationGroupOne}>
-                {#each catalog.filter((s) => s.Kind === 1) as s (s.ID)}
-                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
-                {/each}
-              </optgroup>
-              <optgroup label={$t.obs.situationGroupTwo}>
-                {#each catalog.filter((s) => s.Kind === 2) as s (s.ID)}
-                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
-                {/each}
-              </optgroup>
-              <optgroup label={$t.obs.situationGroupThree}>
-                {#each catalog.filter((s) => s.Kind === 3) as s (s.ID)}
-                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
-                {/each}
-              </optgroup>
-            </select>
-            <span class="chev" aria-hidden="true"><Icon name="next" /></span>
-          </span>
-        </label>
+        <Dropdown
+          label={$t.obs.fSituation}
+          value={situationID}
+          options={situationOptions}
+          placeholder={$t.obs.pickSituation}
+          searchable
+          searchPlaceholder={$t.obs.pickSituation}
+          wrap
+          on:select={(e) => (situationID = e.detail)}
+        />
         {#if chosenKind}
           <p class="hint">
             <span class={`chip ${kindChip(chosenKind)}`}>{$t.obs.kindLabel[chosenKind]}</span>
@@ -309,30 +305,8 @@
     outline: 2px solid var(--accent);
     outline-offset: 0;
   }
-  .select-wrap {
-    position: relative;
-    display: block;
-  }
-  .select-wrap select {
-    width: 100%;
-    appearance: none;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--surface-2);
-    color: var(--ink);
-    padding: 10px 36px 10px 12px;
-    font: inherit;
-    font-size: 0.85rem;
-    min-height: 44px;
-  }
-  .chev {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%) rotate(90deg);
+  .hint small {
     color: var(--muted);
-    pointer-events: none;
-    display: inline-flex;
   }
   .hint {
     display: flex;

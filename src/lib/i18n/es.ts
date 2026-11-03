@@ -412,8 +412,7 @@ export const es = {
       'El estudiante persistió en el uso de dispositivos móviles y juegos de mesa no autorizados durante el desarrollo de la explicación de Mecánica de Fluidos, ignorando las advertencias directas en tres oportunidades.',
     eyebrow: 'Consola docente',
     noRosterTitle: 'Salón sin lista',
-    noRosterBody:
-      'El backend aún no expone la nómina de este salón, así que no se puede registrar el llamado.',
+    noRosterBody: 'No hay estudiantes registrados en este salón.',
     pendingBackend:
       'El backend aún no expone el registro de llamados; nada se envió.',
     cancel: 'Cancelar',
@@ -1101,6 +1100,12 @@ export const es = {
     consoleEyebrow: 'Consola del colegio',
     consoleSearch: 'Buscar estudiante o salón…',
     consoleSearchLabel: 'Buscar en la consola',
+    spotStudents: 'Estudiantes',
+    spotWarnings: 'Llamados',
+    spotTeachers: 'Docentes',
+    spotGroups: 'Salones',
+    spotClasses: 'Clases de hoy',
+    spotEmpty: 'Sin coincidencias en el resumen.',
     schoolName: 'Nuestra Señora de Guadalupe',
     manageTitle: 'Gestionar',
     navYears: 'Años lectivos',

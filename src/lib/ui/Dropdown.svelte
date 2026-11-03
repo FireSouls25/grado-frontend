@@ -5,6 +5,8 @@
   interface DropOption {
     value: string;
     label: string;
+    /** Agrupador opcional: pinta cabecera antes del primer ítem del grupo. */
+    group?: string;
   }
 
   export let label: string = '';
@@ -16,6 +18,8 @@
   export let searchPlaceholder = '';
   export let emptyLabel = '—';
   export let disabled = false;
+  /** Permite varias líneas por opción (situaciones largas del manual). */
+  export let wrap = false;
 
   const dispatch = createEventDispatcher<{ select: string }>();
 
@@ -27,6 +31,18 @@
   $: q = query.trim().toLowerCase();
   $: shown = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
   $: current = options.find((o) => o.value === value);
+  // Cabeceras en orden de aparición; el buscador aplana (sin grupos).
+  $: blocks = (() => {
+    if (q) return [{ group: '', items: shown }];
+    const out: { group: string; items: typeof shown }[] = [];
+    for (const o of shown) {
+      const g = o.group ?? '';
+      const last = out[out.length - 1];
+      if (last && last.group === g) last.items.push(o);
+      else out.push({ group: g, items: [o] });
+    }
+    return out;
+  })();
 
   function openMenu() {
     open = true;
@@ -92,21 +108,27 @@
         <p class="empty">{emptyLabel}</p>
       {:else}
         <ul>
-          {#each shown as option, i}
-            <li>
-              <button
-                type="button"
-                role="option"
-                aria-selected={option.value === value}
-                class:on={option.value === value}
-                class:hl={i === highlighted}
-                on:click={() => choose(option.value)}
-                on:mousemove={() => (highlighted = i)}
-              >
-                <span>{option.label}</span>
-                {#if option.value === value}<Icon name="check" />{/if}
-              </button>
-            </li>
+          {#each blocks as block}
+            {#if block.group}
+              <li class="ghead" aria-hidden="true">{block.group}</li>
+            {/if}
+            {#each block.items as option, i}
+              <li>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={option.value === value}
+                  class:on={option.value === value}
+                  class:wrap={wrap}
+                  class:hl={option.value === (shown[highlighted]?.value ?? '::none::')}
+                  on:click={() => choose(option.value)}
+                  on:mousemove={() => (highlighted = shown.indexOf(option))}
+                >
+                  <span>{option.label}</span>
+                  {#if option.value === value}<Icon name="check" />{/if}
+                </button>
+              </li>
+            {/each}
           {/each}
         </ul>
       {/if}
@@ -246,9 +268,28 @@
   li button span {
     flex: 1;
     min-width: 0;
+  }
+  li button:not(.wrap) span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  li button.wrap span {
+    /* Las situaciones del manual son largas: varias líneas, sin recorte. */
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+  .ghead {
+    position: sticky;
+    top: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    background: var(--surface);
+    padding: 8px 10px 4px;
   }
   li button :global(svg) {
     width: 15px;

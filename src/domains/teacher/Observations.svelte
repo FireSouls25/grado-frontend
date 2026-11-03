@@ -24,6 +24,7 @@
   } from './api';
   import { guarded } from '$lib/nav';
   import { situationText, kindChip, todayISO } from './situations';
+  import Dropdown from '$lib/ui/Dropdown.svelte';
   import { ApiError } from '$lib/api/types';
   import type { RosterEntry } from '$lib/api/types';
 
@@ -32,6 +33,15 @@
   // Textos del manual: el id s{tipo}-{n} se resuelve por posición.
   const situations: string[] = $t.obs.situations;
   const textOf = (id: string) => situationText(situations, id);
+  $: situationOptions = [1, 2, 3].flatMap((k) =>
+    catalog
+      .filter((s) => s.Kind === k)
+      .map((s) => ({
+        value: s.ID,
+        label: `${s.ID} · ${textOf(s.ID)}`,
+        group: k === 1 ? $t.obs.situationGroupOne : k === 2 ? $t.obs.situationGroupTwo : $t.obs.situationGroupThree
+      }))
+  );
 
   let loading = true;
   let loadError: unknown = null;
@@ -330,36 +340,22 @@
           {/if}
         </label>
 
-        <label class="field">
-          <span class="label">{$t.obs.fSituation} *</span>
-          <span class="select-wrap">
-            <select bind:value={situationID} aria-label={$t.obs.fSituation}>
-              <option value="">{$t.obs.pickSituation}</option>
-              <optgroup label={$t.obs.situationGroupOne}>
-                {#each catalog.filter((s) => s.Kind === 1) as s (s.ID)}
-                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
-                {/each}
-              </optgroup>
-              <optgroup label={$t.obs.situationGroupTwo}>
-                {#each catalog.filter((s) => s.Kind === 2) as s (s.ID)}
-                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
-                {/each}
-              </optgroup>
-              <optgroup label={$t.obs.situationGroupThree}>
-                {#each catalog.filter((s) => s.Kind === 3) as s (s.ID)}
-                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
-                {/each}
-              </optgroup>
-            </select>
-            <span class="chev" aria-hidden="true"><Icon name="next" /></span>
-          </span>
-          {#if chosenSituationKind}
-            <p class="hint">
-              <span class={`chip ${kindChip(chosenSituationKind)}`}>{$t.obs.kindLabel[chosenSituationKind]}</span>
-              <small>{$t.obs.kindIntro[chosenSituationKind]}</small>
-            </p>
-          {/if}
-        </label>
+        <Dropdown
+          label={$t.obs.fSituation}
+          value={situationID}
+          options={situationOptions}
+          placeholder={$t.obs.pickSituation}
+          searchable
+          searchPlaceholder={$t.obs.pickSituation}
+          wrap
+          on:select={(e) => (situationID = e.detail)}
+        />
+        {#if chosenSituationKind}
+          <p class="hint">
+            <span class={`chip ${kindChip(chosenSituationKind)}`}>{$t.obs.kindLabel[chosenSituationKind]}</span>
+            <small>{$t.obs.kindIntro[chosenSituationKind]}</small>
+          </p>
+        {/if}
 
         <label class="field">
           <span class="label">{$t.obs.fDate}</span>
