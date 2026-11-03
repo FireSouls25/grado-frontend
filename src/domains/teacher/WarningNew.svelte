@@ -8,11 +8,13 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import TeacherShell from './TeacherShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import { classRoster, isMissing, issueWarnings } from './api';
+  import { classRoster, isMissing, getObservationCatalog, recordObservation } from './api';
+  import type { Situation } from './api';
   import { resolveId } from '$lib/slug';
   import type { RosterEntry } from '$lib/api/types';
   import { guarded, goBack } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
+  import { situationText, kindChip, todayISO } from './situations';
 
   export let params: { groupID?: string } = {};
   export let querystring: string = '';
@@ -41,14 +43,15 @@
   let loading = true;
   let roster: RosterEntry[] = [];
 
-  let title = '';
   let studentID = '';
-  let gravity: 'mild' | 'moderate' | 'severe' = 'mild';
-  let description = '';
+  // La situación manda: el servidor decide el tipo.
+  let catalog: Situation[] = [];
+  let situationID = '';
+  let note = '';
+  let date = todayISO();
 
-  $: titleOptions = [...$t.warning.titleOptions];
-  $: if (!title && titleOptions.length > 0) title = titleOptions[0];
-  $: if (!description) description = $t.warning.descDefault;
+  $: textOf = (id: string) => situationText($t.obs.situations, id);
+  $: chosenKind = catalog.find((s) => s.ID === situationID)?.Kind ?? 0;
 
   let saving = false;
   let saved = false;
@@ -65,18 +68,15 @@
     return `${r.StudentID}  ${r.Surnames}, ${r.Names} (${groupID})`;
   }
 
-  function sevClass(g: typeof gravity): 'leve' | 'medio' | 'grave' {
-    return g === 'severe' ? 'grave' : g === 'moderate' ? 'medio' : 'leve';
-  }
-
-  function sevName(g: typeof gravity): string {
-    return g === 'severe' ? $t.warning.severitySevere : g === 'moderate' ? $t.warning.severityModerate : $t.warning.severityMild;
-  }
-
   async function load() {
     loading = true;
     try {
       groupID = await resolveId(decodeURIComponent(params.groupID ?? ''));
+      try {
+        catalog = (await getObservationCatalog()) ?? [];
+      } catch {
+        catalog = [];
+      }
       const data = await guarded(() => classRoster(groupID));
       if (data === null) return;
       roster = [...data].sort(bySurname);
@@ -97,7 +97,7 @@
     return `/clase/${encodeURIComponent(groupID)}${q}`;
   }
 
-  $: valid = title.trim().length > 0 && studentID.length > 0 && description.trim().length > 0 && roster.length > 0;
+  $: valid = situationID.length > 0 && studentID.length > 0 && roster.length > 0;
 
   async function save() {
     feedback = '';
@@ -106,16 +106,15 @@
     if (!valid || saving) return;
     saving = true;
     try {
-      const target = roster.find((r) => r.StudentID === studentID);
-      await issueWarnings({
-        studentIDs: target ? [target.StudentID] : [],
-        classID: groupID,
-        title: title.trim(),
-        gravity,
-        description: description.trim()
+      await recordObservation({
+        studentID,
+        classGroupID: groupID || undefined,
+        situationID,
+        note: note.trim() || undefined,
+        date: date || undefined
       });
       saved = true;
-      feedback = $t.warning.saved;
+      feedback = $t.obs.saved;
     } catch (err) {
       if (err instanceof ApiError && isMissing(err)) {
         // Backend sin ruta todavía: se dice, no se finge el guardado.
@@ -133,7 +132,7 @@
 
 <TeacherShell active="agenda">
   <div class="warning">
-  <TopBar title={$t.warning.title} subtitle={originLabel} showBack onBack={() => goBack(detailHref())}><TopActions /></TopBar>
+  <TopBar title={$t.obs.formTitle} subtitle={originLabel} showBack onBack={() => goBack(detailHref())}><TopActions /></TopBar>
 
   <div class="sheet">
     {#if loading}
@@ -156,16 +155,35 @@
 
         <section class="card form">
           <label class="field">
-            <span class="label">{$t.warning.titleLabel} *</span>
+            <span class="label">{$t.obs.fSituation} *</span>
             <span class="select-wrap">
-              <select bind:value={title} aria-label={$t.warning.titleLabel}>
-                {#each titleOptions as opt}
-                  <option value={opt}>{opt}</option>
-                {/each}
+              <select bind:value={situationID} aria-label={$t.obs.fSituation}>
+                <option value="">{`— ${$t.obs.pickSituation} —`}</option>
+                <optgroup label={$t.obs.situationGroupOne}>
+                  {#each catalog.filter((s) => s.Kind === 1) as s (s.ID)}
+                    <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
+                  {/each}
+                </optgroup>
+                <optgroup label={$t.obs.situationGroupTwo}>
+                  {#each catalog.filter((s) => s.Kind === 2) as s (s.ID)}
+                    <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
+                  {/each}
+                </optgroup>
+                <optgroup label={$t.obs.situationGroupThree}>
+                  {#each catalog.filter((s) => s.Kind === 3) as s (s.ID)}
+                    <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
+                  {/each}
+                </optgroup>
               </select>
               <span class="chev" aria-hidden="true"><Icon name="next" /></span>
             </span>
           </label>
+          {#if chosenKind}
+            <p class="hint">
+              <span class={`chip ${kindChip(chosenKind)}`}>{$t.obs.kindLabel[chosenKind]}</span>
+              <small>{$t.obs.kindIntro[chosenKind]}</small>
+            </p>
+          {/if}
 
           <label class="field">
             <span class="label">{$t.warning.studentLabel} *</span>
@@ -179,43 +197,14 @@
             </span>
           </label>
 
-          <div class="field">
-            <span class="label" id="severity-label">{$t.warning.severityLabel} *</span>
-            <div class="seg" role="group" aria-labelledby="severity-label">
-              <button
-                type="button"
-                class="sevpill leve"
-                class:selected={gravity === 'mild'}
-                aria-pressed={gravity === 'mild'}
-                on:click={() => (gravity = 'mild')}
-              >
-                <i aria-hidden="true"></i>{$t.warning.severityMild}
-              </button>
-              <button
-                type="button"
-                class="sevpill medio"
-                class:selected={gravity === 'moderate'}
-                aria-pressed={gravity === 'moderate'}
-                on:click={() => (gravity = 'moderate')}
-              >
-                <i aria-hidden="true"></i>{$t.warning.severityModerate}
-              </button>
-              <button
-                type="button"
-                class="sevpill grave"
-                class:selected={gravity === 'severe'}
-                aria-pressed={gravity === 'severe'}
-                on:click={() => (gravity = 'severe')}
-              >
-                <i aria-hidden="true"></i>{$t.warning.severitySevere}
-              </button>
-            </div>
-            <p class="sevline">{$t.warning.severityLabel}: <span class={`sev ${sevClass(gravity)}`}><i aria-hidden="true"></i>{sevName(gravity)}</span></p>
-          </div>
+          <label class="field">
+            <span class="label">{$t.obs.fNote}</span>
+            <textarea rows={6} bind:value={note} placeholder={$t.obs.notePlaceholder}></textarea>
+          </label>
 
           <label class="field">
-            <span class="label">{$t.warning.descLabel} *</span>
-            <textarea rows={6} bind:value={description} placeholder={$t.warning.descPlaceholder}></textarea>
+            <span class="label">{$t.obs.fDate}</span>
+            <input type="date" bind:value={date} max={todayISO()} aria-label={$t.obs.fDate} />
           </label>
 
           {#if feedback}
@@ -228,9 +217,9 @@
           {/if}
 
           <div class="actions">
-            <button type="button" class="btn" on:click={() => push(detailHref())}>{$t.warning.cancel}</button>
+            <button type="button" class="btn" on:click={() => push(detailHref())}>{$t.obs.cancel}</button>
             <button type="button" class="btn btn-primary" disabled={!valid || saving} on:click={save}>
-              {saving ? $t.warning.saving : $t.warning.save}
+              {saving ? $t.obs.saving : $t.obs.save}
             </button>
           </div>
         </section>
@@ -342,86 +331,25 @@
     pointer-events: none;
     display: inline-flex;
   }
-  .seg {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
-    padding: 4px;
-  }
-  .sevpill {
-    min-height: 36px;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.82rem;
-    color: var(--muted);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-  }
-  .sevpill i {
-    width: 8px;
-    height: 8px;
-    border-radius: var(--radius-pill);
-    background: currentColor;
-  }
-  .sevpill.selected.leve {
-    background: var(--g-leve-bg);
-    color: var(--g-leve-ink);
-  }
-  .sevpill.selected.medio {
-    background: var(--g-medio-bg);
-    color: var(--g-medio-ink);
-  }
-  .sevpill.selected.grave {
-    background: var(--g-grave-bg);
-    color: var(--g-grave-ink);
-  }
-  .sevline {
-    color: var(--muted);
-    font-size: 0.78rem;
+  .hint {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin: 2px 0 0;
   }
-  .sev {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: capitalize;
-    border-radius: var(--radius-pill);
-    padding: 5px 12px 5px 8px;
+  .hint small {
+    color: var(--muted);
   }
-  .sev.leve {
-    background: var(--g-leve-bg);
-    color: var(--g-leve-ink);
-  }
-  .sev.medio {
-    background: var(--g-medio-bg);
-    color: var(--g-medio-ink);
-  }
-  .sev.grave {
-    background: var(--g-grave-bg);
-    color: var(--g-grave-ink);
-  }
-  .sev i {
-    width: 8px;
-    height: 8px;
-    border-radius: var(--radius-pill);
-  }
-  .sev.leve i {
-    background: var(--g-leve-ink);
-  }
-  .sev.medio i {
-    background: var(--g-medio-ink);
-  }
-  .sev.grave i {
-    background: var(--g-grave-ink);
+  input[type='date'] {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--control);
+    border-radius: var(--radius-control);
+    padding: 0 12px;
+    font-size: 0.85rem;
+    color: var(--ink);
+    min-height: var(--control-height);
+    font-family: inherit;
   }
   .form textarea {
     background: var(--surface);

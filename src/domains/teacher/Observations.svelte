@@ -23,30 +23,15 @@
     type SubjectRow
   } from './api';
   import { guarded } from '$lib/nav';
+  import { situationText, kindChip, todayISO } from './situations';
   import { ApiError } from '$lib/api/types';
   import type { RosterEntry } from '$lib/api/types';
 
   type KindFilter = 0 | 1 | 2 | 3; // 0 = Todas
 
-  // Textos de las situaciones ordenados como el manual: el id s{tipo}-{n}
-  // se resuelve con el bloque del tipo y la posición n (1-based).
-  const kindSize: Record<number, number> = { 1: 14, 2: 43, 3: 8 };
+  // Textos del manual: el id s{tipo}-{n} se resuelve por posición.
   const situations: string[] = $t.obs.situations;
-  function situationText(id: string): string {
-    const m = /^s([123])-(\d+)$/.exec(id);
-    if (!m) return '';
-    const kind = Number(m[1]);
-    const n = Number(m[2]);
-    const offset = kind === 1 ? 0 : kind === 2 ? 14 : 57;
-    if (n < 1 || n > (kindSize[kind] ?? 0)) return '';
-    return situations[offset + n - 1] ?? '';
-  }
-
-  // Paleta de severidad del proyecto: tipo I chip-sky (leve), II
-  // chip-yellow (medio), III chip-pink (grave). Nunca colores nuevos.
-  function kindChip(kind: number): 'chip-sky' | 'chip-yellow' | 'chip-pink' {
-    return kind === 3 ? 'chip-pink' : kind === 2 ? 'chip-yellow' : 'chip-sky';
-  }
+  const textOf = (id: string) => situationText(situations, id);
 
   let loading = true;
   let loadError: unknown = null;
@@ -66,12 +51,6 @@
   let saving = false;
   let feedback = '';
   let feedbackError = false;
-
-  function todayISO(): string {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  }
 
   interface AgendaClass {
     GroupID: string;
@@ -358,17 +337,17 @@
               <option value="">{$t.obs.pickSituation}</option>
               <optgroup label={$t.obs.situationGroupOne}>
                 {#each catalog.filter((s) => s.Kind === 1) as s (s.ID)}
-                  <option value={s.ID}>{s.ID} · {situationText(s.ID)}</option>
+                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
                 {/each}
               </optgroup>
               <optgroup label={$t.obs.situationGroupTwo}>
                 {#each catalog.filter((s) => s.Kind === 2) as s (s.ID)}
-                  <option value={s.ID}>{s.ID} · {situationText(s.ID)}</option>
+                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
                 {/each}
               </optgroup>
               <optgroup label={$t.obs.situationGroupThree}>
                 {#each catalog.filter((s) => s.Kind === 3) as s (s.ID)}
-                  <option value={s.ID}>{s.ID} · {situationText(s.ID)}</option>
+                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
                 {/each}
               </optgroup>
             </select>
@@ -422,7 +401,7 @@
     {:else}
       <ol class="bubbles">
         {#each visible as r (r.ID)}
-          {@const text = situationText(r.SituationID)}
+          {@const text = textOf(r.SituationID)}
           <li class="bubble">
             <span class={`chip ${kindChip(r.Kind)}`}>{$t.obs.kindLabel[r.Kind]}</span>
             <div class="btext">

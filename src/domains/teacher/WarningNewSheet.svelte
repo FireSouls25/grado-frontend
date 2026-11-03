@@ -5,12 +5,13 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
   import { notify } from '$lib/ui/notice';
-  import { classRoster, daySchedule, isMissing, issueWarnings } from './api';
+  import { classRoster, daySchedule, isMissing, getObservationCatalog, recordObservation } from './api';
   import type { RosterEntry } from '$lib/api/types';
-  import type { TeacherClass } from './api';
+  import type { TeacherClass, Situation } from './api';
   import { guarded } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { foldSearch } from '$lib/search';
+  import { situationText, kindChip, todayISO } from './situations';
 
   // Llamado de atención en popup grande desde la agenda: mismo lenguaje
   // y mismo guardado que la pantalla /llamado/:groupID (POST
@@ -29,9 +30,11 @@
   type GlobalRoster = RosterEntry & { groupLabel: string; groupID: string };
 
   let roster: GlobalRoster[] = [];
-  let title = '';
-  let gravity: 'mild' | 'moderate' | 'severe' = 'mild';
-  let description = '';
+  // La situación manda: el servidor decide el tipo. Notas libres aparte.
+  let catalog: Situation[] = [];
+  let situationID = '';
+  let note = '';
+  let date = todayISO();
   let query = '';
   let selected: string[] = [];
   let saving = false;
@@ -43,13 +46,13 @@
     feedbackError = false;
   }
 
-  $: titleOptions = [...$t.warning.titleOptions];
+  $: textOf = (id: string) => situationText($t.obs.situations, id);
+  $: chosenKind = catalog.find((s) => s.ID === situationID)?.Kind ?? 0;
   $: visible = roster.filter((r) =>
     query.trim() ? foldSearch(`${r.Surnames} ${r.Names}`).includes(foldSearch(query.trim())) : true
   );
   $: valid =
-    title.trim().length > 0 &&
-    description.trim().length > 0 &&
+    situationID.length > 0 &&
     selected.length > 0 &&
     roster.length > 0;
 
@@ -57,14 +60,6 @@
     const x = `${a.Surnames} ${a.Names}`.toLowerCase();
     const y = `${b.Surnames} ${b.Names}`.toLowerCase();
     return x < y ? -1 : x > y ? 1 : 0;
-  }
-
-  function sevName(g: typeof gravity): string {
-    return g === 'severe'
-      ? $t.warning.severitySevere
-      : g === 'moderate'
-        ? $t.warning.severityModerate
-        : $t.warning.severityMild;
   }
 
   $: if (open && (groupID || scope === 'all') && loadedFor !== scope + groupID) {
@@ -98,9 +93,12 @@
     roster = [];
     selected = [];
     query = '';
-    if (!title) title = (titleOptions ?? [])[0] ?? '';
-    if (!description) description = $t.warning.descDefault;
     try {
+      try {
+        catalog = (await getObservationCatalog()) ?? [];
+      } catch {
+        catalog = [];
+      }
       if (scope === 'all') {
         roster = await loadAll();
       } else {
@@ -129,26 +127,23 @@
     if (!valid || saving) return;
     saving = true;
     try {
-      // En modo global se agrupa por salón: un batch por salón con su
-      // classID real, ya que el backend exige un salón por llamado.
-      const byGroup = new Map<string, GlobalRoster[]>();
+      // Una observación por estudiante: el tipo lo decide el servidor
+      // desde la situación; la nota y la fecha viajan con cada una.
+      const jobs: Promise<unknown>[] = [];
       for (const r of roster) {
         if (!selected.includes(r.StudentID)) continue;
-        const gid = r.groupID || groupID;
-        const list = byGroup.get(gid) ?? [];
-        list.push(r);
-        byGroup.set(gid, list);
+        jobs.push(
+          recordObservation({
+            studentID: r.StudentID,
+            classGroupID: r.groupID || groupID || undefined,
+            situationID,
+            note: note.trim() || undefined,
+            date: date || undefined
+          })
+        );
       }
-      for (const [gid, list] of byGroup) {
-        await issueWarnings({
-          studentIDs: list.map((r) => r.StudentID),
-          classID: gid,
-          title: title.trim(),
-          gravity,
-          description: description.trim()
-        });
-      }
-      notify($t.warning.saved);
+      await Promise.all(jobs);
+      notify($t.obs.saved);
       selected = [];
       onSaved();
     } catch (err) {
@@ -161,7 +156,7 @@
   }
 </script>
 
-<Sheet {open} wide title={$t.warning.title} onClose={close}>
+<Sheet {open} wide title={$t.obs.formTitle} onClose={close}>
   {#if loading}
     <Skeleton rows={5} />
   {:else if roster.length === 0}
@@ -171,58 +166,44 @@
       <section class="fields">
         <p class="origin">{originLabel || groupID}</p>
         <label class="field">
-          <span class="label">{$t.warning.titleLabel} *</span>
-          <input
-            type="text"
-            list="warn-titles"
-            bind:value={title}
-            placeholder={$t.warning.titleLabel}
-            autocomplete="off"
-          />
-          <datalist id="warn-titles">
-            {#each titleOptions as opt}
-              <option value={opt}></option>
-            {/each}
-          </datalist>
+          <span class="label">{$t.obs.fSituation} *</span>
+          <span class="select-wrap">
+            <select bind:value={situationID} aria-label={$t.obs.fSituation}>
+              <option value="">{`— ${$t.obs.pickSituation} —`}</option>
+              <optgroup label={$t.obs.situationGroupOne}>
+                {#each catalog.filter((s) => s.Kind === 1) as s (s.ID)}
+                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
+                {/each}
+              </optgroup>
+              <optgroup label={$t.obs.situationGroupTwo}>
+                {#each catalog.filter((s) => s.Kind === 2) as s (s.ID)}
+                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
+                {/each}
+              </optgroup>
+              <optgroup label={$t.obs.situationGroupThree}>
+                {#each catalog.filter((s) => s.Kind === 3) as s (s.ID)}
+                  <option value={s.ID}>{s.ID} · {textOf(s.ID)}</option>
+                {/each}
+              </optgroup>
+            </select>
+            <span class="chev" aria-hidden="true"><Icon name="next" /></span>
+          </span>
         </label>
-
-        <div class="field">
-          <span class="label" id="warn-sev">{$t.warning.severityLabel} *</span>
-          <div class="seg" role="group" aria-labelledby="warn-sev">
-            <button
-              type="button"
-              class="sevpill leve"
-              class:selected={gravity === 'mild'}
-              aria-pressed={gravity === 'mild'}
-              on:click={() => (gravity = 'mild')}
-            >
-              <i aria-hidden="true"></i>{$t.warning.severityMild}
-            </button>
-            <button
-              type="button"
-              class="sevpill medio"
-              class:selected={gravity === 'moderate'}
-              aria-pressed={gravity === 'moderate'}
-              on:click={() => (gravity = 'moderate')}
-            >
-              <i aria-hidden="true"></i>{$t.warning.severityModerate}
-            </button>
-            <button
-              type="button"
-              class="sevpill grave"
-              class:selected={gravity === 'severe'}
-              aria-pressed={gravity === 'severe'}
-              on:click={() => (gravity = 'severe')}
-            >
-              <i aria-hidden="true"></i>{$t.warning.severitySevere}
-            </button>
-          </div>
-          <p class="sevline">{sevName(gravity)}</p>
-        </div>
+        {#if chosenKind}
+          <p class="hint">
+            <span class={`chip ${kindChip(chosenKind)}`}>{$t.obs.kindLabel[chosenKind]}</span>
+            <small>{$t.obs.kindIntro[chosenKind]}</small>
+          </p>
+        {/if}
 
         <label class="field">
-          <span class="label">{$t.warning.descLabel} *</span>
-          <textarea rows={5} bind:value={description} placeholder={$t.warning.descPlaceholder}></textarea>
+          <span class="label">{$t.obs.fNote}</span>
+          <textarea rows={4} bind:value={note} placeholder={$t.obs.notePlaceholder}></textarea>
+        </label>
+
+        <label class="field">
+          <span class="label">{$t.obs.fDate}</span>
+          <input type="date" bind:value={date} max={todayISO()} aria-label={$t.obs.fDate} />
         </label>
       </section>
 
@@ -266,9 +247,9 @@
 
     {#if feedback}<p class="flash error" role="alert">{feedback}</p>{/if}
     <div class="actions">
-      <button class="ghost" type="button" on:click={close}>{$t.warning.cancel}</button>
+      <button class="ghost" type="button" on:click={close}>{$t.obs.cancel}</button>
       <button class="primary" type="button" disabled={!valid || saving} on:click={save}>
-        {saving ? $t.warning.saving : $t.warning.save}
+        {saving ? $t.obs.saving : $t.obs.save}
       </button>
     </div>
   {/if}
@@ -307,8 +288,8 @@
     font-size: 0.85rem;
     font-weight: 700;
   }
-  input[type='text'],
-  textarea {
+  textarea,
+  input[type='date'] {
     background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-chip);
@@ -328,47 +309,39 @@
     outline: 2px solid var(--accent);
     outline-offset: 0;
   }
-  .seg {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    background: var(--surface-2);
+  .select-wrap {
+    position: relative;
+    display: block;
+  }
+  .select-wrap select {
+    width: 100%;
+    appearance: none;
     border: 1px solid var(--line);
     border-radius: 12px;
-    padding: 6px;
-  }
-  .sevpill {
-    min-height: 44px;
-    border-radius: 8px;
-    font-weight: 600;
+    background: var(--surface-2);
+    color: var(--ink);
+    padding: 10px 36px 10px 12px;
+    font: inherit;
     font-size: 0.85rem;
+    min-height: 44px;
+  }
+  .chev {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%) rotate(90deg);
     color: var(--muted);
+    pointer-events: none;
     display: inline-flex;
+  }
+  .hint {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
+    gap: 8px;
+    margin: 2px 0 0;
   }
-  .sevpill i {
-    width: 8px;
-    height: 8px;
-    border-radius: var(--radius-pill);
-    background: currentColor;
-  }
-  .sevpill.selected.leve {
-    background: var(--g-leve-bg);
-    color: var(--g-leve-ink);
-  }
-  .sevpill.selected.medio {
-    background: var(--g-medio-bg);
-    color: var(--g-medio-ink);
-  }
-  .sevpill.selected.grave {
-    background: var(--g-grave-bg);
-    color: var(--g-grave-ink);
-  }
-  .sevline {
+  .hint small {
     color: var(--muted);
-    font-size: 0.78rem;
   }
   .shead {
     display: flex;
