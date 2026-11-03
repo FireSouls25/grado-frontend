@@ -142,7 +142,9 @@ import Sheet from '$lib/ui/Sheet.svelte';
     }
   }
 
-  const sectionOrder: SectionKey[] = ['owner', 'admin', 'secretary', 'teacher'];
+  // La gestión interna (owner) no se lista: dirige pero no aparece
+  // como cuenta. Solo admins, secretaría y docentes.
+  const sectionOrder: SectionKey[] = ['admin', 'secretary', 'teacher'];
 
   function initialsOf(username: string): string {
     return username
@@ -294,7 +296,6 @@ import Sheet from '$lib/ui/Sheet.svelte';
         value={fRole}
         options={[
           { value: '', label: $t.users.stateAll },
-          { value: 'owner', label: $t.users.roleOwner },
           { value: 'admin', label: $t.users.roleAdmin },
           { value: 'secretary', label: $t.users.roleSecretary },
           { value: 'teacher', label: $t.users.roleTeacher }
