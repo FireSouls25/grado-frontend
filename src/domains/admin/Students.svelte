@@ -60,6 +60,9 @@
   let reportLoading = false;
   let warns: RecentWarning[] = [];
   let teacherList: TeacherSummary[] = [];
+  // La nómina de docentes llega aparte de los grupos: hasta que carga,
+  // las tarjetas no afirman nada (evita "sin director" fantasmas).
+  let teachersReady = false;
   let reports: Record<string, ClassReport> = {};
   let rosters: Record<string, RosterEntry[]> = {};
   let reportsDone = false;
@@ -206,10 +209,13 @@
   }
 
   async function loadTeachers() {
+    teachersReady = false;
     try {
       teacherList = (await guarded(() => teachers())) ?? [];
     } catch {
       teacherList = [];
+    } finally {
+      teachersReady = true;
     }
   }
 
@@ -251,7 +257,9 @@
   }
 
   function directorOf(label: string): TeacherSummary | null {
-    return teacherList.find((t) => t.HomeroomClassID === label) ?? null;
+    const want = (label ?? '').trim();
+    if (!want) return null;
+    return teacherList.find((t) => (t.HomeroomClassID ?? '').trim() === want) ?? null;
   }
 
   function changeYear(delta: number) {
@@ -529,7 +537,7 @@
                 <strong>{g.ClassLabel}</strong>
                 <span class="sc-count">{known ? mergedOf(g, reports, rosters).length : '—'}</span>
               </div>
-              <small>{dir ? `${dir.Surnames} ${dir.Names}`.trim() : $t.admin.noDirector}</small>
+              <small>{!teachersReady ? '…' : dir ? `${dir.Surnames} ${dir.Names}`.trim() : $t.admin.noDirector}</small>
             </button>
           {/each}
         </div>
