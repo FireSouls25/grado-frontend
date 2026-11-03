@@ -259,11 +259,17 @@
     }
   }
 
-  function directorOf(label: string): TeacherSummary | null {
-    const want = (label ?? '').trim();
-    if (!want) return null;
-    return teacherList.find((t) => (t.HomeroomClassID ?? '').trim() === want) ?? null;
-  }
+  // Mapa reactivo salon->director: la plantilla solo se re-evalúa
+  // cuando cambian sus dependencias léxicas, así que llamar a una
+  // función que lee `teacherList` por dentro jamás se actualizaba al
+  // llegar la nómina (quedaba "Sin director" para siempre).
+  $: directorsByLabel = new Map(
+    teacherList
+      .filter((t) => t.HomeroomClassID && t.HomeroomClassID.trim())
+      .map((t) => [t.HomeroomClassID.trim(), t])
+  );
+  $: directorOf = (label: string): TeacherSummary | null =>
+    directorsByLabel.get((label ?? '').trim()) ?? null;
 
   function changeYear(delta: number) {
     year += delta;
