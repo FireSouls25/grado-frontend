@@ -164,11 +164,13 @@
   function openAdd(day: number | null = null, startMin: number | null = null, subjectID: string | null = null) {
     editingEntry = null;
     sheetDay = day;
-    // Cerca del cierre no cabe la duración mínima: arranca antes.
+    // Encaja en el hueco libre (tras el choque) en vez de encima.
+    const snapped = day !== null && startMin !== null ? snapStart(day, startMin, MIN_DURATION_MIN) : startMin;
+    // La última media hora no cabe en 1 h: arranca una hora antes del cierre.
     sheetStart =
-      startMin !== null && startMin + MIN_DURATION_MIN > SCHOOL_END_MIN
+      snapped !== null && snapped + MIN_DURATION_MIN > SCHOOL_END_MIN
         ? SCHOOL_END_MIN - MIN_DURATION_MIN
-        : startMin;
+        : snapped;
     sheetSubject = subjectID;
     sheetOpen = true;
     sheetSession += 1;
@@ -182,7 +184,7 @@
     const subjectID = e.dataTransfer?.getData('text/subject-id') || dragSubject || '';
     dragSubject = null;
     if (!subjectID) return;
-    keptGhost = { subjectID, day, start: startMin, duration: MIN_DURATION_MIN };
+    keptGhost = { subjectID, day, start: snapStart(day, startMin, MIN_DURATION_MIN), duration: MIN_DURATION_MIN };
     ghostFading = false;
     openAdd(day, startMin, subjectID);
   }
@@ -235,7 +237,12 @@
   let ghostFading = false;
   $: liveGhost =
     dragSubject && dropTarget
-      ? { subjectID: dragSubject, day: dropTarget.day, start: dropTarget.start, duration: MIN_DURATION_MIN }
+      ? {
+          subjectID: dragSubject,
+          day: dropTarget.day,
+          start: snapStart(dropTarget.day, dropTarget.start, MIN_DURATION_MIN),
+          duration: MIN_DURATION_MIN
+        }
       : null;
   $: ghost = liveGhost ?? keptGhost;
 
@@ -274,13 +281,32 @@
   $: dayLabel = (w: number) => boardDays[w === 0 ? 6 : w - 1] ?? '';
   $: dayCol = (w: number) => WEEK_ORDER.indexOf(w) + 2;
   // Filas de 5 minutos desde el inicio: la fila n empieza en
-  // START+(n-2)*5. La hora h ocupa 12 filas.
+  // START+(n-2)*5. La hora h ocupa 12 filas; la celda de clic 2 (10 min).
   $: rowsPerHour = 60 / GRID_MIN;
+  $: cellSpan = 10 / GRID_MIN;
   $: totalRows = (SCHOOL_END_MIN - SCHOOL_START_MIN) / GRID_MIN;
   $: hours = Array.from({ length: (SCHOOL_END_MIN - SCHOOL_START_MIN) / 60 }, (_, i) => SCHOOL_START_MIN / 60 + i);
+  $: hourHalves = hours.map((h) => h * 60 + 30);
   $: hourLabel = (h: number) => (h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`);
+  $: halfLabel = (min: number) => {
+    const h = Math.floor(min / 60);
+    const body = h < 12 ? `${h}:30 AM` : h === 12 ? '12:30 PM' : `${h - 12}:30 PM`;
+    return body;
+  };
   $: rowOf = (min: number) => Math.floor((min - SCHOOL_START_MIN) / GRID_MIN) + 2;
   $: spanOf = (dur: number) => Math.max(1, Math.round(dur / GRID_MIN));
+  // Encaja el inicio en el primer hueco libre del día (tras el choque):
+  // soltar sobre un bloque ocupado propone seguirlo en vez de encima.
+  $: snapStart = (day: number, want: number, dur: number) => {
+    let start = Math.max(SCHOOL_START_MIN, Math.round(want / GRID_MIN) * GRID_MIN);
+    for (let i = 0; i < 8; i++) {
+      const clash = entries.find((e) => e.Weekday === day && start < e.End && e.Start < start + dur);
+      if (!clash) return start;
+      start = clash.End;
+      if (start + dur > SCHOOL_END_MIN) return want;
+    }
+    return want;
+  };
   $: subjectOf = (id: string) => subjectsList.find((s) => s.ID === id);
   $: teacherName = (id: string) => {
     const found = teacherList.find((x) => x.ID === id);
@@ -421,20 +447,25 @@
           {#each hours as h}
             <div class="hour" style={`grid-row: ${rowOf(h * 60)} / span ${rowsPerHour};`}>{hourLabel(h)}</div>
           {/each}
+          {#each hourHalves as half}
+            <div class="hour half" style={`grid-row: ${rowOf(half)} / span ${rowsPerHour / 2};`}>{halfLabel(half)}</div>
+          {/each}
           {#each WEEK_ORDER as w}
             {#each hours as h}
-              {@const cellStart = SCHOOL_START_MIN + (h - SCHOOL_START_MIN / 60) * 60}
-              <button
-                type="button"
-                class="cell"
-                class:droptarget={dropTarget?.day === w && dropTarget?.start === cellStart}
-                style={`grid-column: ${dayCol(w)}; grid-row: ${rowOf(cellStart)} / span ${rowsPerHour};`}
-                aria-label={`${dayLabel(w)} ${toClock(cellStart)}`}
-                on:click={() => openAdd(w, cellStart)}
-                on:dragover={onDragOverCell}
-                on:dragenter={() => onDragEnterCell(w, cellStart)}
-                on:drop={(e) => onDropSubject(e, w, cellStart)}
-              ></button>
+              {#each [0, 10, 20, 30, 40, 50] as m}
+                {@const cellStart = h * 60 + m}
+                <button
+                  type="button"
+                  class="cell"
+                  class:droptarget={dropTarget?.day === w && dropTarget?.start === cellStart}
+                  style={`grid-column: ${dayCol(w)}; grid-row: ${rowOf(cellStart)} / span ${cellSpan};`}
+                  aria-label={`${dayLabel(w)} ${toClock(cellStart)}`}
+                  on:click={() => openAdd(w, cellStart)}
+                  on:dragover={onDragOverCell}
+                  on:dragenter={() => onDragEnterCell(w, cellStart)}
+                  on:drop={(e) => onDropSubject(e, w, cellStart)}
+                ></button>
+              {/each}
             {/each}
           {/each}
           {#if ghost}
@@ -873,6 +904,11 @@
     align-items: flex-start;
     justify-content: flex-end;
     padding: 0 8px 0 0;
+  }
+  .hour.half {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--muted);
   }
   .cell {
     border-radius: 8px;
