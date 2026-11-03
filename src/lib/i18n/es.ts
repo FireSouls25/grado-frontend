@@ -177,7 +177,12 @@ export const es = {
     invalidToken: 'Enlace inválido o vencido. Pide uno nuevo.',
     requestNew: 'Pedir un enlace nuevo',
     resetSuccessTitle: 'Contraseña actualizada',
-    resetSuccessBody: 'Entra con tu nueva contraseña. Las demás sesiones se cerraron.'
+    resetSuccessBody: 'Entra con tu nueva contraseña. Las demás sesiones se cerraron.',
+    mailOffTitle: 'Correo no configurado',
+    mailOffBody:
+      'Este servidor aún no envía correos: pide el enlace a un administrador.',
+    verifyAccount: (username: string, email: string) =>
+      email ? `Cuenta: ${username} (${email})` : `Cuenta: ${username}`,
   },
   studentSummary: {
     titleFallback: 'Estudiante',

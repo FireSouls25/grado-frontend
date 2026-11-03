@@ -3,9 +3,9 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { push } from 'svelte-spa-router';
   import { ApiError } from '$lib/api/types';
-  import { resetPassword } from '../teacher/api';
+  import { resetPassword, verifyResetToken } from '../teacher/api';
   import { createCooldown } from './cooldown';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
 
   export let params: { token?: string } = {};
 
@@ -17,8 +17,22 @@
   let error = '';
   let busy = false;
   let done = false;
+  let account: string | null = null;
   const cooldown = createCooldown();
   onDestroy(() => cooldown.stop());
+
+  onMount(() => {
+    if (!token) {
+      error = $t.recovery.invalidToken;
+      return;
+    }
+    void verifyResetToken(token).then(
+      (who) => (account = $t.recovery.verifyAccount(who.username, who.email)),
+      () => {
+        error = $t.recovery.invalidToken;
+      }
+    );
+  });
 
   function passwordOk(value: string): boolean {
     if (value.length < 8 || value.length > 72) return false;
@@ -73,6 +87,7 @@
       <div class="mark" aria-hidden="true"><Icon name="check" /></div>
       <h1>{$t.recovery.resetTitle}</h1>
       <p>{$t.recovery.resetBody}</p>
+      {#if account}<p class="account">{account}</p>{/if}
     </div>
 
     <form class="card" on:submit|preventDefault={submit}>
@@ -153,6 +168,10 @@
   }
   .hero p {
     color: var(--muted);
+  }
+  .account {
+    font-weight: 700;
+    color: var(--ink) !important;
   }
   .mark {
     width: 56px;

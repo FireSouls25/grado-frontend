@@ -3,16 +3,25 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { push } from 'svelte-spa-router';
   import { ApiError } from '$lib/api/types';
-  import { requestRecovery } from '../teacher/api';
+  import { requestRecovery, mailCapability } from '../teacher/api';
   import { createCooldown } from './cooldown';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
 
   let identifier = '';
   let error = '';
   let busy = false;
   let sent = false;
+  // null = aún sin saber: solo avisa cuando se confirma que no hay correo.
+  let mailOn: boolean | null = null;
   const cooldown = createCooldown();
   onDestroy(() => cooldown.stop());
+
+  onMount(() => {
+    void mailCapability().then(
+      (ok) => (mailOn = ok),
+      () => (mailOn = null)
+    );
+  });
 
   async function submit() {
     error = '';
@@ -52,6 +61,13 @@
       <h1>{$t.recovery.title}</h1>
       <p>{$t.recovery.body}</p>
     </div>
+
+    {#if mailOn === false}
+      <p class="warn" role="alert">
+        <strong>{$t.recovery.mailOffTitle}.</strong>
+        {$t.recovery.mailOffBody}
+      </p>
+    {/if}
 
     <form class="card" on:submit|preventDefault={submit}>
       <label for="recovery-id">{$t.recovery.identifierLabel}</label>
@@ -156,6 +172,14 @@
     color: var(--danger);
     font-size: 0.9rem;
     font-weight: 600;
+  }
+  .warn {
+    background: var(--chip-yellow-bg, #3a2f10);
+    color: var(--chip-yellow-ink, #f2c94c);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    line-height: 1.5;
   }
   .primary {
     margin-top: 8px;

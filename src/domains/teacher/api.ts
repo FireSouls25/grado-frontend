@@ -37,6 +37,21 @@ export async function resetPassword(token: string, newPassword: string): Promise
   await api.post('/v1/recover/reset', { token, newPassword });
 }
 
+/** Names the account behind a reset token without consuming it.
+ *  Unknown/expired tokens share 401. */
+export async function verifyResetToken(token: string): Promise<{ username: string; email: string }> {
+  return api.get<{ username: string; email: string }>(
+    `/v1/recover/verify?token=${encodeURIComponent(token)}`
+  );
+}
+
+/** Global mail capability: false means reset links never leave the
+ *  server (log-only dev), so the UI must warn instead of promising. */
+export async function mailCapability(): Promise<boolean> {
+  const h = await api.get<{ status?: string; recoveryMail?: boolean }>('/healthz');
+  return h?.recoveryMail === true;
+}
+
 /** True when the backend has no such route yet (draft phase). Callers
  *  render honest empty states instead of error screens. */
 export function isMissing(err: unknown): boolean {
