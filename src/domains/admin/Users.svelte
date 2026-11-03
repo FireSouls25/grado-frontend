@@ -387,7 +387,7 @@ import Sheet from '$lib/ui/Sheet.svelte';
         title={$t.users.emptyTitle}
         body={$t.users.emptyBody}
       />
-    {:else if visible.length === 0}
+    {:else if visible.length === 0 && visibleUnlinked.length === 0}
       <EmptyState icon="list" title={$t.users.noMatchTitle} body={$t.users.noMatchBody} />
     {:else}
       {#each sections as section (section.key)}
