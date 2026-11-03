@@ -5,12 +5,13 @@
 
   // Navegación inferior del dominio docente. Las páginas la montan todas:
   // en el APK es la única forma de cambiar de sección sin barra del sistema.
-  export let active: 'agenda' | 'horario';
+  export let active: 'agenda' | 'observaciones' | 'horario';
 </script>
 
 <Tabs
   tabs={[
     { href: '/agenda', icon: 'list', label: $t.nav.agenda, active: active === 'agenda' },
+    { href: '/observaciones', icon: 'book', label: $t.nav.observations, active: active === 'observaciones' },
     { href: '/horario', icon: 'calendar', label: $t.nav.schedule, active: active === 'horario' }
   ]}
   onNavigate={(href) => push(href)}

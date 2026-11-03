@@ -93,3 +93,49 @@ export interface WarningSnapshot {
 export async function issueWarnings(draft: WarningDraft): Promise<Warning[]> {
   return (await api.post<Warning[]>('/v1/warnings/batch', draft)) ?? [];
 }
+
+// --- Observaciones de convivencia -----------------------------------------
+// El catálogo es fijo del backend (ids estables s1-01..s3-08); el tipo de
+// cada situación lo decide siempre el servidor y el texto vive en el i18n.
+
+export interface Situation {
+  ID: string;
+  Kind: 1 | 2 | 3;
+}
+
+export interface ObservationRow {
+  ID: string;
+  StudentID: string;
+  StudentName: string;
+  TeacherID: string;
+  ClassGroupID: string;
+  ClassLabel: string;
+  /** Fecha del hecho, tal como la devuelve el backend (ISO). */
+  Date: string;
+  SituationID: string;
+  Kind: 1 | 2 | 3;
+  Note: string;
+}
+
+export interface ObservationDraft {
+  studentID: string;
+  /** Clase donde ocurrió; opcional en el backend. */
+  classGroupID?: string;
+  situationID: string;
+  note?: string;
+  /** "2006-01-02"-style ISO date (yyyy-mm-dd). Omitted = today. */
+  date?: string;
+}
+
+export async function getObservationCatalog(): Promise<Situation[]> {
+  return (await api.get<Situation[]>('/v1/observations/catalog')) ?? [];
+}
+
+/** The caller's own observations, newest day first. */
+export async function myObservations(): Promise<ObservationRow[]> {
+  return (await api.get<ObservationRow[]>('/v1/observations')) ?? [];
+}
+
+export async function recordObservation(draft: ObservationDraft): Promise<ObservationRow> {
+  return api.post<ObservationRow>('/v1/observations', draft);
+}
