@@ -7,6 +7,7 @@ import HelpPage from './domains/shell/HelpPage.svelte';
 import Agenda from './domains/teacher/Agenda.svelte';
 import ClassDetail from './domains/teacher/ClassDetail.svelte';
 import WarningNew from './domains/teacher/WarningNew.svelte';
+import Observations from './domains/teacher/Observations.svelte';
 import ScheduleTab from './domains/teacher/ScheduleTab.svelte';
 import StudentHome from './domains/student/Home.svelte';
 import wrap from 'svelte-spa-router/wrap';
@@ -33,6 +34,7 @@ export const routes = {
   '/agenda': Agenda,
   '/mi-agenda': Agenda,
   '/horario': ScheduleTab,
+  '/observaciones': Observations,
   '/estudiante': StudentHome,
   '/clase/:groupID': ClassDetail,
   '/llamado/:groupID': WarningNew,

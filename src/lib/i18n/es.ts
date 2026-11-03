@@ -221,6 +221,7 @@ export const es = {
     students: 'Estudiantes',
     agenda: 'Mi Agenda',
     myClasses: 'Mis Clases',
+    observations: 'Observaciones',
     warnings: 'Llamados de Atención'
   },
   agenda: {
@@ -486,6 +487,140 @@ export const es = {
     renamedLabel: 'Renombrado',
     detailLabel: 'Descripción',
   },
+  obs: {
+    eyebrow: 'Consola docente',
+    title: 'Observaciones',
+    subtitle:
+      'Situaciones de convivencia registradas. El sistema ya sabe de qué tipo es cada situación: tú solo la eliges.',
+    newAction: 'Nueva observación',
+    closeForm: 'Cerrar formulario',
+    // Filtros: tres botones de tipo, como pide el manual. "Todas" arriba ?:
+    // un segmento más para volver a la vista completa sin reinventar la fila.
+    filterLabel: 'Filtrar por tipo',
+    filterAll: 'Todas',
+    filterOne: 'Tipo I',
+    filterTwo: 'Tipo II',
+    filterThree: 'Tipo III',
+    kindLabel: {
+      1: 'Tipo I',
+      2: 'Tipo II',
+      3: 'Tipo III'
+    } as Record<number, string>,
+    count: (count: number) => (count === 1 ? '1 observación' : `${count} observaciones`),
+    emptyTitle: 'Sin observaciones todavía',
+    emptyBody: 'Cuando registres situaciones de convivencia, aparecerán aquí.',
+    noMatchTitle: 'Nada de ese tipo',
+    noMatchBody: 'No has registrado observaciones de ese tipo.',
+    loadingError: 'No se pudo cargar la lista; intenta de nuevo.',
+    // La burbuja principal lleva la situación; la nota adicional va como
+    // burbuja lateral, tal como quedó definido con el docente.
+    noteSideTitle: 'Nota adicional',
+    withoutNote: 'Sin nota adicional',
+    registeredBy: 'Registrada por',
+    formTitle: 'Registrar observación',
+    formNote: 'La observación queda en este listado y en el historial del estudiante.',
+    fClass: 'Clase',
+    pickClass: 'Elige la clase…',
+    noClass: 'Sin clase hoy',
+    fStudent: 'Estudiante',
+    pickStudent: 'Elige el estudiante…',
+    rosterEmpty: 'Esta clase aún no tiene nómina.',
+    fSituation: 'Situación de convivencia',
+    pickSituation: 'Elige la situación…',
+    situationGroupOne: 'Tipo I',
+    situationGroupTwo: 'Tipo II',
+    situationGroupThree: 'Tipo III',
+    situationKindHint: (kind: number) => `El sistema la clasifica como tipo ${kind}:`,
+    fNote: 'Notas adicionales (opcional)',
+    notePlaceholder: 'Detalles de lo ocurrido, con quién, cuándo…',
+    fDate: 'Fecha',
+    cancel: 'Cancelar',
+    save: 'Guardar observación',
+    saving: 'Guardando…',
+    saved: 'Observación guardada.',
+    needSituation: 'Elige la situación de convivencia.',
+    needStudent: 'Elige el estudiante.',
+    // Descripciones de tipo (las preámbulos del manual), mostradas como
+    // referencia dentro del selector de situaciones.
+    kindIntro: {
+      1: 'Situaciones que no desestabilizan las actividades del grupo, pasajeras, no permanentes o no repetitivas.',
+      2: 'Comportamientos que afectan los derechos individuales y colectivos y la sana convivencia: ameritan proceso disciplinario.',
+      3: 'Conductas extremas contra la integridad física, psicológica y moral del estudiante.'
+    } as Record<number, string>,
+    // Textos del manual de convivencia (documento "Situaciones tipo 1, 2 y
+    // 3"). El orden ES el catálogo: el id s{tipo}-{n} corresponde a la fija
+    // posición n inside del bloque del tipo; no reordenar.
+    situations: [
+      // Tipo I (14)
+      'Ser descortés con cualquiera de los miembros de la comunidad educativa',
+      'Incumplir con tareas, trabajos, lecciones, talleres o actividades programadas por el profesor',
+      'Impuntualidad a clase o demás actividades programadas por la institución',
+      'Quedarse en el aula de clase en horas de descanso o en otras actividades programadas',
+      'No entregar en el tiempo estipulado al padre de familia o acudiente las citaciones que la institución envía',
+      'Presentarse a la institución sin los uniformes respectivos o incompletos',
+      'Promover el desorden y el desaseo en corredores, aulas, restaurante, cancha, patio, durante los cambios de hora o durante las diferentes actividades programadas por la institución',
+      'Interrumpir las clases con intervenciones como chistes, gestos o actitudes inoportunas que promuevan la indisciplina y el desorden de otros estudiantes',
+      'Realizar excesivas demostraciones de afecto con compañeros de igual o diferente sexo',
+      'Consumir alimentos en horas de clase',
+      'Esconder las pertenencias de los miembros de la comunidad educativa',
+      'Ingresar radios, reproductores de sonido, juegos electrónicos, gorras, pañoletas, piercing y demás objetos que no correspondan a las necesidades del quehacer escolar',
+      'Realizar apuestas y juegos de azar o comercializar cualquier clase de productos sin autorización de la institución',
+      'Obstaculizar premeditadamente el ingreso o la salida de las instalaciones de los estudiantes u otro miembro de la comunidad',
+      // Tipo II (43)
+      'Reincidir sistemáticamente en la comisión de una o varias situaciones del tipo I',
+      'Amenazar y/o agredir de palabra o de hecho, a cualquier integrante de la comunidad educativa',
+      'Injuria, difamación u ofensas graves contra los miembros de la comunidad educativa',
+      'Agresión grave física o moral contra los demás miembros de la comunidad educativa',
+      'Realizar actos de discriminación de raza, etnia, religión, sexo, creencias culturales, orientación sexual, condición económica, pensamiento político, diversidad funcional, entre otros',
+      'Promover o participar en desórdenes que deriven en atropello y atentados contra la integridad de las personas y los bienes privados o públicos',
+      'Daños graves causados por uso indebido o intencional en las instalaciones, materiales o documentos que pertenezcan a la comunidad educativa o en los bienes de otros miembros de la institución',
+      'Burlarse de los miembros de la comunidad educativa ya sea con palabras, gestos o acciones irrespetuosas',
+      'Cometer fraude en las evaluaciones y/o trabajos académicos',
+      'Falsificar o sustraer documentos públicos (certificados, constancias, boletines, documentos reglamentarios u oficiales)',
+      'Negarse a vestir correctamente los uniformes de la institución',
+      'La práctica o incitación de actos que pongan en riesgo o peligro la integridad física o vida de los miembros de la comunidad educativa',
+      'Conformar y/o pertenecer a pandillas dentro y fuera de la institución',
+      'Participar en actos de delincuencia o vandalismo',
+      'Evadirse de clase o de la institución',
+      'El incumplimiento de las sanciones impuestas',
+      'Las amenazas directas o indirectas contra cualquier miembro de la comunidad educativa',
+      'Faltar a clases y a actividades propias de la institución sin causa justificada',
+      'Comportamiento inmoral o práctica de escenas morbosas y vulgares',
+      'Evidenciar marcado desinterés en su rendimiento académico e incumplimiento reiterado de las actas de compromiso',
+      'No presentar actividades de apoyo o nivelación',
+      'Entorpecer el buen desarrollo de clase',
+      'Porte de cualquier tipo de armas dentro de la institución',
+      'Porte, distribución o consumo de drogas alucinógenas',
+      'Hurto dentro de las instalaciones de la institución',
+      'Destrucción premeditada de los implementos escolares, cuadernos, libros o trabajos de sus compañeros',
+      'El constreñimiento hacia miembros de la comunidad educativa',
+      'Ingresar y/o salir de la institución por lugares no autorizados y diferentes a la puerta principal de acceso',
+      'Presentarse a la institución en estado de embriaguez o bajo el efecto de sustancias psicotrópicas',
+      'Pegar chicles o elementos adhesivos en las paredes, mobiliario, elementos de la sede respectiva, al igual que adherirlos sobre el cuerpo de algún miembro de la comunidad educativa',
+      'Realizar grafitis obscenos, degradantes, calumniosos, burlescos o insultantes contra cualquier miembro de la comunidad educativa',
+      'Activar el timbre o cualquier otro dispositivo que indica el cambio de clases, comienzo o conclusión de la jornada escolar sin ser autorizado previamente',
+      'Desobedecer o asumir de manera agresiva, desafiante o altanera los llamados de atención que le haga un directivo o docente de la institución',
+      'Incumplir con la presentación de los materiales necesarios para el trabajo en clase',
+      'Omitir, tergiversar o falsear la información que la institución envía o recibe',
+      'Desprestigiar el buen nombre de la institución con expresiones y actuaciones indebidas dentro y fuera de la misma',
+      'Sobornar y/o chantajear',
+      'Introducir a la institución folletos, revistas y otros medios de divulgación pornográfica',
+      'Agredir de palabra o hecho a un directivo, docente, administrativo o estudiante de la institución, al igual que a cualquier persona ajena a esta que se encuentre en el interior de una sede',
+      'Jugar dinero o realizar rifas o ventas sin autorización',
+      'Las demás actitudes y comportamientos que atenten contra la sana convivencia dentro y fuera de la institución',
+      'Negarse a realizar actividades programadas en clase por parte del docente o de quien haga sus veces en ausencia de éste',
+      'Hacer uso inadecuado de las redes sociales: Facebook, Twitter, Instagram, WhatsApp, Tiktok, correos electrónicos o mensajes que atenten contra la dignidad de otras personas',
+      // Tipo III (8)
+      'Reincidir sistemáticamente en la comisión de una o varias situaciones tipo II',
+      'Causar lesiones personales a cualquier miembro de la comunidad educativa (amenazar y/o agredir de palabra o de hecho)',
+      'La participación en actos de matoneo escolar, bullying o ciberacoso',
+      'La ejecución de actos tendientes a generar anarquía general',
+      'Causar actos de vandalismo en la institución, en la calle o en su comunidad',
+      'Ejecutar de manera individual o colectiva actos o conductas tipificadas como delitos en el ordenamiento penal',
+      'Ser declarado responsable de hurto o abuso de confianza por autoridad competente en el colegio o fuera de él',
+      'Acosar, abusar o realizar actos sexuales, constreñir o inducir a actos sexuales abusivos'
+    ] as string[]
+  },
   troll: {
     today: 'Hoy',
     pickDay: 'Día de la lista',
@@ -688,7 +823,8 @@ export const es = {
       subject: 'Materia',
       assignment: 'Asignación',
       group: 'Salón',
-      'academic-alert': 'Alerta académica'
+      'academic-alert': 'Alerta académica',
+      observation: 'Observación de convivencia'
     }
   },
   notifications: {

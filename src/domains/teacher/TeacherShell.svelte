@@ -7,7 +7,7 @@
   import { notice, dismissNotice } from '$lib/ui/notice';
   import { profile } from '$lib/shell/profile';
 
-  export let active: 'agenda' | 'horario' | null = null;
+  export let active: 'agenda' | 'horario' | 'observaciones' | null = null;
 
   // Reintento con pausa si el perfil falló: evita menús vacíos que
   // solo volvían recargando la página.
@@ -21,12 +21,13 @@
     if ($profile.state === 'idle') void profile.refresh();
   });
 
-  type Key = 'agenda' | 'horario';
-  type IconName = 'list' | 'calendar';
+  type Key = 'agenda' | 'horario' | 'observaciones';
+  type IconName = 'list' | 'calendar' | 'book';
 
   $: items = [
     { key: 'agenda' as Key, href: '/agenda', icon: 'list' as IconName, label: $t.nav.agenda },
-    { key: 'horario' as Key, href: '/horario', icon: 'calendar' as IconName, label: $t.nav.schedule }
+    { key: 'horario' as Key, href: '/horario', icon: 'calendar' as IconName, label: $t.nav.schedule },
+    { key: 'observaciones' as Key, href: '/observaciones', icon: 'book' as IconName, label: $t.nav.observations }
   ];
 
   $: userLabel = $profile.me?.teacher

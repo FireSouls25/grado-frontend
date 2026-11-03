@@ -98,6 +98,45 @@ export async function openSession(groupID: string): Promise<Session> {
   return api.post<Session>('/v1/sessions/open', { classGroupID: groupID });
 }
 
+/** Bloque crudo de horario tal como lo devuelve el backend: la clase y la
+ *  materia son ids, la hora son minutos desde la medianoche (420 = 07:00).
+ *  Las etiquetas legibles se resuelven aparte con los catálogos reales. */
+export interface ScheduleEntry {
+  ID: string;
+  ClassGroupID: string;
+  TeacherID: string;
+  SubjectID: string;
+  Weekday: number;
+  Start: number; // minutes since midnight
+  End: number;
+}
+
+/** Weekly schedule entries for a weekday (real backend shape). */
+export async function dayScheduleOn(weekday: number): Promise<ScheduleEntry[]> {
+  return (await api.get<ScheduleEntry[]>(`/v1/teachers/me/schedule?weekday=${weekday}`)) ?? [];
+}
+
+export interface ClassGroupRow {
+  ID: string;
+  Grade: number;
+  GroupNo: number;
+}
+
+/** Catálogo de salones del año; el docente lo puede leer (view-class-stats). */
+export async function listClasses(year: number): Promise<ClassGroupRow[]> {
+  return (await api.get<ClassGroupRow[]>(`/v1/classes?year=${year}`)) ?? [];
+}
+
+export interface SubjectRow {
+  ID: string;
+  Name: string;
+}
+
+/** Catálogo de materias; el docente lo puede leer (view-class-stats). */
+export async function listSubjects(): Promise<SubjectRow[]> {
+  return (await api.get<SubjectRow[]>('/v1/subjects')) ?? [];
+}
+
 export async function recordMark(
   sessionID: string,
   studentID: string,
@@ -183,4 +222,50 @@ export async function raiseAcademicAlerts(input: AcademicAlertInput): Promise<Ac
 
 export async function issueWarnings(draft: WarningDraft): Promise<Warning[]> {
   return (await api.post<Warning[]>('/v1/warnings/batch', draft)) ?? [];
+}
+
+// --- Observaciones de convivencia -----------------------------------------
+// El catálogo es fijo del backend (ids estables s1-01..s3-08); el tipo de
+// cada situación lo decide siempre el servidor y el texto vive en el i18n.
+
+export interface Situation {
+  ID: string;
+  Kind: 1 | 2 | 3;
+}
+
+export interface ObservationRow {
+  ID: string;
+  StudentID: string;
+  StudentName: string;
+  TeacherID: string;
+  ClassGroupID: string;
+  ClassLabel: string;
+  /** Fecha del hecho, tal como la devuelve el backend (ISO). */
+  Date: string;
+  SituationID: string;
+  Kind: 1 | 2 | 3;
+  Note: string;
+}
+
+export interface ObservationDraft {
+  studentID: string;
+  /** Clase donde ocurrió; opcional en el backend. */
+  classGroupID?: string;
+  situationID: string;
+  note?: string;
+  /** "2006-01-02"-style ISO date (yyyy-mm-dd). Omitted = today. */
+  date?: string;
+}
+
+export async function getObservationCatalog(): Promise<Situation[]> {
+  return (await api.get<Situation[]>('/v1/observations/catalog')) ?? [];
+}
+
+/** The caller's own observations, newest day first. */
+export async function myObservations(): Promise<ObservationRow[]> {
+  return (await api.get<ObservationRow[]>('/v1/observations')) ?? [];
+}
+
+export async function recordObservation(draft: ObservationDraft): Promise<ObservationRow> {
+  return api.post<ObservationRow>('/v1/observations', draft);
 }
