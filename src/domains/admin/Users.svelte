@@ -26,8 +26,7 @@ import Sheet from '$lib/ui/Sheet.svelte';
     type UserAccount,
     type TeacherSummary
   } from './api';
-  $: roles = $profile.me?.roles ?? [];
-  $: staffOwners = canManageOwners($profile.me);
+  $: roles = $profile.me?.roles ?? [];  $: staffOwners = canManageOwners($profile.me);
 
   const currentYear = new Date().getFullYear();
 
@@ -99,6 +98,15 @@ import Sheet from '$lib/ui/Sheet.svelte';
   let accessPassword = '';
   let accessError = '';
 
+  // Alta directa de administradores y secretarías (el backend ya lo
+  // permite: admin otorga ambos roles, owner además el suyo propio).
+  // Sin vínculo docente: son cuentas puras de consola.
+  let createRole: 'admin' | 'secretary' | null = null;
+  let createUsername = '';
+  let createEmail = '';
+  let createPassword = '';
+  let createError = '';
+
   function openAccess(x: TeacherSummary) {
     accessTarget = x;
     accessUsername = suggestUsername(x);
@@ -109,6 +117,48 @@ import Sheet from '$lib/ui/Sheet.svelte';
   function closeAccess() {
     accessTarget = null;
     accessError = '';
+  }
+
+  function openCreate(role: 'admin' | 'secretary') {
+    createRole = role;
+    createUsername = '';
+    createEmail = '';
+    createPassword = '';
+    createError = '';
+  }
+
+  function closeCreate() {
+    createRole = null;
+    createError = '';
+  }
+
+  async function saveCreate() {
+    if (!createRole || acting) return;
+    createError = '';
+    if (!createUsername.trim() || !createPassword) {
+      createError = $t.admin.accountNeedsBoth;
+      return;
+    }
+    if (createPassword.length < 8 || !/[A-Za-z]/.test(createPassword) || !/[0-9]/.test(createPassword)) {
+      createError = $t.admin.formPasswordWeak;
+      return;
+    }
+    acting = true;
+    try {
+      await createUser({
+        username: createUsername.trim(),
+        email: createEmail.trim(),
+        password: createPassword,
+        role: createRole
+      });
+      notify(createRole === 'admin' ? $t.users.adminCreated : $t.users.secretaryCreated);
+      createRole = null;
+      await load();
+    } catch (err) {
+      createError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      acting = false;
+    }
   }
 
   async function saveAccess() {
@@ -284,6 +334,14 @@ import Sheet from '$lib/ui/Sheet.svelte';
 
   <div class="sheet">
     <div class="filterbar" role="group" aria-label={$t.users.title}>
+      <div class="new-actions">
+        <button type="button" class="btn btn-sm" on:click={() => openCreate('admin')}>
+          {$t.users.newAdmin}
+        </button>
+        <button type="button" class="btn btn-sm" on:click={() => openCreate('secretary')}>
+          {$t.users.newSecretary}
+        </button>
+      </div>
       <label class="search">
         <span class="cap">{$t.users.searchLabel}</span>
         <div class="search-box">
@@ -464,6 +522,39 @@ import Sheet from '$lib/ui/Sheet.svelte';
           </form>
         {/if}
       </Sheet>
+
+      <Sheet
+        open={createRole !== null}
+        title={createRole === 'admin' ? $t.users.newAdminTitle : $t.users.newSecretaryTitle}
+        onClose={closeCreate}
+      >
+        {#if createRole}
+          <p class="muted sheet-sub">
+            {createRole === 'admin' ? $t.users.newAdminHint : $t.users.newSecretaryHint}
+          </p>
+          <form class="access-form" on:submit|preventDefault={saveCreate}>
+            <label>
+              <span>{$t.users.accessUsername}</span>
+              <input type="text" bind:value={createUsername} autocapitalize="none" autocomplete="off" />
+            </label>
+            <label>
+              <span>{$t.users.accessEmail}</span>
+              <input type="email" bind:value={createEmail} autocapitalize="none" autocomplete="off" />
+            </label>
+            <label>
+              <span>{$t.users.accessPassword}</span>
+              <input type="password" bind:value={createPassword} autocomplete="new-password" />
+            </label>
+            {#if createError}<p class="flash error" role="alert">{createError}</p>{/if}
+            <div class="form-actions">
+              <button type="button" class="btn" on:click={closeCreate}>{$t.common.cancel}</button>
+              <button type="submit" class="btn btn-primary" disabled={acting}>
+                {acting ? $t.common.retrying : $t.common.save}
+              </button>
+            </div>
+          </form>
+        {/if}
+      </Sheet>
       {#if fState === 'deleted' && staffOwners}
         <p class="hint">{$t.users.confirmDelete}</p>
       {/if}
@@ -486,6 +577,12 @@ import Sheet from '$lib/ui/Sheet.svelte';
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     align-items: end;
+  }
+  .new-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   @media (min-width: 780px) {
     .filterbar {
