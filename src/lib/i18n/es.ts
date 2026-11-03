@@ -1182,6 +1182,11 @@ export const es = {
     riskTitle: 'Estudiantes en riesgo',
     riskDays: (n: number) => (n === 1 ? '1 día con lista' : `${n} días con lista`),
     lateStreak: (n: number) => (n === 1 ? '1 atraso seguido' : `${n} atrasos seguidos`),
+    lateNotify: 'Avisar al acudiente por WhatsApp',
+    lateNotifying: 'Avisando…',
+    lateNotified: (n: number) => `Aviso enviado: ${n} atrasos en 30 días.`,
+    lateBelowThreshold: (n: number) => `Solo ${n} atrasos en 30 días: aún no se avisa.`,
+    lateNotifyError: 'No se pudo avisar. Intenta de nuevo.',
     riskCount: (count: number) =>
       count === 1 ? '1 en lista' : `${count} en lista`,
     riskEmpty: 'Sin estudiantes en riesgo todavía.',

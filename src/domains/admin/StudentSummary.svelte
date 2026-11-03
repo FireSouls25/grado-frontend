@@ -20,6 +20,7 @@
     studentWarnings,
     studentAlerts,
     reviewAcademicAlert,
+    notifyLateRecurring,
     recordSessionMark,
     recordDefense,
     sessionDetail,
@@ -59,6 +60,27 @@
   let reviewingAlert: string | null = null;
   let warnRevsLoading = false;
   let trailFor: string | null = null;
+  let lateNotifying = false;
+  let lateFeedback = '';
+  let lateFeedbackError = false;
+
+  async function notifyLates() {
+    lateFeedback = '';
+    lateFeedbackError = false;
+    if (lateNotifying || !id) return;
+    lateNotifying = true;
+    try {
+      const res = await notifyLateRecurring(id);
+      lateFeedback = res.notified
+        ? $t.admin.lateNotified(res.lates)
+        : $t.admin.lateBelowThreshold(res.lates);
+    } catch {
+      lateFeedback = $t.admin.lateNotifyError;
+      lateFeedbackError = true;
+    } finally {
+      lateNotifying = false;
+    }
+  }
   let trailRows: SessionRevisionRow[] = [];
   let trailLoading = false;
   let trailError: unknown = null;
@@ -291,6 +313,12 @@
         </dl>
         {#if (report.LateStreak ?? 0) >= 3}
           <p class="streakwarn" role="note">{$t.admin.lateStreak(report.LateStreak ?? 0)}</p>
+          <div class="row-actions">
+            <button type="button" class="btn btn-sm" disabled={lateNotifying} on:click={notifyLates}>
+              {lateNotifying ? $t.admin.lateNotifying : $t.admin.lateNotify}
+            </button>
+            {#if lateFeedback}<p class="flash" class:error={lateFeedbackError} role="status">{lateFeedback}</p>{/if}
+          </div>
         {/if}
       </section>
 
@@ -547,6 +575,20 @@
     font-size: 0.85rem;
     border-radius: var(--radius-control);
     padding: 8px 12px;
+  }
+  .row-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .row-actions .flash {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .row-actions .flash.error {
+    color: var(--danger);
   }
   .muted {
     color: var(--muted);

@@ -32,6 +32,12 @@ export async function teacherDay(date: string): Promise<TeacherDayMark[]> {
   return (await api.get<TeacherDayMark[]>(`/v1/teachers/attendance?date=${encodeURIComponent(date)}`)) ?? [];
 }
 
+/** Manual repeated-lates nudge to the guardian (separate template).
+ *  The server counts 30 days and dedups per month. */
+export async function notifyLateRecurring(studentID: string): Promise<{ lates: number; notified: boolean }> {
+  return api.post<{ lates: number; notified: boolean }>('/v1/notify/late-recurring', { studentID });
+}
+
 export interface TeacherHistoryMark {
   TeacherID: string;
   Day: string;
