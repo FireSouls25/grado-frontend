@@ -63,6 +63,8 @@ export interface Me {
   active?: boolean;
   /** RFC3339 account creation time. */
   createdAt?: string;
+  /** False until the owner replaces the initial password (cédula). */
+  passwordChanged: boolean;
   teacherID?: string;
   teacher?: MeTeacher | null;
 }

@@ -3,6 +3,7 @@
   import { routes } from './routes';
   import { session } from './domains/auth/session';
   import SessionExpiredDialog from './domains/auth/SessionExpiredDialog.svelte';
+  import PasswordNotice from './domains/auth/PasswordNotice.svelte';
   import { path } from '$lib/nav';
   import { onMount } from 'svelte';
 
@@ -18,3 +19,4 @@
 
 <Router {routes} />
 <SessionExpiredDialog />
+<PasswordNotice />

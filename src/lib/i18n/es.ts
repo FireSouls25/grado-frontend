@@ -1424,6 +1424,10 @@ export const es = {
     passwordWeak: 'La contraseña nueva debe tener al menos 8 caracteres, con letra y número.',
     passwordSaved: 'Contraseña actualizada. La próxima vez inicia sesión con la nueva.',
     passwordSave: 'Guardar contraseña',
+    initialNoticeTitle: 'Cambia tu contraseña inicial',
+    initialNoticeBody:
+      'Sigues usando la contraseña inicial de tu cuenta. Cámbiala por una personal para proteger tus datos.',
+    initialNoticeAction: 'Cambiar ahora',
     loading: 'Cargando perfil…',
     loadError: 'No se pudo cargar el perfil. Revisa tu conexión e intenta de nuevo.'
   },
