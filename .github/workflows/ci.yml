@@ -1,18 +1,23 @@
-# CI frontend: tipos + build. El E2E vive en el backend bajo go test
-# (src/tests/e2e); aquí se verifica que el SPA compile y tipa en verde.
+# CI frontend: check, contrato y build en cada push a main y en PRs.
+# Usa el mismo Node que desarrollo (26.7.0); exceljs se queda en 4.4.0
+# (nunca `npm audit fix --force`: la baja a 3.x y rompe la exportación).
 name: ci
+
 on:
   push:
-    branches: [main, "dev/**"]
+    branches: [main]
   pull_request:
+
 jobs:
-  check:
+  web:
     runs-on: ubuntu-latest
+    env:
+      VITE_API_URL: https://api.fractalschool.app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "26.7.0"
+          node-version: 26.7.0
           cache: npm
       - run: npm ci
       - run: npm run check

@@ -1,0 +1,138 @@
+# Release frontend: solo corre en tags v* cuyo commit YA pasó CI en main.
+# No repite tests: la puerta `gate` exige el run verde de `ci` para el
+# mismo SHA y falla en seco si no existe. Compila Tauri desktop
+# (win/mac/linux), Android (APK+AAB debug para pruebas) e iOS
+# (simulador, valida que compila) y publica el GH Release.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="${{ github.sha }}"
+          CONC=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=$SHA&per_page=1" --jq '.workflow_runs[0].conclusion // "missing"')
+          echo "CI conclusion for $SHA: $CONC"
+          if [ "$CONC" != "success" ]; then
+            echo "El tag debe apuntar a un commit con CI verde en main."
+            exit 1
+          fi
+
+  desktop:
+    needs: [gate]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            args: ""
+          - os: windows-latest
+            args: ""
+          - os: macos-latest
+            args: --target universal-apple-darwin
+    runs-on: ${{ matrix.os }}
+    env:
+      VITE_API_URL: https://api.fractalschool.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.7.0
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - run: npm ci
+      - uses: tauri-apps/tauri-action@v0
+        with:
+          args: ${{ matrix.args }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            src-tauri/target/release/bundle/
+            src-tauri/target/universal-apple-darwin/release/bundle/
+          if-no-files-found: error
+
+  android:
+    needs: [gate]
+    runs-on: ubuntu-latest
+    env:
+      VITE_API_URL: https://api.fractalschool.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.7.0
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - run: yes | sdkmanager "ndk;25.1.8937393" "platforms;android-34" "build-tools;34.0.0"
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: npx tauri android init
+      - run: npx tauri android build --debug --apk --aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/debug/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: src-tauri/gen/android/app/build/outputs/bundle/**/debug/*.aab
+          if-no-files-found: error
+
+  # iOS real (device/TestFlight) requiere certificados Apple: este job solo
+  # inicializa y compila para simulador (best effort) para pillar roturas.
+  ios-sim:
+    needs: [gate]
+    continue-on-error: true
+    runs-on: macos-latest
+    env:
+      VITE_API_URL: https://api.fractalschool.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.7.0
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: npx tauri ios init
+      - run: npx tauri ios build --debug --target aarch64-apple-ios-sim
+
+  publish:
+    needs: [gate, desktop, android, ios-sim]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist-artifacts/**/* \
+            --title "${{ github.ref_name }}" --generate-notes
