@@ -4,9 +4,10 @@ import { clearRefresh, clearToken, getRefresh, getToken, setRefresh, setToken } 
 import { ApiError } from '$lib/api/types';
 import { profile } from '$lib/shell/profile';
 
-/** Set when a guarded call dies with 401 even after rotation: the login
- *  page shows an expiry notice once, then clears it. */
-export const authNotice = writable<'' | 'expired' | 'passwordChanged'>('');
+/** Set when a guarded call dies with 401 even after rotation. The login
+ *  page shows a notice once, then clears it. 'maintenance' means the
+ *  backend build changed since login: the logout came from a deploy. */
+export const authNotice = writable<'' | 'expired' | 'maintenance' | 'passwordChanged'>('');
 
 /** Drives the global "session expired" popup: set alongside authNotice,
  *  cleared when the user heads back to login. */
@@ -15,6 +16,53 @@ export const sessionExpired = writable(false);
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let inflight: Promise<boolean> | null = null;
 let setSession: (v: string) => void = () => {};
+
+const BUILD_KEY = 'grado.build';
+
+/** Build marker seen at the last login: compared with /healthz when
+ *  the session dies to tell a maintenance rotation apart from a
+ *  plain expiry. Captured only at login, never refreshed, so a
+ *  deploy in between still shows up as a difference. */
+export function seenBuild(): string {
+  try {
+    return localStorage.getItem(BUILD_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function noteBuild(version: string): void {
+  try {
+    if (version) localStorage.setItem(BUILD_KEY, version);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Records the running backend build after a successful login.
+ *  Best effort: a failed sync simply keeps no marker (plain expiry). */
+export async function syncBuild(): Promise<void> {
+  try {
+    const res = await api.get<{ version?: string }>('/healthz');
+    if (res?.version) noteBuild(res.version);
+  } catch {
+    /* offline or booting: no marker */
+  }
+}
+
+/** Decides which notice fits a dead session: when the backend build
+ *  changed since login, the logout came from a maintenance rotation. */
+export async function expiryNotice(): Promise<'expired' | 'maintenance'> {
+  const before = seenBuild();
+  if (!before) return 'expired';
+  try {
+    const res = await api.get<{ version?: string }>('/healthz');
+    if (res?.version && res.version !== before) return 'maintenance';
+  } catch {
+    /* unreachable backend reads as plain expiry */
+  }
+  return 'expired';
+}
 
 function clearTimer(): void {
   if (refreshTimer !== null) {

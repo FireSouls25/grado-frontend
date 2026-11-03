@@ -3,7 +3,7 @@ import { api } from './api/client';
 import type { Me } from './api/types';
 import { ApiError } from './api/types';
 import { get, readable } from 'svelte/store';
-import { authNotice, refreshNow, session, sessionExpired } from '../domains/auth/session';
+import { authNotice, expiryNotice, refreshNow, session, sessionExpired } from '../domains/auth/session';
 import { profile } from './shell/profile';
 import { notify } from './ui/notice';
 import { t } from './i18n';
@@ -117,7 +117,9 @@ export async function guarded<T>(fn: () => Promise<T>, opts?: GuardedOptions): P
         /* rotation failed: fall through to sign-out */
       }
       await session.logout();
-      authNotice.set('expired');
+      // Maintenance rotation or plain expiry? A changed backend build
+      // since login means the user got logged out by a deploy.
+      authNotice.set(await expiryNotice());
       // No se navega de inmediato: el popup global de sesión
       // vencida interrumpe donde esté el usuario y lo lleva al login.
       sessionExpired.set(true);

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
-  import { authNotice, session } from './session';
+  import { authNotice, session, syncBuild } from './session';
   import { me, login } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
   import { push } from 'svelte-spa-router';
@@ -26,14 +26,14 @@
   let showPassword = false;
   let error = '';
   let busy = false;
-  let noticeKey: '' | 'sessionExpired' | 'passwordChanged' = '';
+  let noticeKey: '' | 'sessionExpired' | 'passwordChanged' | 'maintenanceNotice' = '';
   const cooldown = createCooldown();
   onDestroy(() => cooldown.stop());
 
   onMount(() => {
     const v = get(authNotice);
-    if (v === 'expired' || v === 'passwordChanged') {
-      noticeKey = v === 'expired' ? 'sessionExpired' : 'passwordChanged';
+    if (v === 'expired' || v === 'passwordChanged' || v === 'maintenance') {
+      noticeKey = v === 'expired' ? 'sessionExpired' : v === 'maintenance' ? 'maintenanceNotice' : 'passwordChanged';
       authNotice.set('');
     }
   });
@@ -60,6 +60,9 @@
         busy = false;
         return;
       }
+      // Marca de build para distinguir un rote de mantenimiento de una
+      // expiración normal si la sesión muere más tarde. No bloquea.
+      void syncBuild();
       try {
         localStorage.removeItem(DRAFT_KEY);
       } catch {
