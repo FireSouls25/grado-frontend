@@ -8,6 +8,9 @@ export interface RollcallRecord {
   // Date local YYYY-MM-DD; los registros de otro día se descartan.
   Date: string;
   GroupID: string;
+  // Bloque del día (1-based): salones con varios bloques guardan un
+  // resumen por bloque, no uno solo que mancharía todas las tarjetas.
+  Period: number;
   Students: number;
   Present: number;
   Absent: number;
@@ -42,17 +45,20 @@ function writeAll(records: RollcallRecord[]): void {
   }
 }
 
-/** Guarda (o reemplaza) el resumen de hoy para un salón. */
+/** Guarda (o reemplaza) el resumen de hoy para un salón y bloque. */
 export function saveRollcall(rec: RollcallRecord): void {
   const today = dateKey();
+  const period = rec.Period > 0 ? rec.Period : 1;
   const others = readAll().filter((r) => r.Date === today);
-  const rest = others.filter((r) => r.GroupID !== rec.GroupID);
-  rest.push({ ...rec, Date: today });
+  const rest = others.filter((r) => !(r.GroupID === rec.GroupID && (r.Period || 1) === period));
+  rest.push({ ...rec, Date: today, Period: period });
   writeAll(rest);
 }
 
-/** Resumen guardado hoy para un salón, o null si no existe. */
-export function loadRollcall(groupID: string): RollcallRecord | null {
+/** Resumen guardado hoy para un salón y bloque, o null si no existe. */
+export function loadRollcall(groupID: string, period = 1): RollcallRecord | null {
   const today = dateKey();
-  return readAll().find((r) => r.Date === today && r.GroupID === groupID) ?? null;
+  return (
+    readAll().find((r) => r.Date === today && r.GroupID === groupID && (r.Period || 1) === period) ?? null
+  );
 }

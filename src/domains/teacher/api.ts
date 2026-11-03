@@ -109,8 +109,14 @@ export async function classRoster(groupID: string): Promise<RosterEntry[]> {
 
 // Open returns the flat session (the backend answers the created row,
 // not the detail envelope): callers needing marks fetch the detail.
-export async function openSession(groupID: string): Promise<Session> {
-  return api.post<Session>('/v1/sessions/open', { classGroupID: groupID });
+// Period/slot disambiguate back-to-back blocks of the same salon on the
+// same day; omitted period means the single (or first) block.
+export async function openSession(groupID: string, period?: number, subjectID?: string): Promise<Session> {
+  return api.post<Session>('/v1/sessions/open', {
+    classGroupID: groupID,
+    ...(period ? { period } : {}),
+    ...(subjectID ? { subjectID } : {})
+  });
 }
 
 /** Bloque crudo de horario tal como lo devuelve el backend: la clase y la
@@ -166,9 +172,9 @@ export async function recordMark(
 }
 
 /** Today's roll calls of one salon, newest first. */
-export async function todaySessions(groupID: string, day: string): Promise<{ ID: string }[]> {
+export async function todaySessions(groupID: string, day: string): Promise<{ ID: string; Period: number }[]> {
   const q = `classGroupID=${encodeURIComponent(groupID)}&from=${encodeURIComponent(day)}&to=${encodeURIComponent(day)}`;
-  return (await api.get<{ ID: string }[]>(`/v1/sessions/history?${q}`)) ?? [];
+  return (await api.get<{ ID: string; Period: number }[]>(`/v1/sessions/history?${q}`)) ?? [];
 }
 
 /** Explicit uniform states of one roll call (missing = proper). */

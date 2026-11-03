@@ -182,14 +182,30 @@
   $: doneCount = selectedDay === todayIdx ? baseList.filter((c) => statusOf(c) === 'done').length : 0;
 
   function openClass(item: AgendaItem) {
-    push(`/clase/${encodeURIComponent(item.GroupSlug || item.GroupID)}?materia=${encodeURIComponent(item.SubjectID)}`);
+    const period = periodOf(item);
+    push(`/clase/${encodeURIComponent(item.GroupSlug || item.GroupID)}?materia=${encodeURIComponent(item.SubjectID)}&periodo=${period}`);
   }
 
-  // Resumen local del llamado de hoy para una tarjeta (solo si el docente
-  // guardó el llamado de ese salón en este dispositivo hoy).
+  // Bloque del día dentro del salón (1-based por hora): la asistencia es
+  // por clase, no por salón, así que dos bloques del mismo grupo el mismo
+  // día llevan sesiones y resúmenes separados.
+  $: periodByKey = (() => {
+    const count = new Map<string, number>();
+    const out = new Map<string, number>();
+    for (const c of visible) {
+      const p = (count.get(c.GroupID) ?? 0) + 1;
+      count.set(c.GroupID, p);
+      out.set(`${c.GroupID}|${c.Start}`, p);
+    }
+    return out;
+  })();
+  $: periodOf = (item: AgendaItem) => periodByKey.get(`${item.GroupID}|${item.Start}`) ?? 1;
+
+  // Resumen local del llamado de hoy por tarjeta (solo si el docente
+  // guardó el llamado de ese bloque en este dispositivo hoy).
   $: rollsOfToday =
     selectedDay === todayIdx && todayIdx !== -1
-      ? new Map(visible.map((c) => [c.GroupID, loadRollcall(c.GroupID)]))
+      ? new Map(visible.map((c) => [`${c.GroupID}|${c.Start}`, loadRollcall(c.GroupID, periodOf(c))]))
       : new Map<string, null>();
 </script>
 
@@ -264,7 +280,7 @@
       <ol class="timeline">
         {#each visible as item (item.GroupID + item.Start)}
           {@const st = statusOf(item)}
-          {@const rec = rollsOfToday.get(item.GroupID) ?? null}
+          {@const rec = rollsOfToday.get(`${item.GroupID}|${item.Start}`) ?? null}
           <li class={st}>
             <span class="rail" aria-hidden="true"><span class="pip"></span></span>
             <div class="tblock">

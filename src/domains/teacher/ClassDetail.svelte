@@ -35,6 +35,9 @@
     }
   }
   $: subjectParam = queryParam('materia');
+  // Bloque del día dentro del salón (1 = único o primero): la asistencia
+  // es por clase; cada tarjeta de la agenda trae el suyo.
+  $: periodParam = Number.parseInt(queryParam('periodo') || '1', 10) || 1;
 
   interface ClassMeta {
     subject: string;
@@ -141,16 +144,17 @@
     }
   }
 
-  // Si el salón ya tiene llamado hoy, se retoma: la lista abre con el
-  // estado de cada estudiante y se sigue la misma sesión en vez de
-  // abrir otra. Sin sesión previa queda todo presente, como antes.
+  // Si el salón ya tiene llamado hoy EN ESTE BLOQUE, se retoma: la
+  // lista abre con el estado de cada estudiante y se sigue la misma
+  // sesión en vez de abrir otra. Sin sesión previa queda todo presente.
   async function resumeToday() {
     try {
       const list = await guarded(() => todaySessions(groupID, todayKey || dateKey()));
-      if (!list || list.length === 0 || !list[0]?.ID) return;
-      const marks = await guarded(() => sessionMarks(list[0].ID));
+      const ours = (list ?? []).find((s) => (s.Period || 1) === periodParam) ?? list?.[0];
+      if (!list || list.length === 0 || !ours?.ID) return;
+      const marks = await guarded(() => sessionMarks(ours.ID));
       if (!marks) return;
-      sessionID = list[0].ID;
+      sessionID = ours.ID;
       const p = new Set<string>();
       const l = new Set<string>();
       const pm = new Set<string>();
@@ -167,7 +171,7 @@
       lateInit = new Set(l);
       permInit = new Set(pm);
       try {
-        const uniform = await guarded(() => sessionUniform(list[0].ID));
+        const uniform = await guarded(() => sessionUniform(ours.ID));
         const off = new Set<string>();
         if (uniform) {
           for (const r of roster) {
@@ -243,7 +247,7 @@
   async function ensureSession(): Promise<boolean> {
     if (sessionID) return true;
     try {
-      const created = await openSession(groupID);
+      const created = await openSession(groupID, periodParam, subjectParam || undefined);
       if (!created?.ID) throw new Error('empty session');
       sessionID = created.ID;
       return true;
@@ -309,6 +313,7 @@
     saveRollcall({
       Date: todayKey || dateKey(),
       GroupID: groupID,
+      Period: periodParam,
       Students: roster.length,
       Present: presentCount,
       Absent: absentCount,
