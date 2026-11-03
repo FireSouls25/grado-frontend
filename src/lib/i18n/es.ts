@@ -861,6 +861,10 @@ export const es = {
     scheduleWeekend: ['Sáb', 'Dom'],
     scheduleHours: ['7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM'],
     scheduleEmpty: 'Escribe un salón para ver su semana.',
+    scheduleBeyondRange: (n: number) =>
+      n === 1
+        ? '1 bloque después de las 3:00 PM no se muestra en esta vista.'
+        : `${n} bloques después de las 3:00 PM no se muestran en esta vista.`,
     scheduleEditHint: 'Tocar una celda asignará docente, materia y horas.',
     scheduleNoBlocks: (salon: string, year: number) =>
       `Sin bloques para ${salon} · ${year}. Toca una celda vacía para asignar docente y materia.`,

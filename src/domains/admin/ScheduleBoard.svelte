@@ -13,7 +13,7 @@
   import Sheet from '$lib/ui/Sheet.svelte';
   import { notify } from '$lib/ui/notice';
   import ScheduleEntrySheet from './ScheduleEntrySheet.svelte';
-  import { WEEK_ORDER, rangeLabel, toClock, SCHOOL_START_MIN, SCHOOL_END_MIN, MIN_DURATION_MIN, GRID_MIN } from '$lib/schedule';
+  import { WEEK_ORDER, rangeLabel, toClock, SCHOOL_START_MIN, SCHOOL_END_MIN, BOARD_END_MIN, MIN_DURATION_MIN, GRID_MIN } from '$lib/schedule';
   import { guarded, goBack } from '$lib/nav';
   import { ApiError } from '$lib/api/types';
   import { isMissing } from '../teacher/api';
@@ -284,8 +284,8 @@
   // START+(n-2)*5. La hora h ocupa 12 filas; la celda de clic 2 (10 min).
   $: rowsPerHour = 60 / GRID_MIN;
   $: cellSpan = 10 / GRID_MIN;
-  $: totalRows = (SCHOOL_END_MIN - SCHOOL_START_MIN) / GRID_MIN;
-  $: hours = Array.from({ length: (SCHOOL_END_MIN - SCHOOL_START_MIN) / 60 }, (_, i) => SCHOOL_START_MIN / 60 + i);
+  $: totalRows = (BOARD_END_MIN - SCHOOL_START_MIN) / GRID_MIN;
+  $: hours = Array.from({ length: (BOARD_END_MIN - SCHOOL_START_MIN) / 60 }, (_, i) => SCHOOL_START_MIN / 60 + i);
   $: hourHalves = hours.map((h) => h * 60 + 30);
   $: hourLabel = (h: number) => (h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`);
   $: halfLabel = (min: number) => {
@@ -308,6 +308,10 @@
     return want;
   };
   $: subjectOf = (id: string) => subjectsList.find((s) => s.ID === id);
+  // Fuera del rango visible (después de las 3 PM): no se pintan para no
+  // romper la grilla; se avisa con el conteo.
+  $: visibleEntries = entries.filter((e) => e.End <= BOARD_END_MIN);
+  $: hiddenEntries = entries.filter((e) => e.End > BOARD_END_MIN);
   $: teacherName = (id: string) => {
     const found = teacherList.find((x) => x.ID === id);
     return found ? `${found.Surnames} ${found.Names}`.trim() : id.slice(0, 8);
@@ -468,7 +472,7 @@
               {/each}
             {/each}
           {/each}
-          {#if ghost}
+          {#if ghost && ghost.start < BOARD_END_MIN}
             {@const gsubj = subjectOf(ghost.subjectID)}
             <div
               class="block ghost"
@@ -480,7 +484,7 @@
               <small>{rangeLabel(ghost.start, ghost.start + ghost.duration)}</small>
             </div>
           {/if}
-          {#each entries as e (e.ID)}
+          {#each visibleEntries as e (e.ID)}
             {@const subj = subjectOf(e.SubjectID)}
             <button
               type="button"
@@ -496,6 +500,9 @@
           {/each}
         </div>
       </div>
+      {#if hiddenEntries.length > 0}
+        <p class="muted beyond">{$t.admin.scheduleBeyondRange(hiddenEntries.length)}</p>
+      {/if}
     {/if}
   {/if}
   {/if}
@@ -669,6 +676,10 @@
   .muted {
     color: var(--muted);
     font-size: 0.85rem;
+  }
+  .muted.beyond {
+    margin: 8px 2px 0;
+    font-weight: 600;
   }
   .subjects {
     margin-top: 20px;
@@ -867,8 +878,8 @@
   .grid {
     display: grid;
     grid-template-columns: 64px repeat(7, minmax(104px, 1fr));
-    column-gap: 10px;
-    row-gap: 2px;
+    column-gap: 8px;
+    row-gap: 0;
     padding: 12px;
     min-width: 680px;
   }
@@ -911,7 +922,7 @@
     color: var(--muted);
   }
   .cell {
-    border-radius: 8px;
+    border-radius: 0;
     background: var(--surface-2);
     border: 1px solid var(--grid);
     min-height: 0;
@@ -936,7 +947,7 @@
     min-height: 0;
     overflow: hidden;
     padding: 4px 8px 4px 10px;
-    border-radius: 10px;
+    border-radius: 0;
     border: 1px solid var(--line);
     border-left: 5px solid var(--block);
     background: color-mix(in srgb, var(--block) 16%, var(--card));

@@ -6,6 +6,9 @@
 
 export const SCHOOL_START_MIN = 7 * 60;
 export const SCHOOL_END_MIN = 17 * 60;
+// El tablero muestra hasta las 3 PM; lo posterior sigue existiendo
+// (el sheet lo edita) pero avisa en vez de romper la grilla.
+export const BOARD_END_MIN = 15 * 60;
 export const MIN_DURATION_MIN = 45;
 export const STEP_MIN = 5;
 // Grilla elástica: una fila por cada 5 minutos entre START y END. Los
