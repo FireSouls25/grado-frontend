@@ -38,6 +38,7 @@
   export let presetGroupID = '';
   export let presetTeacherID = '';
   export let presetSubjectID = '';
+  export let presetVariant = '';
   export let presetWeekday: number | null = null;
   export let presetStartMin: number | null = null;
   export let contextEntries: ScheduleEntry[] = [];
@@ -63,6 +64,9 @@
   let subjectID = entry?.SubjectID ?? presetSubjectID;
   let teacherID = entry?.TeacherID ?? presetTeacherID;
   let weekday = entry?.Weekday ?? presetWeekday ?? 1;
+  // Numeración hija: la del bloque al editar, el preset del arrastre,
+  // la única si solo hay una, o vacío para elegir (obligatorio si >1).
+  let variant = entry?.Variant ?? presetVariant;
   let start = toClock(entry?.Start ?? presetStartMin ?? SCHOOL_START_MIN);
   let durationMin = clampDuration(
     toMinutes(start) || SCHOOL_START_MIN,
@@ -97,7 +101,15 @@
     }
   }
 
-  $: if (subjectID !== undefined) void loadAssigned();
+  $: variantsOfSubject = subjects.find((s) => s.ID === subjectID)?.Variants ?? [];
+  $: if (subjectID !== undefined) {
+    void loadAssigned();
+    if (variantsOfSubject.length === 1 && variant !== variantsOfSubject[0]) {
+      variant = variantsOfSubject[0];
+    } else if (variantsOfSubject.length !== 1 && variant && !variantsOfSubject.includes(variant)) {
+      variant = '';
+    }
+  }
   $: if (teacherID !== undefined) void loadTeacherEntries();
 
   async function loadTeacherEntries() {
@@ -125,7 +137,8 @@
     teacherID !== '' &&
     startValid &&
     durationMin >= MIN_DURATION_MIN &&
-    endMin <= SCHOOL_END_MIN;
+    endMin <= SCHOOL_END_MIN &&
+    (variantsOfSubject.length <= 1 || variant !== '');
 
   $: slot = { Weekday: weekday, Start: startValid ? startMin : 0, End: startValid ? startMin + durationMin : 0 };
   $: allContext = (() => {
@@ -175,6 +188,7 @@
       weekday,
       start: toClock(startMin),
       end: toClock(endMin),
+      ...(variant ? { variant } : {}),
       ...(jointWith.length ? { jointWith } : {})
     };
     try {
@@ -243,7 +257,7 @@
     </div>
   {:else if phase === 'confirm'}
     <ul class="summary">
-      <li><strong>{subjectOf(subjectID)?.Name}</strong> <span class="dot" style={`background:${subjectOf(subjectID)?.Color || 'var(--muted)'}`}></span></li>
+      <li><strong>{subjectOf(subjectID)?.Name}{variant ? ` ${variant}` : ''}</strong> <span class="dot" style={`background:${subjectOf(subjectID)?.Color || 'var(--muted)'}`}></span></li>
       <li>{teacherName(teacherID)} · {groupLabel(groupID)}</li>
       <li>{dayLabel(weekday)} · {rangeLabel(startMin, endMin)}</li>
     </ul>
@@ -296,6 +310,16 @@
           .map((s) => ({ value: s.ID, label: s.Name }))]}
         on:select={(e) => (subjectID = e.detail)}
       />
+      {#if variantsOfSubject.length > 1}
+        <Dropdown
+          label={$t.admin.variantLabel}
+          value={variant}
+          options={[{ value: '', label: '—' }, ...variantsOfSubject.map((v) => ({ value: v, label: v }))]}
+          on:select={(e) => (variant = e.detail)}
+        />
+      {:else if variantsOfSubject.length === 1}
+        <p class="muted">{$t.admin.variantSingle(variantsOfSubject[0])}</p>
+      {/if}
       <Dropdown
         label={$t.admin.entryTeacher}
         value={teacherID}

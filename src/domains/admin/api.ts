@@ -100,6 +100,8 @@ export interface Subject {
   Grades: number[];
   Color: string;
   Active: boolean;
+  /** Numbered children ("1", "2") selectable per entry. */
+  Variants: string[];
 }
 
 export interface SubjectAssignment {
@@ -128,6 +130,8 @@ export interface SubjectInput {
   Description: string;
   Grades: number[];
   Color: string;
+  /** Numbered children ("1", "2") selectable per entry. */
+  Variants: string[];
 }
 
 /** Creates a catalog entry. The service assigns the ID and forces active. */
@@ -190,6 +194,8 @@ export interface ScheduleEntry {
   End: number;
   /** Taller conjunto: bloques con la misma llave son una sola clase. */
   JointID: string;
+  /** Hijo numerado de la materia ("1", "2") cuando el catálogo los lista. */
+  Variant: string;
 }
 
 export interface ScheduleInput {
@@ -201,6 +207,8 @@ export interface ScheduleInput {
   end: string;
   /** Enlaza como taller conjunto con estos bloques existentes. */
   jointWith?: string[];
+  /** Hijo numerado de la materia ("1", "2") cuando el catálogo los lista. */
+  variant?: string;
 }
 
 /** Weekly slots filtered by teacher and/or salon, optionally one weekday.

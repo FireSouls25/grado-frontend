@@ -37,6 +37,7 @@
   let sheetDay: number | null = null;
   let sheetStart: number | null = null;
   let sheetSubject: string | null = null;
+  let sheetVariant: string | null = null;
   // Cada apertura remonta el editor: estado pristino con los presets
   // finales, imposible pintar valores del drop anterior.
   let sheetSession = 0;
@@ -44,7 +45,7 @@
   // Catálogo dentro del horario: nombre + descripción + color.
   const COLOR_PRESETS = ['#1b6c80', '#2f70bb', '#a86f0c', '#1e7b4f', '#b83a2a', '#5a6c7d'];
   let subjectSheet: 'closed' | 'create' | 'edit' | 'delete' = 'closed';
-  let subjectForm = { id: '', name: '', desc: '', color: '' };
+  let subjectForm = { id: '', name: '', desc: '', color: '', variants: '' };
   let savingSubject = false;
   let subjectError = '';
 
@@ -53,20 +54,33 @@
     return `background:${color}1A;border-color:${color}59`;
   }
 
+  function parseVariants(raw: string): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const part of raw.split(',')) {
+      const v = part.trim();
+      if (v && !seen.has(v)) {
+        seen.add(v);
+        out.push(v);
+      }
+    }
+    return out;
+  }
+
   function openCreateSubject() {
-    subjectForm = { id: '', name: '', desc: '', color: COLOR_PRESETS[0] };
+    subjectForm = { id: '', name: '', desc: '', color: COLOR_PRESETS[0], variants: '' };
     subjectError = '';
     subjectSheet = 'create';
   }
 
   function openEditSubject(s: Subject) {
-    subjectForm = { id: s.ID, name: s.Name, desc: s.Description ?? '', color: s.Color ?? '' };
+    subjectForm = { id: s.ID, name: s.Name, desc: s.Description ?? '', color: s.Color ?? '', variants: (s.Variants ?? []).join(', ') };
     subjectError = '';
     subjectSheet = 'edit';
   }
 
   function openDeleteSubject(s: Subject) {
-    subjectForm = { id: s.ID, name: s.Name, desc: s.Description ?? '', color: s.Color ?? '' };
+    subjectForm = { id: s.ID, name: s.Name, desc: s.Description ?? '', color: s.Color ?? '', variants: (s.Variants ?? []).join(', ') };
     subjectError = '';
     subjectSheet = 'delete';
   }
@@ -95,7 +109,8 @@
           Description: subjectForm.desc.trim(),
           Grades: current?.Grades ?? [],
           Color: subjectForm.color,
-          Active: current?.Active ?? true
+          Active: current?.Active ?? true,
+          Variants: parseVariants(subjectForm.variants)
         });
         notify($t.subject.saved);
       } else {
@@ -104,7 +119,8 @@
           Code: '',
           Description: subjectForm.desc.trim(),
           Grades: [],
-          Color: subjectForm.color
+          Color: subjectForm.color,
+          Variants: parseVariants(subjectForm.variants)
         });
         notify($t.subject.created);
       }
@@ -161,7 +177,7 @@
     return (await guarded(() => scheduleEntries({ teacherID }))) ?? [];
   }
 
-  function openAdd(day: number | null = null, startMin: number | null = null, subjectID: string | null = null) {
+  function openAdd(day: number | null = null, startMin: number | null = null, subjectID: string | null = null, variant: string | null = null) {
     editingEntry = null;
     sheetDay = day;
     // Encaja en el hueco libre (tras el choque) en vez de encima.
@@ -172,6 +188,7 @@
         ? SCHOOL_END_MIN - MIN_DURATION_MIN
         : snapped;
     sheetSubject = subjectID;
+    sheetVariant = variant;
     sheetOpen = true;
     sheetSession += 1;
   }
@@ -182,11 +199,13 @@
     // El payload del propio gesto manda: dragSubject es solo respaldo
     // (puede quedar rancio si un arrastre anterior no cerró bien).
     const subjectID = e.dataTransfer?.getData('text/subject-id') || dragSubject || '';
+    const variant = e.dataTransfer?.getData('text/subject-variant') || dragVariant || null;
     dragSubject = null;
+    dragVariant = null;
     if (!subjectID) return;
     keptGhost = { subjectID, day, start: snapStart(day, startMin, MIN_DURATION_MIN), duration: MIN_DURATION_MIN };
     ghostFading = false;
-    openAdd(day, startMin, subjectID);
+    openAdd(day, startMin, subjectID, variant || null);
   }
 
   function previewGhost(p: { subjectID: string; weekday: number; startMin: number; durationMin: number }) {
@@ -231,6 +250,8 @@
   let dropTarget: { day: number; start: number } | null = null;
   // Materia en vuelo (dragstart la deja; dataTransfer no se lee en hover).
   let dragSubject: string | null = null;
+  // Variante en vuelo cuando se arrastra el botón del hijo.
+  let dragVariant: string | null = null;
   // Fantasma con snap por hora: sigue al cursor, se queda en el popup,
   // cambia en vivo con sus campos y se desvanece al cancelar.
   let keptGhost: { subjectID: string; day: number; start: number; duration: number } | null = null;
@@ -263,6 +284,7 @@
     sheetDay = null;
     sheetStart = null;
     sheetSubject = null;
+    sheetVariant = null;
     sheetOpen = true;
     sheetSession += 1;
   }
@@ -271,6 +293,7 @@
     sheetOpen = false;
     editingEntry = null;
     sheetSubject = null;
+    sheetVariant = null;
     keptGhost = null;
     ghostFading = false;
     notify(action === 'deleted' ? $t.admin.entryDeleted : $t.admin.entrySaved);
@@ -522,7 +545,7 @@
               aria-label={`${subj?.Name ?? $t.common.noData} ${teacherName(e.TeacherID)} ${dayLabel(e.Weekday)} ${rangeLabel(e.Start, e.End)}`}
               on:click={() => openEdit(e)}
             >
-              <strong>{subj?.Name ?? '—'}</strong>
+              <strong>{subj?.Name ?? '—'}{e.Variant ? ` ${e.Variant}` : ''}</strong>
               <small>{rangeLabel(e.Start, e.End)}</small>
               <small class="t">{teacherName(e.TeacherID)}</small>
               {#if e.JointID}
@@ -549,6 +572,7 @@
     teachers={teacherList}
     presetGroupID={pickedGroup?.GroupID ?? ''}
     presetSubjectID={sheetSubject ?? ''}
+    presetVariant={sheetVariant ?? ''}
     presetWeekday={sheetDay}
     presetStartMin={sheetStart}
     contextEntries={entries}
@@ -593,6 +617,33 @@
                 {s.Name}
               </button>
               {#if s.Description}<small>{s.Description}</small>{/if}
+              {#if (s.Variants ?? []).length > 0}
+                <span class="variants">
+                  {#each s.Variants ?? [] as v (v)}
+                    <button
+                      type="button"
+                      class="variant"
+                      title={`${s.Name} ${v}`}
+                      draggable="true"
+                      on:dragstart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer?.setData('text/subject-id', s.ID);
+                        e.dataTransfer?.setData('text/subject-variant', v);
+                        dragSubject = s.ID;
+                        dragVariant = v;
+                      }}
+                      on:dragend={() => {
+                        dragSubject = null;
+                        dragVariant = null;
+                        dropTarget = null;
+                      }}
+                      on:click={() => openEditSubject(s)}
+                    >
+                      {v}
+                    </button>
+                  {/each}
+                </span>
+              {/if}
             </span>
             <button
               type="button"
@@ -619,6 +670,11 @@
         <span>{$t.subject.descriptionLabel}</span>
         <input type="text" placeholder={$t.subject.descriptionPlaceholder} bind:value={subjectForm.desc} maxlength="200" />
       </label>
+      <label>
+        <span>{$t.subject.variantsLabel}</span>
+        <input type="text" placeholder={$t.subject.variantsPlaceholder} bind:value={subjectForm.variants} maxlength="120" />
+      </label>
+      <small class="muted">{$t.subject.variantsHint}</small>
       <span class="flabel">{$t.subject.colorLabel}</span>
       <div class="swatches" role="radiogroup" aria-label={$t.subject.colorLabel}>
         {#each COLOR_PRESETS as c (c)}
