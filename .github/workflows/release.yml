@@ -1,9 +1,9 @@
 # Release frontend: solo corre en tags v* cuyo commit YA pasó CI en main.
-# Compila Tauri desktop (linux/windows) y Android (APK+AAB debug para
-# pruebas) y publica el GH Release. macOS/iOS salen del path: los runners
-# macos se quedaban en cola sin capacidad y el build iOS real exige
-# certificados Apple (antes solo compilaba simulador best-effort).
-# Si se necesitan, re-agregar la matriz macos y el job ios-sim.
+# linux/windows/Android publican el Release de una vez; macOS es
+# oportunista (needs: publish): cuando consigue runner, adjunta sus
+# artefactos al Release ya existente con `gh release upload`. Si el job
+# macOS se cancela por falta de capacidad, el Release queda válido igual.
+# iOS sigue fuera: el build real exige certificados Apple.
 name: release
 
 on:
@@ -134,3 +134,35 @@ jobs:
         run: |
           gh release create "${{ github.ref_name }}" dist-artifacts/**/* \
             --title "${{ github.ref_name }}" --generate-notes
+
+  # macOS oportunista: corre DESPUÉS de publish y adjunta sus artefactos
+  # al Release ya existente. Si no hay runners, se cancela sin afectar
+  # lo publicado.
+  desktop-macos:
+    needs: [publish]
+    runs-on: macos-latest
+    env:
+      VITE_API_URL: https://api.fractalschool.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.7.0
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.1
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - run: npm ci
+      - uses: tauri-apps/tauri-action@v0
+        with:
+          args: --target universal-apple-darwin
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd src-tauri/target/universal-apple-darwin/release/bundle
+          tar -czf macos-app.tar.gz macos/*.app
+          gh release upload "${{ github.ref_name }}" \
+            dmg/*.dmg macos-app.tar.gz \
+            --clobber
