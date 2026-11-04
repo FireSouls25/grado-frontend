@@ -306,7 +306,7 @@
           <div><dt>{$t.studentSummary.absences}</dt><dd>{report.Absences}</dd></div>
           <div><dt>{$t.studentSummary.evasions}</dt><dd>{report.Evasions}</dd></div>
           <div><dt>{$t.studentSummary.lates}</dt><dd>{report.Lates}</dd></div>
-        <div><dt>{$t.attendance.uniformLabel}</dt><dd class:low={(report.UniformFaults ?? 0) > 0}>{report.UniformFaults ?? 0}</dd></div>
+        <div><dt>{$t.attendance.uniformFault}</dt><dd class:low={(report.UniformFaults ?? 0) > 0}>{report.UniformFaults ?? 0}</dd></div>
           <div><dt>{$t.roster.warnGravityMild}</dt><dd>{report.WarningsMild}</dd></div>
           <div><dt>{$t.roster.warnGravityModerate}</dt><dd>{report.WarningsModerate}</dd></div>
           <div><dt>{$t.roster.warnGravitySevere}</dt><dd>{report.WarningsSevere}</dd></div>
