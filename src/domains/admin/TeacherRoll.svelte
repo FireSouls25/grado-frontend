@@ -84,6 +84,12 @@
       await ensureYears();
       dayKind = kindOf(day);
       rows = (await guarded(() => teacherRoll(day))) ?? [];
+      // Lista nueva: sin registros, todos inician presentes.
+      if (rows.length > 0 && rows.every((r) => !r.Recorded)) {
+        const next: typeof sel = {};
+        for (const r of rows) next[r.TeacherID] = 'present';
+        sel = next;
+      }
       if (rows.length === 0 && dayKind !== '') {
         const all = await guarded(() => teachers());
         if (all) {
@@ -273,6 +279,14 @@
               >
                 {$t.troll.statusLate}
               </button>
+              <button
+                type="button"
+                class:replacement={current === 'replacement'}
+                aria-pressed={current === 'replacement'}
+                on:click={() => setStatus(row.TeacherID, 'replacement')}
+              >
+                {$t.troll.statusReplacement}
+              </button>
             </span>
           </li>
         {/each}
@@ -434,6 +448,10 @@
   .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
+  }
+  .seg button.replacement {
+    background: var(--chip-purple-bg);
+    color: var(--chip-purple-ink);
   }
   .btn.permbtn.on {
     background: var(--m-permission-bg);

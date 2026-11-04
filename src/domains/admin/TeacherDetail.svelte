@@ -611,6 +611,7 @@
                 <div class="kpi"><small>{$t.troll.presentCount}</small><strong>{hist.Summary.Present}</strong></div>
                 <div class="kpi"><small>{$t.troll.absentCount}</small><strong>{hist.Summary.Absent}</strong></div>
                 <div class="kpi"><small>{$t.troll.lateCount}</small><strong>{hist.Summary.Late}</strong></div>
+                <div class="kpi"><small>{$t.troll.replacementCount}</small><strong>{hist.Summary.Replacement ?? 0}</strong></div>
               </div>
               {#if hist.Marks.length === 0}
                 <p class="muted">{$t.troll.historyEmpty}</p>
@@ -634,6 +635,7 @@
                       class:present={mark?.Status === 'present'}
                       class:absent={mark?.Status === 'absent'}
                       class:late={mark?.Status === 'late'}
+                      class:replacement={mark?.Status === 'replacement'}
                       title={mark ? `${key}${mark.Note ? ` · ${mark.Note}` : ''}` : `${key} · ${$t.troll.legendNone}`}
                     >
                       {dNum}
@@ -644,6 +646,7 @@
                   <span class="lg present">{$t.troll.legendPresent}</span>
                   <span class="lg absent">{$t.troll.legendAbsent}</span>
                   <span class="lg late">{$t.troll.legendLate}</span>
+                  <span class="lg replacement">{$t.troll.legendReplacement}</span>
                   <span class="lg">{$t.troll.legendNone}</span>
                 </div>
               {/if}
@@ -1027,6 +1030,12 @@
     color: var(--chip-yellow-ink);
     font-weight: 600;
   }
+  .day.replacement {
+    background: var(--chip-purple-bg);
+    border-color: transparent;
+    color: var(--chip-purple-ink);
+    font-weight: 600;
+  }
   .legend {
     display: flex;
     flex-wrap: wrap;
@@ -1056,6 +1065,10 @@
   }
   .lg.late::before {
     background: var(--chip-yellow-bg);
+    border-color: transparent;
+  }
+  .lg.replacement::before {
+    background: var(--chip-purple-bg);
     border-color: transparent;
   }
   .muted {

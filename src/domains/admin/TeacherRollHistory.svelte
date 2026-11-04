@@ -49,7 +49,7 @@
   let revisions: TeacherDayRevision[] = [];
   let revisionsLoading = false;
 
-  $: absentLate = detailRows.filter((r) => r.Status === 'absent' || r.Status === 'late');
+  $: absentLate = detailRows.filter((r) => r.Status === 'absent' || r.Status === 'late' || r.Status === 'replacement');
   $: presentRows = detailRows.filter((r) => r.Status === 'present');
 
   async function load() {
@@ -105,13 +105,16 @@
         ? 'is-permission'
       : m === 'late'
         ? 'is-late'
-        : m === 'evasion'
-          ? 'is-evasion'
-          : 'is-present';
+        : m === 'replacement'
+          ? 'is-replacement'
+          : m === 'evasion'
+            ? 'is-evasion'
+            : 'is-present';
   }
 
   function statusName(s: string): string {
     if (s === 'permission') return $t.troll.statusPermission;
+    if (s === 'replacement') return $t.troll.statusReplacement;
     return s === 'absent' ? $t.troll.statusAbsent : s === 'late' ? $t.troll.statusLate : $t.troll.statusPresent;
   }
 
@@ -169,6 +172,9 @@
                 <span class="chip ok" title={$t.troll.statusPresent}>{card.Present}</span>
                 <span class="chip bad" title={$t.troll.statusAbsent}>{card.Absent}</span>
                 <span class="chip warn" title={$t.troll.statusLate}>{card.Late}</span>
+                {#if card.Replacement > 0}
+                  <span class="chip repl" title={$t.troll.statusReplacement}>{card.Replacement}</span>
+                {/if}
               </span>
               <span class="chev" class:open={expanded === card.Day} aria-hidden="true"><Icon name="next" /></span>
             </button>
@@ -354,6 +360,10 @@
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
   }
+  .chip.repl {
+    background: var(--chip-purple-bg);
+    color: var(--chip-purple-ink);
+  }
   .chev {
     display: inline-flex;
     align-items: center;
@@ -503,6 +513,10 @@
     color: var(--m-permission);
     border-color: var(--m-permission);
   }
+  .mk.is-replacement {
+    color: var(--chip-purple-ink);
+    border-color: var(--chip-purple-ink);
+  }
   .mk.solid.is-present {
     background: var(--chip-green-bg);
     border-color: transparent;
@@ -521,6 +535,10 @@
   }
   .mk.solid.is-permission {
     background: var(--m-permission-bg);
+    border-color: transparent;
+  }
+  .mk.solid.is-replacement {
+    background: var(--chip-purple-bg);
     border-color: transparent;
   }
   .swap {
