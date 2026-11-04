@@ -45,11 +45,20 @@ jobs:
       VITE_API_URL: https://api.fractalschool.app
     steps:
       - uses: actions/checkout@v4
+      # Tauri desktop en Linux enlaza webkitgtk del sistema: sin estos
+      # headers el build Rust (glib-sys) falla en pkg-config.
+      - if: matrix.os == 'ubuntu-latest'
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file
+          libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: actions/setup-node@v4
         with:
           node-version: 26.7.0
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.1
       - uses: Swatinem/rust-cache@v2
       - if: matrix.os == 'macos-latest'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -80,12 +89,26 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
-      - run: yes | sdkmanager "ndk;25.1.8937393" "platforms;android-34" "build-tools;34.0.0"
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+      # setup-android@v3 quedó obsoleto: invoca `sdkmanager tools`, paquete
+      # que ya no existe en cmdline-tools modernos y falla con exit 1.
+      # Instalación manual con versiones fijadas en su lugar.
+      - run: |
+          set -e
+          SDK="$HOME/Android/Sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -o /tmp/cmdtools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/cmdtools.zip -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          export PATH="$SDK/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --sdk_root="$SDK" --licenses
+          sdkmanager --sdk_root="$SDK" \
+            "platform-tools" "platforms;android-34" "platforms;android-36" \
+            "build-tools;34.0.0" "build-tools;35.0.0" "ndk;25.1.8937393"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$SDK/ndk/25.1.8937393" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.97.1
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
@@ -118,6 +141,7 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.97.1
           targets: aarch64-apple-ios-sim
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
