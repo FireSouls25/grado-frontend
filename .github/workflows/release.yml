@@ -1,8 +1,9 @@
 # Release frontend: solo corre en tags v* cuyo commit YA pasó CI en main.
-# No repite tests: la puerta `gate` exige el run verde de `ci` para el
-# mismo SHA y falla en seco si no existe. Compila Tauri desktop
-# (win/mac/linux), Android (APK+AAB debug para pruebas) e iOS
-# (simulador, valida que compila) y publica el GH Release.
+# Compila Tauri desktop (linux/windows) y Android (APK+AAB debug para
+# pruebas) y publica el GH Release. macOS/iOS salen del path: los runners
+# macos se quedaban en cola sin capacidad y el build iOS real exige
+# certificados Apple (antes solo compilaba simulador best-effort).
+# Si se necesitan, re-agregar la matriz macos y el job ios-sim.
 name: release
 
 on:
@@ -38,8 +39,6 @@ jobs:
             args: ""
           - os: windows-latest
             args: ""
-          - os: macos-latest
-            args: --target universal-apple-darwin
     runs-on: ${{ matrix.os }}
     env:
       VITE_API_URL: https://api.fractalschool.app
@@ -60,8 +59,6 @@ jobs:
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@v2
-      - if: matrix.os == 'macos-latest'
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - run: npm ci
       - uses: tauri-apps/tauri-action@v0
         with:
@@ -125,31 +122,8 @@ jobs:
           path: src-tauri/gen/android/app/build/outputs/bundle/**/debug/*.aab
           if-no-files-found: error
 
-  # iOS real (device/TestFlight) requiere certificados Apple: este job solo
-  # inicializa y compila para simulador (best effort) para pillar roturas.
-  ios-sim:
-    needs: [gate]
-    continue-on-error: true
-    runs-on: macos-latest
-    env:
-      VITE_API_URL: https://api.fractalschool.app
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 26.7.0
-          cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.97.1
-          targets: aarch64-apple-ios-sim
-      - uses: Swatinem/rust-cache@v2
-      - run: npm ci
-      - run: npx tauri ios init
-      - run: npx tauri ios build --debug --target aarch64-apple-ios-sim
-
   publish:
-    needs: [gate, desktop, android, ios-sim]
+    needs: [gate, desktop, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
