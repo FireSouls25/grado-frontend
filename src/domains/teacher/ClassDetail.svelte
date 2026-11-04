@@ -75,6 +75,10 @@
   // estudiante antes de guardar.
   let late = new Set<string>();
   let lateInit = new Set<string>();
+  // Evasiones aparte de la falta: marca propia del backend que también
+  // baja la asistencia y sale en estadísticas.
+  let evasion = new Set<string>();
+  let evasionInit = new Set<string>();
   // Permisos con motivo registrado: el docente también puede otorgarlos;
   // el motivo viaja en la nota de la marca.
   let perm = new Set<string>();
@@ -131,6 +135,8 @@
       presentInit = new Set(present);
       late = new Set();
       lateInit = new Set();
+      evasion = new Set();
+      evasionInit = new Set();
       await resumeToday();
     } catch {
       // Backend sin nómina todavía (404 o error): vacío honesto, no lista falsa.
@@ -139,6 +145,8 @@
       presentInit = new Set();
       late = new Set();
       lateInit = new Set();
+      evasion = new Set();
+      evasionInit = new Set();
     } finally {
       loading = false;
     }
@@ -157,18 +165,22 @@
       sessionID = ours.ID;
       const p = new Set<string>();
       const l = new Set<string>();
+      const v = new Set<string>();
       const pm = new Set<string>();
       for (const r of roster) {
         const m = marks[r.StudentID] ?? '';
         if (m === 'late') l.add(r.StudentID);
+        else if (m === 'evasion') v.add(r.StudentID);
         else if (m === 'absence-permission') pm.add(r.StudentID);
         else if (m === '') p.add(r.StudentID);
       }
       present = p;
       late = l;
+      evasion = v;
       perm = pm;
       presentInit = new Set(p);
       lateInit = new Set(l);
+      evasionInit = new Set(v);
       permInit = new Set(pm);
       try {
         const uniform = await guarded(() => sessionUniform(ours.ID));
@@ -208,7 +220,7 @@
 
   onMount(() => loadWhenReady(() => void load()));
 
-  type RollMark = '' | 'absence' | 'absence-permission' | 'late';
+  type RollMark = '' | 'absence' | 'absence-permission' | 'evasion' | 'late';
 
   function toggleUniform(id: string) {
     if (uniformOff.has(id)) uniformOff.delete(id);
@@ -222,6 +234,8 @@
     else present.delete(id);
     if (mark === 'late') late.add(id);
     else late.delete(id);
+    if (mark === 'evasion') evasion.add(id);
+    else evasion.delete(id);
     // Los docentes no otorgan permisos a estudiantes (solo secretaría y
   // administración, vía permiso record-defenses del backend): al tocar un
     // heredado se vuelve falta común; crearlos no está disponible.
@@ -231,6 +245,7 @@
     }
     present = present;
     late = late;
+    evasion = evasion;
     perm = perm;
     feedback = '';
   }
@@ -240,8 +255,9 @@
   $: notPresent = roster.filter((r) => !present.has(r.StudentID));
   $: lateCount = notPresent.filter((r) => late.has(r.StudentID)).length;
   $: permCount = notPresent.filter((r) => perm.has(r.StudentID)).length;
+  $: evasionCount = notPresent.filter((r) => evasion.has(r.StudentID)).length;
   $: uniformFaults = roster.filter((r) => uniformOff.has(r.StudentID)).length;
-  $: absentCount = notPresent.length - lateCount - permCount;
+  $: absentCount = notPresent.length - lateCount - permCount - evasionCount;
   $: presentPct = roster.length ? Math.round(((presentCount + permCount + lateCount) / roster.length) * 100) : 0;
 
   async function ensureSession(): Promise<boolean> {
@@ -276,6 +292,7 @@
     for (const r of roster) next.add(r.StudentID);
     present = next;
     late = new Set();
+    evasion = new Set();
     perm = new Set();
     permNotes = {};
     feedback = '';
@@ -284,6 +301,7 @@
   function markAllAbsent() {
     present = new Set<string>();
     late = new Set<string>();
+    evasion = new Set<string>();
     perm = new Set();
     permNotes = {};
     feedback = '';
@@ -305,6 +323,7 @@
   $: dirty =
     !sameSets(present, presentInit) ||
     !sameSets(late, lateInit) ||
+    !sameSets(evasion, evasionInit) ||
     !sameSets(perm, permInit) ||
     !sameNotes(permNotes, permNotesInit, perm) ||
     !sameSets(uniformOff, uniformOffInit);
@@ -318,7 +337,8 @@
       Present: presentCount,
       Absent: absentCount,
       Permission: permCount,
-      Late: lateCount
+      Late: lateCount,
+      Evasion: evasionCount
     });
   }
 
@@ -333,20 +353,21 @@
         // Sin sesión en el backend: se conserva el estado local y se dice.
         presentInit = new Set(present);
         lateInit = new Set(late);
+        evasionInit = new Set(evasion);
         permInit = new Set(perm);
         uniformOffInit = new Set(uniformOff);
         snapshotRollcall();
         feedback = $t.attendance.savedLocal;
         return;
       }
-      const markOf = (p: Set<string>, l: Set<string>, m: Set<string>, id: string): RollMark =>
-        p.has(id) ? '' : l.has(id) ? 'late' : m.has(id) ? 'absence-permission' : 'absence';
+      const markOf = (p: Set<string>, l: Set<string>, v: Set<string>, m: Set<string>, id: string): RollMark =>
+        p.has(id) ? '' : l.has(id) ? 'late' : v.has(id) ? 'evasion' : m.has(id) ? 'absence-permission' : 'absence';
       const noteOf = (m: Set<string>, id: string): string =>
         m.has(id) ? (permNotes[id] ?? '') : '';
       for (const r of roster) {
         // Marca equivalente de cada estado (presente = "").
-        const wasMark = markOf(presentInit, lateInit, permInit, r.StudentID);
-        const isMark = markOf(present, late, perm, r.StudentID);
+        const wasMark = markOf(presentInit, lateInit, evasionInit, permInit, r.StudentID);
+        const isMark = markOf(present, late, evasion, perm, r.StudentID);
         if (wasMark === isMark && noteOf(permInit, r.StudentID) === noteOf(perm, r.StudentID)) continue;
         try {
           await recordMark(sessionID, r.StudentID, isMark, noteOf(perm, r.StudentID));
@@ -371,6 +392,7 @@
       }
       presentInit = new Set(present);
       lateInit = new Set(late);
+      evasionInit = new Set(evasion);
       permInit = new Set(perm);
       permNotesInit = Object.fromEntries([...perm].map((id) => [id, permNotes[id] ?? '']));
       uniformOffInit = new Set(uniformOff);
@@ -442,7 +464,8 @@
             <h3>{$t.attendance.summaryTitle}</h3>
             <p class="rate"><strong>{presentPct}%</strong><span class="rbar"><span style={`width: ${presentPct}%`}></span></span></p>
             <p class="sum-row"><span class="dot present"></span> {$t.attendance.presentLabel} <strong>{$t.attendance.studentsCount(presentCount)}</strong></p>
-            <p class="sum-row"><span class="dot absent"></span> {$t.attendance.absentLabel} <strong>{$t.attendance.studentsCount(absentCount)}</strong></p>
+            <p class="sum-row"><span class="dot absent"></span> {$t.roster.absent} <strong>{$t.attendance.studentsCount(absentCount)}</strong></p>
+            <p class="sum-row"><span class="dot evasion"></span> {$t.roster.evasion} <strong>{$t.attendance.studentsCount(evasionCount)}</strong></p>
             <p class="sum-row"><span class="dot late"></span> {$t.attendance.lateLabel} <strong>{$t.attendance.studentsCount(lateCount)}</strong></p>
             <p class="sum-row"><span class="dot perm"></span> {$t.roster.permission} <strong>{$t.attendance.studentsCount(permCount)}</strong></p>
             <p class="sum-row"><span class="dot uniform"></span> {$t.attendance.uniformFault} <strong>{$t.attendance.studentsCount(uniformFaults)}</strong></p>
@@ -470,8 +493,9 @@
             {#each roster as r (r.StudentID)}
               {@const inPresent = present.has(r.StudentID)}
               {@const isLate = late.has(r.StudentID)}
+              {@const isEvasion = evasion.has(r.StudentID)}
               {@const isPerm = perm.has(r.StudentID)}
-              {@const cur = inPresent ? '' : isLate ? 'late' : isPerm ? 'absence-permission' : 'absence'}
+              {@const cur = inPresent ? '' : isLate ? 'late' : isEvasion ? 'evasion' : isPerm ? 'absence-permission' : 'absence'}
               <li>
                 <span class="who">
                   <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
@@ -501,6 +525,14 @@
                     on:click={() => pick(r.StudentID, 'absence')}
                   >
                     {$t.roster.absentShort}
+                  </button>
+                  <button
+                    type="button"
+                    class:evasion={cur === 'evasion'}
+                    aria-pressed={cur === 'evasion'}
+                    on:click={() => pick(r.StudentID, 'evasion')}
+                  >
+                    {$t.roster.evasion}
                   </button>
                   <button
                     type="button"
@@ -780,10 +812,10 @@
   }
   .seg button {
     flex: 1;
-    min-height: 36px;
-    padding: 6px 10px;
+    min-height: 30px;
+    padding: 4px 8px;
     border-radius: 6px;
-    font-size: 0.8rem;
+    font-size: 0.74rem;
     font-weight: 600;
     color: var(--muted);
     white-space: nowrap;
@@ -796,6 +828,10 @@
     background: var(--chip-pink-bg);
     color: var(--g-grave-ink);
   }
+  .seg button.evasion {
+    background: var(--chip-purple-bg);
+    color: var(--chip-purple-ink);
+  }
   .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
@@ -805,6 +841,9 @@
   }
   .dot.perm {
     background: var(--m-permission);
+  }
+  .dot.evasion {
+    background: var(--chip-purple-ink);
   }
   .flash.error {
     background: var(--g-grave-bg);

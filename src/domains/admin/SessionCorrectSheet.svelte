@@ -1,8 +1,9 @@
 <script lang="ts">
   // Hoja compartida para corregir marcas de una llamada: mismo lenguaje
   // que la lista docente y mismo guardado (POST /v1/sessions/{id}/marks
-  // por marca). El segmento trae los 4 estados y el permiso va aparte:
-  // solo se activa en falta y exige su motivo, que queda registrado.
+  // por marca). El segmento trae presente, falta sin justificar, evasión
+  // y atraso; el permiso va aparte: solo se activa en falta y exige su
+  // motivo, que queda registrado.
   // La usan el historial de llamadas y el resumen del estudiante
   // (secretaría y admin; el docente no corrige).
   import Sheet from '$lib/ui/Sheet.svelte';
@@ -13,8 +14,8 @@
   import { canWriteDefenses } from '$lib/access';
   import { profile } from '$lib/shell/profile';
 
-  type CorrectMark = '' | 'absence' | 'absence-permission' | 'late';
-  type SegMark = '' | 'absence' | 'late';
+  type CorrectMark = '' | 'absence' | 'absence-permission' | 'evasion' | 'late';
+  type SegMark = '' | 'absence' | 'evasion' | 'late';
 
   export let open = false;
   export let title: string = '';
@@ -36,6 +37,7 @@
 
   function baseOf(current: string): SegMark {
     if (current === 'late') return 'late';
+    if (current === 'evasion') return 'evasion';
     if (!current) return '';
     return 'absence';
   }
@@ -111,8 +113,7 @@
 
   async function save() {
     error = '';
-    const norm = (c: string): string => (c === 'evasion' ? 'absence' : c);
-    const changed = students.filter((s) => finalOf(s.id, s.current) !== norm(s.current));
+    const changed = students.filter((s) => finalOf(s.id, s.current) !== s.current);
     if (changed.length === 0) {
       error = $t.troll.shistory.pickStudent;
       return;
@@ -154,6 +155,9 @@
           <button type="button" class:absent={(sel[s.id] ?? baseOf(s.current)) === 'absence'} aria-pressed={(sel[s.id] ?? baseOf(s.current)) === 'absence'} on:click={() => pick(s.id, 'absence')}>
             {$t.roster.absentShort}
           </button>
+          <button type="button" class:evasion={(sel[s.id] ?? baseOf(s.current)) === 'evasion'} aria-pressed={(sel[s.id] ?? baseOf(s.current)) === 'evasion'} on:click={() => pick(s.id, 'evasion')}>
+            {$t.roster.evasion}
+          </button>
           <button type="button" class:late={(sel[s.id] ?? baseOf(s.current)) === 'late'} aria-pressed={(sel[s.id] ?? baseOf(s.current)) === 'late'} on:click={() => pick(s.id, 'late')}>
             {$t.roster.late}
           </button>
@@ -169,7 +173,7 @@
         >
           {$t.roster.permission}
         </button>
-        {#if canWriteDefenses($profile.me) && (finalOf(s.id, s.current) === 'absence' || finalOf(s.id, s.current) === 'absence-permission')}
+        {#if canWriteDefenses($profile.me) && (finalOf(s.id, s.current) === 'absence' || finalOf(s.id, s.current) === 'evasion' || finalOf(s.id, s.current) === 'absence-permission')}
           <button
             type="button"
             class="permbtn"
@@ -314,6 +318,10 @@
   .seg button.absent {
     background: var(--chip-pink-bg);
     color: var(--g-grave-ink);
+  }
+  .seg button.evasion {
+    background: var(--chip-purple-bg);
+    color: var(--chip-purple-ink);
   }
   .seg button.late {
     background: var(--chip-yellow-bg);

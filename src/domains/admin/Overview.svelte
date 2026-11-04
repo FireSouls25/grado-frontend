@@ -588,7 +588,7 @@
         id: `riesgo-${row.id}`,
         sev: grave ? 'grave' : 'medio',
         title: `${$t.admin.reviewAction}: ${row.name}`,
-        meta: `${row.rate}% · ${row.absences + row.evasions} ${$t.admin.colEvasions}` + (row.lateStreak >= 2 ? ` · ${$t.admin.lateStreak(row.lateStreak)}` : ''),
+        meta: `${row.rate}% · ${row.absences} ${$t.admin.colAbsencesLong.toLowerCase()} · ${row.evasions} ${$t.admin.colEvasionsLong.toLowerCase()}` + (row.lateStreak >= 2 ? ` · ${$t.admin.lateStreak(row.lateStreak)}` : ''),
         href: `/admin/estudiantes/${encodeURIComponent(row.slug || row.id)}/resumen`,
         actionLabel: $t.admin.openSummary,
         call: guardianPhones[row.id] ?? null,
@@ -792,7 +792,8 @@
             ? [
                 { value: marks.presences, name: $t.admin.markPresent, itemStyle: { color: cssVar('--m-present', '#1e7b4f') } },
                 { value: marks.excused, name: $t.admin.markPermission, itemStyle: { color: cssVar('--m-permission', '#1b6c80') } },
-                { value: marks.absences + marks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#733952') } },
+                { value: marks.absences, name: $t.admin.markAbsence, itemStyle: { color: cssVar('--m-absent', '#b83a2a') } },
+                { value: marks.evasions, name: $t.admin.markEvasion, itemStyle: { color: cssVar('--m-evasion', '#733952') } },
                 { value: marks.lates, name: $t.admin.markLate, itemStyle: { color: cssVar('--m-late', '#a86f0c') } }
               ]
             : []
@@ -1043,7 +1044,8 @@
                 <div class="legend pills">
                   <span><i class="sw k-present"></i>{$t.admin.markPresent} <strong>{donutTotals.presences}</strong></span>
                   <span><i class="sw k-permission"></i>{$t.admin.markPermission} <strong>{donutTotals.excused}</strong></span>
-                  <span><i class="sw k-evasion"></i>{$t.admin.markEvasion} <strong>{donutTotals.absences + donutTotals.evasions}</strong></span>
+                  <span><i class="sw k-absent"></i>{$t.admin.markAbsence} <strong>{donutTotals.absences}</strong></span>
+                  <span><i class="sw k-evasion"></i>{$t.admin.markEvasion} <strong>{donutTotals.evasions}</strong></span>
                   <span><i class="sw k-late"></i>{$t.admin.markLate} <strong>{donutTotals.lates}</strong></span>
                 </div>
               </section>
@@ -1115,6 +1117,7 @@
                   <div class="prow-head" aria-hidden="true">
                     <span>#</span>
                     <span>{$t.admin.colStudent}</span>
+                    <span class="num-col">{$t.admin.colAbsences}</span>
                     <span class="num-col">{$t.admin.colEvasions}</span>
                     <span class="num-col rate-col">{$t.admin.colRate}</span>
                     <span class="act-col">{$t.a11y.actions}</span>
@@ -1132,7 +1135,8 @@
                             </small>
                           </span>
                         </div>
-                        <span class="num-cell" class:alert={row.absences + row.evasions > 0}>{row.absences + row.evasions}</span>
+                        <span class="num-cell" class:alert={row.absences > 0}>{row.absences}</span>
+                        <span class="num-cell" class:alert={row.evasions > 0}>{row.evasions}</span>
                         <div class="rateblock">
                           <div class="rate-top">
                             <span class="rate-id">
@@ -2064,7 +2068,7 @@
     }
     .prow-head {
       display: grid;
-      grid-template-columns: 28px minmax(0, 1.5fr) 64px 176px 312px;
+      grid-template-columns: 28px minmax(0, 1.5fr) 56px 56px 176px 312px;
       gap: 16px;
       padding: 0 4px 8px;
       border-bottom: 1px solid var(--line);
@@ -2082,7 +2086,7 @@
       text-align: right;
     }
     .prow {
-      grid-template-columns: 28px minmax(0, 1.5fr) 64px 176px 312px;
+      grid-template-columns: 28px minmax(0, 1.5fr) 56px 56px 176px 312px;
       gap: 16px;
       padding: 10px 4px;
     }

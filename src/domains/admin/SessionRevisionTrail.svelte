@@ -12,8 +12,8 @@
   $: rows = studentName ? revisions.filter((r) => r.Student === studentName) : revisions;
 
   function markName(m: string): string {
-    if (m === 'absence') return $t.roster.evasion;
-    if (m === 'absence-permission') return $t.admin.markPermission;
+    if (m === 'absence') return $t.roster.absentShort;
+    if (m === 'absence-permission') return $t.roster.permission;
     if (m === 'late') return $t.admin.markLate;
     if (m === 'evasion') return $t.admin.markEvasion;
     return $t.admin.markPresent;

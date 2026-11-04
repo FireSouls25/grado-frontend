@@ -279,7 +279,7 @@ export async function exportYearWorkbook(
     const rows: Array<[string, number, boolean]> = [
       [t.attendanceLabel, M.StudentDays > 0 ? M.Presences / M.StudentDays : 0, true],
       ['Presente', M.Presences, false],
-      ['Inasistencia', M.Absences, false],
+      ['Falta sin justificar', M.Absences, false],
       ['Con permiso', M.Excused, false],
       ['Evasión', M.Evasions, false],
       ['Atraso', M.Lates, false]
@@ -312,7 +312,7 @@ export async function exportYearWorkbook(
       paint(b);
     });
     const sh = 14;
-    [t.salonLabel, t.daysLabel, 'Presente', 'Inasistencia', 'Con permiso', 'Evasión', 'Atraso', t.attendanceLabel].forEach(
+    [t.salonLabel, t.daysLabel, 'Presente', 'Falta sin justificar', 'Con permiso', 'Evasión', 'Atraso', t.attendanceLabel].forEach(
       (h, i) => {
         const cell = ps.getCell(sh, i + 1);
         cell.value = h;

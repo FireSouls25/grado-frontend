@@ -598,6 +598,7 @@
             <div class="colhead" aria-hidden="true">
               <span>{$t.admin.colStudent}</span>
               <span class="num-col">{$t.admin.colPermission}</span>
+              <span class="num-col">{$t.admin.colAbsences}</span>
               <span class="num-col">{$t.admin.colEvasions}</span>
               <span class="num-col">{$t.admin.markLate}</span>
               <span class="num-col">{$t.admin.colRate}</span>
@@ -634,7 +635,8 @@
                     </div>
                   </div>
                   <span class="c-stat"><strong>{s.Excused}</strong></span>
-                  <span class="c-stat" class:alert={s.Absences + s.Evasions > 0}><strong>{s.Absences + s.Evasions}</strong></span>
+                  <span class="c-stat" class:alert={s.Absences > 0}><strong>{s.Absences}</strong></span>
+                  <span class="c-stat" class:alert={s.Evasions > 0}><strong>{s.Evasions}</strong></span>
                   <span class="c-stat" class:alert={s.Lates > 0}><strong>{s.Lates}</strong></span>
                   <div class="rateblock">
                     <span class="rate-id">
@@ -990,7 +992,7 @@
   }
   .stu-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(3, 48px) 84px;
+    grid-template-columns: minmax(0, 1fr) repeat(4, 44px) 84px;
     gap: 8px;
     align-items: center;
     padding: 10px 4px;
@@ -1002,7 +1004,7 @@
   @media (min-width: 820px) {
     .colhead {
       display: grid;
-      grid-template-columns: minmax(200px, 1.6fr) repeat(3, 76px) 120px 224px;
+      grid-template-columns: minmax(200px, 1.6fr) repeat(4, 64px) 120px 224px;
       gap: 12px;
       padding: 0 4px 8px;
       border-bottom: 1px solid var(--line);
@@ -1017,7 +1019,7 @@
       text-align: right;
     }
     .stu-row {
-      grid-template-columns: minmax(200px, 1.6fr) repeat(3, 76px) 120px 224px;
+      grid-template-columns: minmax(200px, 1.6fr) repeat(4, 64px) 120px 224px;
       gap: 12px;
     }
   }

@@ -303,7 +303,8 @@
           <div><dt>{$t.studentSummary.rateLabel}</dt><dd class:low={rate !== null && rate < 85}>{rate === null ? '—' : `${rate}%`}</dd></div>
           <div><dt>{$t.studentSummary.presences}</dt><dd>{report.Presences}</dd></div>
           <div><dt>{$t.studentSummary.excused}</dt><dd>{report.Excused}</dd></div>
-          <div><dt>{$t.studentSummary.evasions}</dt><dd>{report.Absences + report.Evasions}</dd></div>
+          <div><dt>{$t.studentSummary.absences}</dt><dd>{report.Absences}</dd></div>
+          <div><dt>{$t.studentSummary.evasions}</dt><dd>{report.Evasions}</dd></div>
           <div><dt>{$t.studentSummary.lates}</dt><dd>{report.Lates}</dd></div>
         <div><dt>{$t.attendance.uniformLabel}</dt><dd class:low={(report.UniformFaults ?? 0) > 0}>{report.UniformFaults ?? 0}</dd></div>
           <div><dt>{$t.roster.warnGravityMild}</dt><dd>{report.WarningsMild}</dd></div>
