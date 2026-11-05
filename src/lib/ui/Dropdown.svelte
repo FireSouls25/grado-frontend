@@ -63,7 +63,9 @@
     const above = r.top - gap - 8;
     let h: number;
     let vpos: string;
-    if (below >= 180 || below >= above) {
+    // Hacia el lado con más espacio: en un Sheet centrado suele ser abajo,
+    // pero con buscador + lista larga arriba puede ganar.
+    if (below >= above) {
       h = Math.min(maxH, Math.max(140, below));
       vpos = `top:${Math.round(r.bottom + gap)}px`;
     } else {
@@ -81,6 +83,9 @@
     open = true;
     query = '';
     highlighted = Math.max(0, shown.findIndex((o) => o.value === value));
+    // El botón ya está montado: coordenadas válidas en el mismo batch,
+    // el panel nace posicionado en vez de un frame sin coords.
+    place();
     document.addEventListener('scroll', onScrollResize, true);
     void tick().then(() => {
       place();
