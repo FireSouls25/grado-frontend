@@ -67,11 +67,6 @@
   let dirSaving = false;
   let dirError = '';
 
-  $: dirOptions = [
-    { value: '', label: $t.admin.directionNone },
-    ...dirGroups.map((g) => ({ value: g.ClassLabel, label: g.ClassLabel }))
-  ];
-
   async function ensureDirGroups() {
     if (dirGroupsState !== 'idle') return;
     dirGroupsState = 'loading';
@@ -99,9 +94,35 @@
   }
 
   $: subjectName = (id: string) => subjectCatalog.find((s) => s.id === id)?.name ?? id;
+  $: directorOf = (label: string) => {
+    const d = list.find((x) => x.HomeroomClassID === label && x.ID !== assigning?.ID);
+    return d ? `${d.Surnames} ${d.Names}` : '';
+  };
+  $: headOf = (sid: string) => {
+    const d = list.find((x) => x.AreaHeadSubjectID === sid && x.ID !== assigning?.ID);
+    return d ? `${d.Surnames} ${d.Names}` : '';
+  };
+  $: dirOptions = [
+    { value: '', label: $t.admin.directionNone },
+    ...dirGroups.map((g) => {
+      const who = directorOf(g.ClassLabel);
+      return {
+        value: g.ClassLabel,
+        label: g.ClassLabel,
+        ...(who ? { note: $t.admin.directionHeldBy(who) } : {})
+      };
+    })
+  ];
   $: areaOptions = [
     { value: '', label: $t.admin.directionNone },
-    ...subjectCatalog.map((s) => ({ value: s.id, label: s.name }))
+    ...subjectCatalog.map((s) => {
+      const who = headOf(s.id);
+      return {
+        value: s.id,
+        label: s.name,
+        ...(who ? { note: $t.admin.directionHeldBy(who) } : {})
+      };
+    })
   ];
 
   async function openAssign(teacher: TeacherSummary) {
@@ -597,6 +618,9 @@
             label={$t.admin.directionGroupLabel}
             value={dirValue}
             options={dirOptions}
+            searchable
+            searchPlaceholder={$t.admin.directionSearchGroup}
+            tall
             on:select={(e) => (dirValue = String(e.detail))}
           />
           {#if dirValue === ''}<p class="hint">{$t.admin.directionNoneHint}</p>{/if}

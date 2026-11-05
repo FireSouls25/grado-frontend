@@ -7,6 +7,8 @@
     label: string;
     /** Agrupador opcional: pinta cabecera antes del primer ítem del grupo. */
     group?: string;
+    /** Nota a la derecha (ej. quién ya lo ocupa). No bloquea elegir. */
+    note?: string;
   }
 
   export let label: string = '';
@@ -32,6 +34,7 @@
   let face: HTMLButtonElement | null = null;
   let up = false;
   let popMax = 0;
+  let spacerH = 0;
 
   $: q = query.trim().toLowerCase();
   $: shown = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
@@ -75,9 +78,13 @@
     if (space && space.below < 180 && space.above > space.below) {
       up = true;
       popMax = Math.min(maxH, Math.max(140, space.above - 8));
+      spacerH = 0;
     } else {
+      // Hacia abajo: se reserva el alto del panel en el flujo para que
+      // la hoja crezca (hasta su tope) en vez de recortar las opciones.
       up = false;
       popMax = 0;
+      spacerH = maxH;
     }
   }
 
@@ -157,6 +164,7 @@
                   on:mousemove={() => (highlighted = shown.indexOf(option))}
                 >
                   <span>{option.label}</span>
+                  {#if option.note}<small class="note">{option.note}</small>{/if}
                   {#if option.value === value}<Icon name="check" />{/if}
                 </button>
               </li>
@@ -165,6 +173,9 @@
         </ul>
       {/if}
     </div>
+  {/if}
+  {#if open && spacerH}
+    <div class="spacer" style={`height:${spacerH}px`} aria-hidden="true"></div>
   {/if}
 </div>
 
@@ -309,6 +320,17 @@
   li button span {
     flex: 1;
     min-width: 0;
+  }
+  li button .note {
+    flex: none;
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .spacer {
+    width: 100%;
   }
   li button:not(.wrap) span {
     white-space: nowrap;

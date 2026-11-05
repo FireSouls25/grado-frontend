@@ -981,6 +981,8 @@ export const es = {
     directionNone: 'Sin dirección',
     directionNoneHint: 'El docente queda sin salón a cargo.',
     directionNoneHintArea: 'El docente queda sin jefatura de área.',
+    directionSearchGroup: 'Buscar salón…',
+    directionHeldBy: (name: string) => `A cargo de ${name}`,
     directionSaved: 'Dirección actualizada.',
     directionNoGroups: 'No hay salones creados en este año.',
     inactive: 'Inactivo',
