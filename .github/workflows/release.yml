@@ -110,16 +110,54 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
       - run: npx tauri android init
-      - run: npx tauri android build --debug --apk --aab
+      # Firma release: el keystore viaja en secrets (base64), nunca en el repo.
+      # Sin esto Gradle no puede ensamblar release (solo debug se autofirma).
+      - env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -e
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/grado-release.jks"
+          echo "GRADO_KEYSTORE_FILE=$RUNNER_TEMP/grado-release.jks" >> "$GITHUB_ENV"
+          python3 - <<'EOF'
+          import re
+          p = 'src-tauri/gen/android/app/build.gradle.kts'
+          s = open(p).read()
+          signing = '''    signingConfigs {
+                  create("release") {
+                      storeFile = file(System.getenv("GRADO_KEYSTORE_FILE") ?: "grado-release.jks")
+                      storePassword = System.getenv("GRADO_KEYSTORE_PASSWORD")
+                      keyAlias = System.getenv("GRADO_KEY_ALIAS")
+                      keyPassword = System.getenv("GRADO_KEY_PASSWORD")
+                  }
+              }
+          '''
+          assert 'signingConfigs' not in s, 'signing ya configurado en la plantilla'
+          s = s.replace('android {\n', 'android {\n' + signing, 1)
+          s = s.replace('getByName("release") {\n            isMinifyEnabled = true',
+                        'getByName("release") {\n            signingConfig = signingConfigs.getByName("release")\n            isMinifyEnabled = true', 1)
+          open(p, 'w').write(s)
+          print('signing release configurado')
+          EOF
+      - env:
+          GRADO_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          GRADO_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          GRADO_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -e
+          # El runner trae ANDROID_SDK_ROOT=/usr/local/lib/android/sdk mientras
+          # este job instala su SDK en ANDROID_HOME: Gradle 8 falla con dos
+          # rutas distintas, así que se deja una sola.
+          unset ANDROID_SDK_ROOT
+          npx tauri android build --apk --aab
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/**/debug/*.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/release/*.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: android-aab
-          path: src-tauri/gen/android/app/build/outputs/bundle/**/debug/*.aab
+          path: src-tauri/gen/android/app/build/outputs/bundle/**/release/*.aab
           if-no-files-found: error
 
   publish:
