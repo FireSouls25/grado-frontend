@@ -20,6 +20,8 @@
   export let disabled = false;
   /** Permite varias líneas por opción (situaciones largas del manual). */
   export let wrap = false;
+  /** Panel más alto para listas largas (catálogo de materias). */
+  export let tall = false;
 
   const dispatch = createEventDispatcher<{ select: string }>();
 
@@ -97,7 +99,7 @@
     <span class="chev" class:up={open} aria-hidden="true"><Icon name="next" /></span>
   </button>
   {#if open}
-    <div class="pop" role="listbox" aria-label={label || placeholder}>
+    <div class="pop" class:tall role="listbox" aria-label={label || placeholder}>
       {#if searchable}
         <label class="find">
           <Icon name="search" />
@@ -215,6 +217,9 @@
     max-height: 260px;
     overflow-y: auto;
     animation: dropIn 0.14s var(--ease-out) both;
+  }
+  .pop.tall {
+    max-height: 400px;
   }
   .find {
     display: flex;

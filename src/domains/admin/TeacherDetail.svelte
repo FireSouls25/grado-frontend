@@ -805,6 +805,9 @@
         label={$t.admin.directionAreaSubject}
         value={form.AreaSubject}
         options={areaSubjectOptions}
+        searchable
+        searchPlaceholder={$t.subject.searchPlaceholder}
+        tall
         on:select={(e) => (form.AreaSubject = String(e.detail))}
       />
     {:else}

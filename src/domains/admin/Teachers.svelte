@@ -586,6 +586,9 @@
             label={$t.admin.directionAreaSubject}
             value={areaValue}
             options={areaOptions}
+            searchable
+            searchPlaceholder={$t.subject.searchPlaceholder}
+            tall
             on:select={(e) => (areaValue = String(e.detail))}
           />
           {#if areaValue === ''}<p class="hint">{$t.admin.directionNoneHint}</p>{/if}
