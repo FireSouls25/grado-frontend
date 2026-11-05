@@ -591,7 +591,7 @@
             tall
             on:select={(e) => (areaValue = String(e.detail))}
           />
-          {#if areaValue === ''}<p class="hint">{$t.admin.directionNoneHint}</p>{/if}
+          {#if areaValue === ''}<p class="hint">{$t.admin.directionNoneHintArea}</p>{/if}
         {:else}
           <Dropdown
             label={$t.admin.directionGroupLabel}

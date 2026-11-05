@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { tick } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import Icon from './Icon.svelte';
-  import { portal } from './portal';
 
   interface DropOption {
     value: string;
@@ -32,8 +30,8 @@
   let highlighted = -1;
   let box: HTMLDivElement | null = null;
   let face: HTMLButtonElement | null = null;
-  let pop: HTMLDivElement | null = null;
-  let popStyle = '';
+  let up = false;
+  let popMax = 0;
 
   $: q = query.trim().toLowerCase();
   $: shown = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
@@ -51,51 +49,40 @@
     return out;
   })();
 
-  // El panel vive en un portal sobre <body>: dentro de un Sheet con
-  // scroll propio se recortaría. Se ancla al botón y se voltea hacia
-  // arriba cuando abajo no hay espacio.
-  function place() {
-    if (!open || !face) return;
-    const r = face.getBoundingClientRect();
-    const gap = 5;
-    const maxH = tall ? 400 : 260;
-    const below = window.innerHeight - r.bottom - gap - 8;
-    const above = r.top - gap - 8;
-    let h: number;
-    let vpos: string;
-    // Hacia el lado con más espacio: en un Sheet centrado suele ser abajo,
-    // pero con buscador + lista larga arriba puede ganar.
-    if (below >= above) {
-      h = Math.min(maxH, Math.max(140, below));
-      vpos = `top:${Math.round(r.bottom + gap)}px`;
-    } else {
-      h = Math.min(maxH, Math.max(140, above));
-      vpos = `bottom:${Math.round(window.innerHeight - r.top + gap)}px`;
+  // Sin portales: el panel es absoluto dentro del contenedor con scroll
+  // y se mueve con él. Cuando abajo no cabe, se abre hacia arriba.
+  function measure() {
+    if (!face) return null;
+    const f = face.getBoundingClientRect();
+    let el = box?.parentElement ?? null;
+    while (el) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1) {
+        const r = el.getBoundingClientRect();
+        return { below: r.bottom - f.bottom, above: f.top - r.top };
+      }
+      el = el.parentElement;
     }
-    popStyle = `left:${Math.max(8, Math.round(r.left))}px;width:${Math.max(190, Math.round(r.width))}px;${vpos};max-height:${Math.round(h)}px`;
-  }
-
-  function onScrollResize() {
-    if (open) place();
+    return { below: window.innerHeight - f.bottom, above: f.top };
   }
 
   function openMenu() {
     open = true;
     query = '';
     highlighted = Math.max(0, shown.findIndex((o) => o.value === value));
-    // El botón ya está montado: coordenadas válidas en el mismo batch,
-    // el panel nace posicionado en vez de un frame sin coords.
-    place();
-    document.addEventListener('scroll', onScrollResize, true);
-    void tick().then(() => {
-      place();
-      pop?.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
-    });
+    const maxH = tall ? 400 : 260;
+    const space = measure();
+    if (space && space.below < 180 && space.above > space.below) {
+      up = true;
+      popMax = Math.min(maxH, Math.max(140, space.above - 8));
+    } else {
+      up = false;
+      popMax = 0;
+    }
   }
 
   function close() {
     open = false;
-    document.removeEventListener('scroll', onScrollResize, true);
   }
 
   function choose(next: string) {
@@ -104,9 +91,7 @@
   }
 
   function onWindowClick(e: MouseEvent) {
-    if (!open) return;
-    const t = e.target as Node;
-    if (box && !box.contains(t) && !(pop && pop.contains(t))) close();
+    if (open && box && !box.contains(e.target as Node)) close();
   }
 
   function onKey(e: KeyboardEvent) {
@@ -124,7 +109,7 @@
   }
 </script>
 
-<svelte:window on:click={onWindowClick} on:keydown={onKey} on:resize={onScrollResize} />
+<svelte:window on:click={onWindowClick} on:keydown={onKey} />
 
 <div class="drop" bind:this={box}>
   {#if label && !hideLabel}
@@ -144,7 +129,7 @@
     <span class="chev" class:up={open} aria-hidden="true"><Icon name="next" /></span>
   </button>
   {#if open}
-    <div use:portal bind:this={pop} class="pop portal" class:tall style={popStyle} role="listbox" aria-label={label || placeholder}>
+    <div class="pop" class:tall class:up style={popMax ? `max-height:${popMax}px` : ''} role="listbox" aria-label={label || placeholder}>
       {#if searchable}
         <label class="find">
           <Icon name="search" />
@@ -263,16 +248,13 @@
     overflow-y: auto;
     animation: dropIn 0.14s var(--ease-out) both;
   }
-  /* En portal: coordenadas fijas sobre <body>, por encima del Sheet. */
-  .pop.portal {
-    position: fixed;
-    left: auto;
-    right: auto;
-    z-index: 80;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
-  }
   .pop.tall {
     max-height: 400px;
+  }
+  /* Sin espacio abajo: el panel crece hacia arriba del botón. */
+  .pop.up {
+    top: auto;
+    bottom: calc(100% + 5px);
   }
   .find {
     display: flex;

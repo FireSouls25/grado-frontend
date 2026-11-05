@@ -980,6 +980,7 @@ export const es = {
     directionGroupLabel: 'Dirección',
     directionNone: 'Sin dirección',
     directionNoneHint: 'El docente queda sin salón a cargo.',
+    directionNoneHintArea: 'El docente queda sin jefatura de área.',
     directionSaved: 'Dirección actualizada.',
     directionNoGroups: 'No hay salones creados en este año.',
     inactive: 'Inactivo',
