@@ -122,67 +122,69 @@
   {#if label && !hideLabel}
     <span class="cap">{label}</span>
   {/if}
-  <button
-    type="button"
-    class="face"
-    bind:this={face}
-    aria-label={label || placeholder}
-    aria-haspopup="listbox"
-    aria-expanded={open}
-    disabled={disabled}
-    on:click={() => (open ? close() : openMenu())}
-  >
-    <span class="val" class:placeholder={!current}>{current ? current.label : placeholder}</span>
-    <span class="chev" class:up={open} aria-hidden="true"><Icon name="next" /></span>
-  </button>
-  {#if open}
-    <div class="pop" class:tall class:up style={popMax ? `max-height:${popMax}px` : ''} role="listbox" aria-label={label || placeholder}>
-      {#if searchable}
-        <label class="find">
-          <Icon name="search" />
-          <input type="search" placeholder={searchPlaceholder} aria-label={searchPlaceholder} bind:value={query} />
-        </label>
-      {/if}
-      {#if shown.length === 0}
-        <p class="empty">{emptyLabel}</p>
-      {:else}
-        <ul>
-          {#each blocks as block}
-            {#if block.group}
-              <li class="ghead" aria-hidden="true">{block.group}</li>
-            {/if}
-            {#each block.items as option, i}
-              <li>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={option.value === value}
-                  class:on={option.value === value}
-                  class:wrap={wrap}
-                  class:hl={option.value === (shown[highlighted]?.value ?? '::none::')}
-                  on:click={() => choose(option.value)}
-                  on:mousemove={() => (highlighted = shown.indexOf(option))}
-                >
-                  <span>{option.label}</span>
-                  {#if option.note}<small class="note">{option.note}</small>{/if}
-                  {#if option.value === value}<Icon name="check" />{/if}
-                </button>
-              </li>
+  <div class="anchor">
+    <button
+      type="button"
+      class="face"
+      bind:this={face}
+      aria-label={label || placeholder}
+      aria-haspopup="listbox"
+      aria-expanded={open}
+      disabled={disabled}
+      on:click={() => (open ? close() : openMenu())}
+    >
+      <span class="val" class:placeholder={!current}>{current ? current.label : placeholder}</span>
+      <span class="chev" class:up={open} aria-hidden="true"><Icon name="next" /></span>
+    </button>
+    {#if open}
+      <div class="pop" class:tall class:up style={popMax ? `max-height:${popMax}px` : ''} role="listbox" aria-label={label || placeholder}>
+        {#if searchable}
+          <label class="find">
+            <Icon name="search" />
+            <input type="search" placeholder={searchPlaceholder} aria-label={searchPlaceholder} bind:value={query} />
+          </label>
+        {/if}
+        {#if shown.length === 0}
+          <p class="empty">{emptyLabel}</p>
+        {:else}
+          <ul>
+            {#each blocks as block}
+              {#if block.group}
+                <li class="ghead" aria-hidden="true">{block.group}</li>
+              {/if}
+              {#each block.items as option, i}
+                <li>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={option.value === value}
+                    class:on={option.value === value}
+                    class:wrap={wrap}
+                    class:hl={option.value === (shown[highlighted]?.value ?? '::none::')}
+                    on:click={() => choose(option.value)}
+                    on:mousemove={() => (highlighted = shown.indexOf(option))}
+                  >
+                    <span>{option.label}</span>
+                    {#if option.note}<small class="note">{option.note}</small>{/if}
+                    {#if option.value === value}<Icon name="check" />{/if}
+                  </button>
+                </li>
+              {/each}
             {/each}
-          {/each}
-        </ul>
-      {/if}
-    </div>
-  {/if}
+          </ul>
+        {/if}
+      </div>
+    {/if}
+  </div>
   {#if open && spacerH}
     <div class="spacer" style={`height:${spacerH}px`} aria-hidden="true"></div>
   {/if}
 </div>
-
-<style>
   .drop {
-    position: relative;
     min-width: 0;
+  }
+  .anchor {
+    position: relative;
   }
   .cap {
     display: block;
