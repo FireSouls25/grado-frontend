@@ -96,6 +96,8 @@ export interface TeacherSummary {
   DocumentID: string;
   Active: boolean;
   HomeroomClassID: string;
+  /** UUID de la materia que lidera como jefe de área; vacío si no lo es. */
+  AreaHeadSubjectID: string;
 }
 
 export interface Subject {

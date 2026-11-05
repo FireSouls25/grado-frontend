@@ -54,13 +54,16 @@
   }
   let fSubject = '';
   let fGroup = '';
-  let fRole: '' | 'director' | 'plain' = '';
+  let fRole: '' | 'director' | 'area' | 'plain' = '';
   let form = freshForm();
 
   let assigning: TeacherSummary | null = null;
   let dirGroups: YearGroup[] = [];
   let dirGroupsState: 'idle' | 'loading' | 'ready' = 'idle';
+  let dirKind: 'group' | 'area' = 'group';
   let dirValue = '';
+  let areaValue = '';
+  let subjectCatalog: { id: string; name: string }[] = [];
   let dirSaving = false;
   let dirError = '';
 
@@ -81,11 +84,34 @@
     }
   }
 
+  let subjectsState: 'idle' | 'loading' | 'ready' = 'idle';
+
+  async function ensureSubjects() {
+    if (subjectsState !== 'idle') return;
+    subjectsState = 'loading';
+    try {
+      subjectCatalog = ((await guarded(() => listSubjects())) ?? []).map((s) => ({ id: s.ID, name: s.Name }));
+    } catch {
+      subjectCatalog = [];
+    } finally {
+      subjectsState = 'ready';
+    }
+  }
+
+  $: subjectName = (id: string) => subjectCatalog.find((s) => s.id === id)?.name ?? id;
+  $: areaOptions = [
+    { value: '', label: $t.admin.directionNone },
+    ...subjectCatalog.map((s) => ({ value: s.id, label: s.name }))
+  ];
+
   async function openAssign(teacher: TeacherSummary) {
     assigning = teacher;
+    dirKind = teacher.AreaHeadSubjectID ? 'area' : 'group';
     dirValue = teacher.HomeroomClassID ?? '';
+    areaValue = teacher.AreaHeadSubjectID ?? '';
     dirError = '';
     await ensureDirGroups();
+    await ensureSubjects();
   }
 
   async function saveAssign() {
@@ -93,8 +119,16 @@
     dirError = '';
     dirSaving = true;
     try {
-      const updated = await updateTeacher(assigning.ID, { HomeroomClassID: dirValue });
-      list = list.map((x) => (x.ID === assigning!.ID ? { ...x, HomeroomClassID: updated.HomeroomClassID } : x));
+      const changes =
+        dirKind === 'area'
+          ? { HomeroomClassID: '', AreaHeadSubjectID: areaValue }
+          : { HomeroomClassID: dirValue, AreaHeadSubjectID: '' };
+      const updated = await updateTeacher(assigning.ID, changes);
+      list = list.map((x) =>
+        x.ID === assigning!.ID
+          ? { ...x, HomeroomClassID: updated.HomeroomClassID, AreaHeadSubjectID: updated.AreaHeadSubjectID ?? '' }
+          : x
+      );
       assigning = null;
       notify($t.admin.directionSaved);
     } catch (err) {
@@ -204,7 +238,8 @@
     )
       return false;
     if (fRole === 'director' && !teacher.HomeroomClassID) return false;
-    if (fRole === 'plain' && teacher.HomeroomClassID) return false;
+    if (fRole === 'area' && !teacher.AreaHeadSubjectID) return false;
+    if (fRole === 'plain' && (teacher.HomeroomClassID || teacher.AreaHeadSubjectID)) return false;
     if (fGroup && teacher.HomeroomClassID !== fGroup) return false;
     if (fSubject) {
       const names = (taught[teacher.ID] ?? []).map((s) => s.name);
@@ -331,9 +366,10 @@
         options={[
           { value: '', label: $t.admin.filterAll },
           { value: 'director', label: $t.admin.roleDirector },
+          { value: 'area', label: $t.admin.roleAreaHead },
           { value: 'plain', label: $t.admin.rolePlain }
         ]}
-        on:select={(e) => (fRole = e.detail === 'director' ? 'director' : e.detail === 'plain' ? 'plain' : '')}
+        on:select={(e) => (fRole = e.detail === 'director' ? 'director' : e.detail === 'area' ? 'area' : e.detail === 'plain' ? 'plain' : '')}
       />
       <span class="count" role="status">{$t.admin.teachersCount(visible.length)}</span>
     </div>
@@ -385,6 +421,8 @@
               <div class="dir-col">
                 {#if teacher.HomeroomClassID}
                   <span class="pill dir">{$t.admin.directs(teacher.HomeroomClassID)}</span>
+                {:else if teacher.AreaHeadSubjectID}
+                  <span class="pill dir">{$t.admin.areaHeadOf(subjectName(teacher.AreaHeadSubjectID))}</span>
                 {:else}
                   <span class="pill">{$t.admin.rolePlain}</span>
                 {/if}
@@ -406,7 +444,7 @@
                     class="btn btn-sm"
                     on:click={() => openAssign(teacher)}
                   >
-                    {teacher.HomeroomClassID ? $t.admin.modifyDirection : $t.admin.assignDirection}
+                    {teacher.HomeroomClassID || teacher.AreaHeadSubjectID ? $t.admin.modifyDirection : $t.admin.assignDirection}
                   </button>
                 {/if}
                 <button
@@ -531,15 +569,36 @@
       <form class="form" on:submit|preventDefault={saveAssign}>
         {#if assigning.HomeroomClassID}
           <p class="hint">{$t.admin.directs(assigning.HomeroomClassID)}</p>
+        {:else if assigning.AreaHeadSubjectID}
+          <p class="hint">{$t.admin.areaHeadOf(subjectName(assigning.AreaHeadSubjectID))}</p>
         {/if}
         <Dropdown
-          label={$t.admin.directionGroupLabel}
-          value={dirValue}
-          options={dirOptions}
-          on:select={(e) => (dirValue = String(e.detail))}
+          label={$t.admin.directionKindLabel}
+          value={dirKind}
+          options={[
+            { value: 'group', label: $t.admin.directionKindGroup },
+            { value: 'area', label: $t.admin.directionKindArea }
+          ]}
+          on:select={(e) => (dirKind = String(e.detail) === 'area' ? 'area' : 'group')}
         />
-        {#if dirValue === ''}<p class="hint">{$t.admin.directionNoneHint}</p>{/if}
-        {#if dirGroups.length === 0}<p class="hint">{$t.admin.directionNoGroups}</p>{/if}
+        {#if dirKind === 'area'}
+          <Dropdown
+            label={$t.admin.directionAreaSubject}
+            value={areaValue}
+            options={areaOptions}
+            on:select={(e) => (areaValue = String(e.detail))}
+          />
+          {#if areaValue === ''}<p class="hint">{$t.admin.directionNoneHint}</p>{/if}
+        {:else}
+          <Dropdown
+            label={$t.admin.directionGroupLabel}
+            value={dirValue}
+            options={dirOptions}
+            on:select={(e) => (dirValue = String(e.detail))}
+          />
+          {#if dirValue === ''}<p class="hint">{$t.admin.directionNoneHint}</p>{/if}
+          {#if dirGroups.length === 0}<p class="hint">{$t.admin.directionNoGroups}</p>{/if}
+        {/if}
         {#if dirError}<p class="flash error" role="alert">{dirError}</p>{/if}
         <div class="form-actions">
           <button class="btn" type="button" on:click={() => (assigning = null)}>

@@ -335,7 +335,13 @@
   let saving = false;
   let editError = '';
   let editFeedback = '';
-  let form = { Names: '', Surnames: '', DocumentID: '', Phone: '', Email: '', Sex: '', Homeroom: '' };
+  let form = { Names: '', Surnames: '', DocumentID: '', Phone: '', Email: '', Sex: '', Homeroom: '', DirKind: 'group' as 'group' | 'area', AreaSubject: '' };
+
+  $: areaSubjectOptions = [
+    { value: '', label: $t.admin.directionNone },
+    ...catalog.map((s) => ({ value: s.ID, label: s.Name }))
+  ];
+  $: areaSubjectName = (sid: string) => catalog.find((s) => s.ID === sid)?.Name ?? sid;
 
   function startEdit() {
     if (!detail) return;
@@ -346,7 +352,9 @@
       Phone: detail.Phone ?? '',
       Email: detail.Email ?? '',
       Sex: detail.Sex ?? '',
-      Homeroom: detail.HomeroomClassID ?? ''
+      Homeroom: detail.HomeroomClassID ?? '',
+      DirKind: detail.AreaHeadSubjectID ? 'area' : 'group',
+      AreaSubject: detail.AreaHeadSubjectID ?? ''
     };
     editError = '';
     editFeedback = '';
@@ -367,8 +375,13 @@
     }
     saving = true;
     try {
-      const { Homeroom, ...rest } = form;
-      const updated = await updateTeacher(id, { ...rest, HomeroomClassID: Homeroom });
+      const { Homeroom, DirKind, AreaSubject, ...rest } = form;
+      const updated = await updateTeacher(
+        id,
+        DirKind === 'area'
+          ? { ...rest, HomeroomClassID: '', AreaHeadSubjectID: AreaSubject }
+          : { ...rest, HomeroomClassID: Homeroom, AreaHeadSubjectID: '' }
+      );
       detail = {
         ...detail,
         ...updated,
@@ -470,6 +483,8 @@
                 <div class="statusrow">
                   {#if detail.HomeroomClassID}
                     <span class="chip chip-sky">{$t.admin.directs(detail.HomeroomClassID)}</span>
+                  {:else if detail.AreaHeadSubjectID}
+                    <span class="chip chip-sky">{$t.admin.areaHeadOf(areaSubjectName(detail.AreaHeadSubjectID))}</span>
                   {:else}
                     <span class="chip">{$t.admin.rolePlain}</span>
                   {/if}
@@ -777,11 +792,29 @@
       />
     </div>
     <Dropdown
-      label={$t.admin.directionGroupLabel}
-      value={form.Homeroom}
-      options={homeroomOptions}
-      on:select={(e) => (form.Homeroom = String(e.detail))}
+      label={$t.admin.directionKindLabel}
+      value={form.DirKind}
+      options={[
+        { value: 'group', label: $t.admin.directionKindGroup },
+        { value: 'area', label: $t.admin.directionKindArea }
+      ]}
+      on:select={(e) => (form.DirKind = String(e.detail) === 'area' ? 'area' : 'group')}
     />
+    {#if form.DirKind === 'area'}
+      <Dropdown
+        label={$t.admin.directionAreaSubject}
+        value={form.AreaSubject}
+        options={areaSubjectOptions}
+        on:select={(e) => (form.AreaSubject = String(e.detail))}
+      />
+    {:else}
+      <Dropdown
+        label={$t.admin.directionGroupLabel}
+        value={form.Homeroom}
+        options={homeroomOptions}
+        on:select={(e) => (form.Homeroom = String(e.detail))}
+      />
+    {/if}
     {#if editError}<p class="flash error" role="alert">{editError}</p>{/if}
     <div class="form-actions">
       <button class="btn" type="button" on:click={() => (editing = false)}>{$t.common.cancel}</button>
