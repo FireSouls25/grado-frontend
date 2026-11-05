@@ -1,6 +1,6 @@
 import { api } from '$lib/api/client';
 import { ApiError } from '$lib/api/types';
-import type { Me, StudentProfile, Warning } from '$lib/api/types';
+import type { Me, RosterEntry, StudentProfile, Warning } from '$lib/api/types';
 
 // Endpoints that exist in the backend today.
 export async function me(): Promise<Me> {
@@ -1056,6 +1056,37 @@ export interface NewWarningBatch {
  *  student keeps its own history. */
 export async function issueWarningBatch(draft: NewWarningBatch): Promise<Warning[]> {
   return (await api.post<Warning[]>('/v1/warnings/batch', draft)) ?? [];
+}
+
+/** Nómina matriculada del salón (no el reporte de sesiones): un salón
+ *  sin llamados tomados también tiene estudiantes. */
+export async function classRoster(groupID: string): Promise<RosterEntry[]> {
+  return (
+    (await api.get<RosterEntry[]>(`/v1/classes/${encodeURIComponent(groupID)}/roster`)) ?? []
+  );
+}
+
+export interface Situation {
+  ID: string;
+  Kind: 1 | 2 | 3;
+}
+
+export async function getObservationCatalog(): Promise<Situation[]> {
+  return (await api.get<Situation[]>('/v1/observations/catalog')) ?? [];
+}
+
+export interface ObservationDraft {
+  studentID: string;
+  classGroupID?: string;
+  situationID: string;
+  note?: string;
+  date?: string;
+}
+
+/** Una observación por estudiante: el tipo lo decide el servidor desde
+ *  la situación. Mismo guardado que el flujo docente. */
+export async function recordObservation(draft: ObservationDraft): Promise<unknown> {
+  return api.post('/v1/observations', draft);
 }
 
 export interface RecentIncident {

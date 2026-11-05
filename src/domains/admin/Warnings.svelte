@@ -21,15 +21,18 @@
   import {
     warningsRecent,
     groupsByYear,
-    classReport,
-    issueWarningBatch,
+    classRoster,
+    getObservationCatalog,
+    recordObservation,
     studentWarnings,
     warningRevisions,
     type RecentWarning,
     type YearGroup,
+    type Situation,
     type WarningRevision
   } from './api';
-  import type { Warning } from '$lib/api/types';
+  import type { RosterEntry, Warning } from '$lib/api/types';
+  import { situationText, kindChip, todayISO } from '../teacher/situations';
   $: roles = $profile.me?.roles ?? [];
   $: staffWrite = canWriteWarnings($profile.me);
 
@@ -51,15 +54,18 @@
   let saving = false;
   let formError = '';
 
-  // Create form.
+  // Create form (mismo flujo que el docente: situación del catálogo
+  // + nota + fecha, una observación por estudiante).
   let fGroupID = '';
-  let roster: { StudentID: string; Names: string; Surnames: string }[] = [];
+  let roster: RosterEntry[] = [];
   let rosterLoading = false;
+  let rosterQuery = '';
   let picked: string[] = [];
-  let fGravity: 'mild' | 'moderate' | 'severe' = 'mild';
-  let fTitle = '';
-  let fDesc = '';
-  let fWhen = '';
+  let catalog: Situation[] = [];
+  let catalogLoading = false;
+  let situationID = '';
+  let note = '';
+  let date = todayISO();
 
   $: classLabels = [...new Set(items.map((w) => w.ClassLabel).filter(Boolean))].sort();
   $: filtered = items.filter((w) => {
@@ -85,11 +91,72 @@
     });
   }
 
-  function nowLocal(): string {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  function openCreate() {
+    creating = true;
+    formError = '';
+    saving = false;
+    fGroupID = '';
+    roster = [];
+    rosterQuery = '';
+    picked = [];
+    situationID = '';
+    note = '';
+    date = todayISO();
+    void loadCatalog();
   }
+
+  async function loadCatalog() {
+    if (catalog.length > 0 || catalogLoading) return;
+    catalogLoading = true;
+    try {
+      catalog = (await guarded(() => getObservationCatalog())) ?? [];
+    } catch {
+      catalog = [];
+    } finally {
+      catalogLoading = false;
+    }
+  }
+
+  function bySurname(a: RosterEntry, b: RosterEntry): number {
+    const x = `${a.Surnames} ${a.Names}`.toLowerCase();
+    const y = `${b.Surnames} ${b.Names}`.toLowerCase();
+    return x < y ? -1 : x > y ? 1 : 0;
+  }
+
+  async function onGroupChange() {
+    picked = [];
+    roster = [];
+    rosterQuery = '';
+    if (!fGroupID) return;
+    rosterLoading = true;
+    try {
+      // Nómina matriculada, no reporte de sesiones: el salón tiene
+      // estudiantes aunque aún no se haya tomado ningún llamado.
+      const data = await guarded(() => classRoster(fGroupID));
+      roster = Array.isArray(data) ? [...data].sort(bySurname) : [];
+    } catch {
+      roster = [];
+    } finally {
+      rosterLoading = false;
+    }
+  }
+
+  $: textOf = (id: string) => situationText($t.obs.situations, id);
+  $: chosenKind = catalog.find((s) => s.ID === situationID)?.Kind ?? 0;
+  $: situationOptions = [1, 2, 3].flatMap((k) =>
+    catalog
+      .filter((s) => s.Kind === k)
+      .map((s) => ({
+        value: s.ID,
+        label: `${s.ID} · ${textOf(s.ID)}`,
+        group: k === 1 ? $t.obs.situationGroupOne : k === 2 ? $t.obs.situationGroupTwo : $t.obs.situationGroupThree
+      }))
+  );
+  $: visibleRoster = roster.filter((r) =>
+    rosterQuery.trim()
+      ? foldSearch(`${r.Surnames} ${r.Names}`).includes(foldSearch(rosterQuery.trim()))
+      : true
+  );
 
   async function load() {
     state = 'loading';
@@ -106,36 +173,6 @@
     } catch (err) {
       loadError = err;
       state = 'error';
-    }
-  }
-
-  function openCreate() {
-    creating = true;
-    formError = '';
-    saving = false;
-    fGroupID = '';
-    roster = [];
-    picked = [];
-    fGravity = 'mild';
-    fTitle = '';
-    fDesc = '';
-    fWhen = nowLocal();
-  }
-
-  async function onGroupChange() {
-    picked = [];
-    roster = [];
-    if (!fGroupID) return;
-    rosterLoading = true;
-    try {
-      const rep = await guarded(() => classReport(fGroupID));
-      roster = (rep?.Students ?? []).map((s) => ({
-        StudentID: s.StudentID,
-        Names: s.Names,
-        Surnames: s.Surnames
-      }));
-    } finally {
-      rosterLoading = false;
     }
   }
 
@@ -272,22 +309,30 @@
       formError = $t.warnings.needStudent;
       return;
     }
-    if (!fTitle.trim()) {
-      formError = $t.warnings.needTitle;
+    if (!situationID) {
+      formError = $t.obs.pickSituation;
       return;
     }
     saving = true;
     try {
-      await issueWarningBatch({
-        classID: fGroupID,
-        studentIDs: picked,
-        gravity: fGravity,
-        title: fTitle.trim(),
-        description: fDesc.trim(),
-        happenedAt: fWhen ? new Date(fWhen).toISOString() : undefined
-      });
+      // Una observación por estudiante, igual que el docente: el tipo
+      // lo decide el servidor desde la situación.
+      const jobs: Promise<unknown>[] = [];
+      for (const id of picked) {
+        jobs.push(
+          recordObservation({
+            studentID: id,
+            classGroupID: fGroupID || undefined,
+            situationID,
+            note: note.trim() || undefined,
+            date: date || undefined
+          })
+        );
+      }
+      await Promise.all(jobs);
       creating = false;
-      notify($t.warnings.saved);
+      picked = [];
+      notify($t.obs.saved);
       await load();
     } catch (err) {
       formError = err instanceof Error ? err.message : String(err);
@@ -454,50 +499,65 @@
           onGroupChange();
         }}
       />
+      {#if catalogLoading}
+        <p class="muted">…</p>
+      {:else}
+        <Dropdown
+          label={$t.obs.fSituation}
+          value={situationID}
+          options={situationOptions}
+          placeholder={$t.obs.pickSituation}
+          searchable
+          searchPlaceholder={$t.obs.pickSituation}
+          wrap
+          on:select={(e) => (situationID = e.detail)}
+        />
+      {/if}
+      {#if chosenKind}
+        <p class="hint">
+          <span class={`chip ${kindChip(chosenKind)}`}>{$t.obs.kindLabel[chosenKind]}</span>
+          <small>{$t.obs.kindIntro[chosenKind]}</small>
+        </p>
+      {/if}
       <div class="group" role="group" aria-label={$t.warnings.fStudents}>
         <span class="glabel">{$t.warnings.fStudents}</span>
+        {#if fGroupID}
+          <label class="search">
+            <Icon name="search" />
+            <input
+              type="search"
+              placeholder={$t.warning.searchStudents}
+              aria-label={$t.warning.searchStudents}
+              bind:value={rosterQuery}
+            />
+          </label>
+          <span class="count" role="status">{$t.warning.selectedStudents(picked.length)}</span>
+        {/if}
         {#if rosterLoading}
           <p class="muted">…</p>
+        {:else if !fGroupID}
+          <p class="muted">{$t.warnings.pickClass}</p>
         {:else if roster.length === 0}
           <p class="muted">{$t.warnings.rosterEmpty}</p>
         {:else}
           <div class="picklist">
-            {#each roster as s (s.StudentID)}
+            {#each visibleRoster as s (s.StudentID)}
               {@const on = picked.includes(s.StudentID)}
               <button type="button" class="pick" class:on aria-pressed={on} on:click={() => togglePicked(s.StudentID)}>
                 <span class="ckbox" aria-hidden="true">{#if on}<Icon name="check" />{/if}</span>
-                <span>{s.Names} {s.Surnames}</span>
+                <span>{s.Surnames}, {s.Names}</span>
               </button>
             {/each}
           </div>
         {/if}
       </div>
-      <div class="row2">
-        <Dropdown
-          label={$t.warnings.fGravity}
-          value={fGravity}
-          options={[
-            { value: 'mild', label: $t.roster.warnGravityMild },
-            { value: 'moderate', label: $t.roster.warnGravityModerate },
-            { value: 'severe', label: $t.roster.warnGravitySevere }
-          ]}
-          on:select={(e) => {
-            const v = String(e.detail);
-            fGravity = v === 'moderate' || v === 'severe' ? v : 'mild';
-          }}
-        />
-        <label>
-          <span>{$t.warnings.fWhen}</span>
-          <input type="datetime-local" lang="es-CO" bind:value={fWhen} />
-        </label>
-      </div>
       <label>
-        <span>{$t.warnings.fTitle}</span>
-        <input type="text" placeholder={$t.warnings.fTitlePlaceholder} bind:value={fTitle} maxlength="120" />
+        <span>{$t.obs.fNote}</span>
+        <textarea rows="3" placeholder={$t.obs.notePlaceholder} bind:value={note}></textarea>
       </label>
       <label>
-        <span>{$t.warnings.fDesc}</span>
-        <textarea rows="3" placeholder={$t.warnings.fDescPlaceholder} bind:value={fDesc}></textarea>
+        <span>{$t.obs.fDate}</span>
+        <input type="date" bind:value={date} max={todayISO()} aria-label={$t.obs.fDate} />
       </label>
       {#if formError}<p class="flash error" role="alert">{formError}</p>{/if}
       <div class="actions">
@@ -719,6 +779,38 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+  .hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0 0;
+  }
+  .hint small {
+    color: var(--muted);
+  }
+  .group .search {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0 12px;
+    min-height: 44px;
+    color: var(--muted);
+  }
+  .group .search input {
+    border: 0;
+    background: none;
+    outline: none;
+    width: 100%;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    color: var(--ink);
   }
   .form > label {
     display: flex;
