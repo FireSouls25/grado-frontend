@@ -180,6 +180,8 @@
     <div class="spacer" style={`height:${spacerH}px`} aria-hidden="true"></div>
   {/if}
 </div>
+
+<style>
   .drop {
     min-width: 0;
   }
