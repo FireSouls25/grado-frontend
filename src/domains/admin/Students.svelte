@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
@@ -277,11 +277,16 @@
     load();
   }
 
+  let rosterEl: HTMLElement | undefined;
+
   async function pick(group: YearGroup | null) {
     picked = picked?.GroupID === group?.GroupID ? null : group;
     report = null;
     const current = picked;
     if (!current) return;
+    // La lista queda debajo de todas las tarjetas de salón: llevar al
+    // usuario al inicio de la lista del salón que acaba de elegir.
+    void tick().then(() => rosterEl?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     report = reports[current.GroupID] ?? null;
     if (report) {
       reportLoading = false;
@@ -580,7 +585,7 @@
         <span class="count" role="status">{$t.admin.rosterCount(visibleRoster.length)}</span>
       </div>
 
-      <section class="card" aria-label={$t.admin.reportTitle}>
+      <section class="card roster" aria-label={$t.admin.reportTitle} bind:this={rosterEl}>
         <div class="card-head">
           <h2>{picked ? $t.admin.groupDetailTitle(picked.ClassLabel, picked.SchoolYear) : $t.admin.globalRoster}</h2>
           {#if picked && report}<span class="muted">{$t.admin.reportSessions(report.Sessions)}</span>{/if}
@@ -634,10 +639,10 @@
                       {/if}
                     </div>
                   </div>
-                  <span class="c-stat"><strong>{s.Excused}</strong></span>
-                  <span class="c-stat" class:alert={s.Absences > 0}><strong>{s.Absences}</strong></span>
-                  <span class="c-stat" class:alert={s.Evasions > 0}><strong>{s.Evasions}</strong></span>
-                  <span class="c-stat" class:alert={s.Lates > 0}><strong>{s.Lates}</strong></span>
+                  <span class="c-stat"><small class="c-lab">{$t.admin.colPermissionShort}</small><strong>{s.Excused}</strong></span>
+                  <span class="c-stat" class:alert={s.Absences > 0}><small class="c-lab">{$t.admin.colAbsences}</small><strong>{s.Absences}</strong></span>
+                  <span class="c-stat" class:alert={s.Evasions > 0}><small class="c-lab">{$t.admin.colEvasions}</small><strong>{s.Evasions}</strong></span>
+                  <span class="c-stat" class:alert={s.Lates > 0}><small class="c-lab">{$t.admin.markLate}</small><strong>{s.Lates}</strong></span>
                   <div class="rateblock">
                     <span class="rate-id">
                       <strong class:low={s.rate < 85} class:ok={s.rate >= 85}>{s.rate}%</strong>
@@ -976,6 +981,10 @@
     color: var(--muted);
     font-size: 0.84rem;
   }
+  .roster {
+    /* Deja libre la barra de navegación fija de arriba al hacer scroll. */
+    scroll-margin-top: 76px;
+  }
   /* Table */
   .table-wrap {
     overflow-x: auto;
@@ -990,13 +999,19 @@
     display: flex;
     flex-direction: column;
   }
+  /* Móvil: fila 1 = nombre a todo el ancho; fila 2 = conteos con su
+     etiqueta encima + asistencia; fila 3 = acciones. En escritorio
+     (>= 820px) vuelve a ser una tabla con encabezado de columnas. */
   .stu-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(4, 44px) 84px;
-    gap: 8px;
-    align-items: center;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px 4px;
+    align-items: end;
     padding: 10px 4px;
     border-top: 1px solid var(--line);
+  }
+  .stu-row > .who {
+    grid-column: 1 / -1;
   }
   .stu-row:first-child {
     border-top: 0;
@@ -1021,6 +1036,17 @@
     .stu-row {
       grid-template-columns: minmax(200px, 1.6fr) repeat(4, 64px) 120px 224px;
       gap: 12px;
+      align-items: center;
+    }
+    .stu-row > .who {
+      grid-column: auto;
+    }
+    .c-lab {
+      display: none;
+    }
+    .c-stat {
+      display: block;
+      text-align: right;
     }
   }
   .who {
@@ -1075,7 +1101,20 @@
     height: 13px;
   }
   .c-stat {
-    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+  }
+  .c-lab {
+    color: var(--muted);
+    font-size: 0.66rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
   .c-stat strong {
     font-variant-numeric: tabular-nums;
@@ -1114,6 +1153,17 @@
     color: var(--muted);
     font-size: 0.7rem;
     font-weight: 500;
+  }
+  /* Móvil: «asistencia» encima del % como las demás columnas. */
+  @media (max-width: 819px) {
+    .rate-id {
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 2px;
+    }
+    .rate-what {
+      font-size: 0.66rem;
+    }
   }
   .rbar {
     height: 4px;

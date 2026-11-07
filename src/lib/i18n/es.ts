@@ -1208,6 +1208,7 @@ export const es = {
     colSalon: 'Salón',
     colAbsences: 'Injust.',
     colPermission: 'C. permiso',
+    colPermissionShort: 'Permiso',
     colEvasions: 'Evas.',
     colAbsencesLong: 'Faltas injustificadas',
     colPermissionLong: 'Con permiso',
