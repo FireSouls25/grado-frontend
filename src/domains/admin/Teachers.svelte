@@ -193,6 +193,8 @@
       state = 'ready';
       void loadDetails();
       void ensureDirGroups();
+      // El chip «Jefe de área» necesita el catálogo para mostrar el nombre.
+      void ensureSubjects();
     } catch (err) {
       loadError = err;
       state = err instanceof ApiError && isMissing(err) ? 'ready' : 'error';
