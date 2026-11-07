@@ -12,7 +12,9 @@
 - Desarrollo en navegador: el backend debe permitir el origen dev
   (`ALLOWED_ORIGINS=http://127.0.0.1:1420,http://localhost:1420`), o los
   fetch mueren en preflight y todo se ve como error de red. En Tauri
-  el origen será el del webview (`tauri.localhost`).
+  el origen es el del webview: `https://tauri.localhost` en Android y
+  Windows (`useHttpsScheme: true`; sin eso sería `http://`, que el backend
+  no permite) y `tauri://localhost` en Linux/macOS.
 - Identidad: `Authorization: Bearer <token>` desde la sesión (login
   real contra `POST /v1/login`; el token vive en `grado.token`).
 - `ApiError { code, status }`: `code` es la clave estable del backend
