@@ -587,7 +587,10 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: 1fr;
+    /* minmax(0, …): con `1fr` la columna no bajaba de su contenido
+       mínimo y un nombre largo ensanchaba la página más que la pantalla
+       (había que hacer zoom out o desplazarse de lado). */
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     align-items: start;
   }
@@ -789,9 +792,8 @@
   }
   .who strong {
     font-size: 0.9rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* Nombre completo siempre visible: parte en varias líneas. */
+    overflow-wrap: anywhere;
   }
   .who small {
     color: var(--muted);
@@ -800,8 +802,24 @@
   }
   /* Mismo selector que las pantallas de admin: estados como opciones y
      el permiso como botón separado. */
+  /* Móvil: nombre en su propia fila, debajo «Uniforme» y luego los
+     estados de asistencia a todo el ancho. */
+  @media (max-width: 719px) {
+    .who {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+    .uniform-check {
+      flex: 1 1 100%;
+      padding-left: 44px;
+    }
+    .ledger .seg {
+      flex-basis: 100%;
+    }
+  }
   .seg {
     flex: 1 1 240px;
+    min-width: 0;
     display: flex;
     background: var(--surface-2);
     border: 1px solid var(--line);
