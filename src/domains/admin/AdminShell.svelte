@@ -1,5 +1,11 @@
+<script context="module" lang="ts">
+  // Cada página monta su propio AdminShell: sin esto la barra de
+  // secciones (móvil) volvía al inicio en cada cambio de vista.
+  let mnavScroll = 0;
+</script>
+
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
@@ -29,9 +35,26 @@
     void profile.refresh();
   }
 
+  let mnav: HTMLElement | undefined;
+
   onMount(() => {
     if ($profile.state === 'idle') void profile.refresh();
+    void restoreNav();
   });
+
+  async function restoreNav() {
+    await tick();
+    if (!mnav) return;
+    mnav.scrollLeft = mnavScroll;
+    // Si la sección activa quedó fuera de vista, se trae sin saltos.
+    const cur = mnav.querySelector<HTMLElement>('button.active');
+    if (!cur) return;
+    const nav = mnav.getBoundingClientRect();
+    const btn = cur.getBoundingClientRect();
+    if (btn.left < nav.left || btn.right > nav.right) {
+      cur.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }
+  }
 
   type Key = typeof active;
   type IconName =
@@ -118,7 +141,12 @@
     </div>
   </aside>
 
-  <nav class="mnav" aria-label={$t.admin.manageTitle}>
+  <nav
+    class="mnav"
+    aria-label={$t.admin.manageTitle}
+    bind:this={mnav}
+    on:scroll={() => mnav && (mnavScroll = mnav.scrollLeft)}
+  >
     {#each items as item (item.key)}
       <button
         type="button"
