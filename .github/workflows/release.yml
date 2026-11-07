@@ -36,9 +36,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            args: ""
+            args: "--bundles deb,appimage"
           - os: windows-latest
-            args: ""
+            args: "--bundles nsis"
     runs-on: ${{ matrix.os }}
     env:
       VITE_API_URL: https://api.fractalschool.app
@@ -60,6 +60,14 @@ jobs:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
+      # La versión sale del tag (v0.1.4 -> 0.1.4): tauri.conf.json queda en
+      # 0.1.0 en el repo y solo se reescribe en el runner.
+      - name: Versión desde el tag
+        shell: bash
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          node -e 'const fs=require("fs");const f="src-tauri/tauri.conf.json";const c=JSON.parse(fs.readFileSync(f));c.version=process.argv[1];fs.writeFileSync(f,JSON.stringify(c,null,2)+"\n")' "$V"
+          echo "Versión: $V"
       - uses: tauri-apps/tauri-action@v0
         with:
           args: ${{ matrix.args }}
@@ -109,6 +117,14 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
+      # La versión sale del tag (v0.1.4 -> 0.1.4): tauri.conf.json queda en
+      # 0.1.0 en el repo y solo se reescribe en el runner.
+      - name: Versión desde el tag
+        shell: bash
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          node -e 'const fs=require("fs");const f="src-tauri/tauri.conf.json";const c=JSON.parse(fs.readFileSync(f));c.version=process.argv[1];fs.writeFileSync(f,JSON.stringify(c,null,2)+"\n")' "$V"
+          echo "Versión: $V"
       - run: npx tauri android init
       # Release sin firma propia por ahora: se firma con la clave debug
       # (instalable a mano, no publicable en Play). Para Play hará falta
@@ -133,16 +149,11 @@ jobs:
           # este job instala su SDK en ANDROID_HOME: Gradle 8 falla con dos
           # rutas distintas, así que se deja una sola.
           unset ANDROID_SDK_ROOT
-          npx tauri android build --apk --aab
+          npx tauri android build --apk
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-          if-no-files-found: error
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android-aab
-          path: src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
           if-no-files-found: error
 
   publish:
@@ -153,21 +164,26 @@ jobs:
         with:
           path: dist-artifacts
       # Sin checkout no hay .git: gh necesita el repo explícito (GH_REPO).
-      # Se adjuntan solo los instaladores; `**/*` sin globstar pasaría
-      # directorios y basura intermedia del bundle.
+      # Cada instalador se renombra a fractal-school-<plataforma>-<versión>.
       - env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -e
-          mapfile -t FILES < <(find dist-artifacts -type f \( \
-            -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
-            -o -name '*.msi' -o -name '*-setup.exe' \
-            -o -name '*.apk' -o -name '*.aab' \))
-          printf '%s\n' "${FILES[@]}"
-          [ "${#FILES[@]}" -gt 0 ] || { echo "Sin artefactos"; exit 1; }
-          gh release create "${{ github.ref_name }}" "${FILES[@]}" \
-            --title "${{ github.ref_name }}" --generate-notes
+          V="${GITHUB_REF_NAME#v}"
+          mkdir release
+          pick() { # pick <patrón> <nombre destino>: exige exactamente un archivo
+            mapfile -t F < <(find dist-artifacts -type f -name "$1")
+            [ "${#F[@]}" -eq 1 ] || { echo "Se esperaba 1 archivo '$1', hay ${#F[@]}: ${F[*]}"; exit 1; }
+            cp "${F[0]}" "release/$2"
+          }
+          pick '*.deb'        "fractal-school-linux-x86_64-$V.deb"
+          pick '*.AppImage'   "fractal-school-linux-x86_64-$V.AppImage"
+          pick '*-setup.exe'  "fractal-school-windows-x86_64-$V.exe"
+          pick '*.apk'        "fractal-school-android-$V.apk"
+          ls -la release
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --title "$GITHUB_REF_NAME" --generate-notes
 
   # macOS oportunista: corre DESPUÉS de publish y adjunta sus artefactos
   # al Release ya existente. Si no hay runners, se cancela sin afectar
@@ -189,14 +205,22 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - run: npm ci
+      # La versión sale del tag (v0.1.4 -> 0.1.4): tauri.conf.json queda en
+      # 0.1.0 en el repo y solo se reescribe en el runner.
+      - name: Versión desde el tag
+        shell: bash
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          node -e 'const fs=require("fs");const f="src-tauri/tauri.conf.json";const c=JSON.parse(fs.readFileSync(f));c.version=process.argv[1];fs.writeFileSync(f,JSON.stringify(c,null,2)+"\n")' "$V"
+          echo "Versión: $V"
       - uses: tauri-apps/tauri-action@v0
         with:
-          args: --target universal-apple-darwin
+          args: --target universal-apple-darwin --bundles dmg
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cd src-tauri/target/universal-apple-darwin/release/bundle
-          tar -czf macos-app.tar.gz macos/*.app
-          gh release upload "${{ github.ref_name }}" \
-            dmg/*.dmg macos-app.tar.gz \
-            --clobber
+          V="${GITHUB_REF_NAME#v}"
+          cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg \
+            "fractal-school-macos-universal-$V.dmg"
+          gh release upload "$GITHUB_REF_NAME" \
+            "fractal-school-macos-universal-$V.dmg" --clobber
