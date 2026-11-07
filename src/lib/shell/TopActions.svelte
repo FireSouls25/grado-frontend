@@ -81,7 +81,7 @@ import { session } from '../../domains/auth/session';
 
 <svelte:window on:click={onWindowClick} />
 
-<div class="actions" role="group" aria-label={$t.a11y.actions}>
+<div class="actions top-actions" role="group" aria-label={$t.a11y.actions}>
   <div class="bellwrap" bind:this={panel}>
     <button
       class="icon-btn"
@@ -191,6 +191,15 @@ import { session } from '../../domains/auth/session';
     display: flex;
     align-items: center;
     gap: 4px;
+  }
+  @media (max-width: 640px) {
+    .actions {
+      gap: 2px;
+    }
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+    }
   }
   .icon-btn {
     width: 36px;

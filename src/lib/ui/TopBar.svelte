@@ -112,4 +112,40 @@
     position: absolute;
     right: 0;
   }
+
+  /* Móvil: fila 1 = volver + título + iconos de la app (perfil, tema…);
+     fila 2 = acciones propias de la página. `display: contents` sube los
+     hijos del slot a la flex del header para poder ordenarlos, y el
+     ::after (ancho 100 %) fuerza el salto de línea entre ambos grupos.
+     El título no se encoge por debajo de su ancho natural: si no cabe
+     junto a los iconos, son los iconos los que bajan de línea. */
+  @media (max-width: 640px) {
+    .topbar:not(.centered) {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      row-gap: 6px;
+      column-gap: 8px;
+    }
+    .topbar:not(.centered) .left {
+      flex: 1 1 auto;
+    }
+    .topbar:not(.centered) .left h1 {
+      font-size: 1.2rem;
+    }
+    .topbar:not(.centered) .actions {
+      display: contents;
+    }
+    .topbar:not(.centered) .actions > :global(*) {
+      order: 2;
+    }
+    .topbar:not(.centered) .actions > :global(.top-actions) {
+      order: 0;
+      margin-left: auto;
+    }
+    .topbar:not(.centered):global(:has(> .actions > :not(.top-actions)))::after {
+      content: '';
+      order: 1;
+      flex-basis: 100%;
+    }
+  }
 </style>
