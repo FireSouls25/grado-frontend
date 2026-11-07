@@ -152,10 +152,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist-artifacts
+      # Sin checkout no hay .git: gh necesita el repo explícito (GH_REPO).
+      # Se adjuntan solo los instaladores; `**/*` sin globstar pasaría
+      # directorios y basura intermedia del bundle.
       - env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "${{ github.ref_name }}" dist-artifacts/**/* \
+          set -e
+          mapfile -t FILES < <(find dist-artifacts -type f \( \
+            -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
+            -o -name '*.msi' -o -name '*-setup.exe' \
+            -o -name '*.apk' -o -name '*.aab' \))
+          printf '%s\n' "${FILES[@]}"
+          [ "${#FILES[@]}" -gt 0 ] || { echo "Sin artefactos"; exit 1; }
+          gh release create "${{ github.ref_name }}" "${FILES[@]}" \
             --title "${{ github.ref_name }}" --generate-notes
 
   # macOS oportunista: corre DESPUÉS de publish y adjunta sus artefactos
