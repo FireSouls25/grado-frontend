@@ -360,6 +360,13 @@
       report = r;
       warnings = w;
       alerts = (al ?? []).slice().sort((a, b) => (a.CreatedAt < b.CreatedAt ? 1 : -1));
+      // Los permisos previos son un extra: si el endpoint aún no está,
+      // la ficha sigue funcionando sin ellos.
+      try {
+        permits = (await guarded(() => studentPermits(id))) ?? [];
+      } catch {
+        permits = [];
+      }
       state = 'ready';
     } catch (err) {
       loadError = err;
