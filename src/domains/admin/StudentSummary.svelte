@@ -207,6 +207,84 @@
     defenseFor = { sessionID };
   }
 
+  // --- Permisos previos --------------------------------------------------
+  // El alta la hace secretaría/administración (record-defenses). El
+  // permiso deja al estudiante bloqueado en la lista del docente.
+  function todayISO(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function groupLabelOf(g: YearGroup): string {
+    return g.ClassLabel || `${g.Grade}-${g.GroupNo}`;
+  }
+
+  async function openPermit() {
+    permitOpen = true;
+    permitDate = todayISO();
+    permitError = '';
+    permitReason = '';
+    permitGroupID = profile?.ClassID ?? '';
+    if (permitGroups.length === 0) {
+      try {
+        permitGroups = (await guarded(() => groupsByYear(currentYear))) ?? [];
+      } catch {
+        permitGroups = [];
+      }
+    }
+    if (!permitGroupID && permitGroups.length > 0) permitGroupID = permitGroups[0].GroupID;
+  }
+
+  async function savePriorPermit() {
+    permitError = '';
+    if (!permitDate) {
+      permitError = $t.studentSummary.priorPermitNeedDate;
+      return;
+    }
+    if (!permitGroupID) {
+      permitError = $t.studentSummary.priorPermitNeedGroup;
+      return;
+    }
+    if (!permitReason.trim()) {
+      permitError = $t.studentSummary.priorPermitNeedReason;
+      return;
+    }
+    if (permitSaving) return;
+    permitSaving = true;
+    try {
+      await guarded(() =>
+        grantPermit({
+          studentID: id,
+          classGroupID: permitGroupID,
+          date: permitDate,
+          reason: permitReason.trim()
+        })
+      );
+      notify($t.studentSummary.priorPermitSaved);
+      permitOpen = false;
+      await load();
+    } catch (err) {
+      permitError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      permitSaving = false;
+    }
+  }
+
+  async function revokePrior(p: PriorPermit) {
+    if (acting) return;
+    acting = p.ID;
+    try {
+      await guarded(() => revokePermit(p.ID));
+      notify($t.studentSummary.priorPermitRevoked);
+      await load();
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : $t.common.loadError);
+    } finally {
+      acting = null;
+    }
+  }
+
   async function saveDefense(draft: string) {
     if (!defenseFor || acting) return;
     acting = defenseFor.sessionID + 'defense';
