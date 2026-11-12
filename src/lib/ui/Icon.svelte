@@ -26,6 +26,7 @@
     | 'search'
     | 'pin'
     | 'user'
+    | 'shield'
     | 'camera';
 
   const paths: Record<string, string> = {
