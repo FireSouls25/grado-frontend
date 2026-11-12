@@ -339,6 +339,11 @@
                 {#if item.Room}
                   <span class="factpill"><Icon name="pin" /> {$t.agenda.roomLabel(item.Room)}</span>
                 {/if}
+                {#if omitted}
+                  <span class="factpill omitted" title={$t.agenda.omittedTooltip}>
+                    <Icon name="warn" /> {$t.agenda.omittedTag}
+                  </span>
+                {/if}
                 {#if rec}
                   <span
                     class="factpill roll"
