@@ -118,6 +118,7 @@
           Room: c.Room ?? '',
           Grade: c.ClassLabel
         }));
+      await loadOmitted();
     } catch (err) {
       if (err instanceof ApiError && isMissing(err)) {
         // Backend sin ruta todavía: vacío honesto, no error.
