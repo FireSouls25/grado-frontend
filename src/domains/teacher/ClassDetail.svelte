@@ -143,6 +143,7 @@
       evasion = new Set();
       evasionInit = new Set();
       await resumeToday();
+      await loadPermits();
     } catch {
       // Backend sin nómina todavía (404 o error): vacío honesto, no lista falsa.
       roster = [];
