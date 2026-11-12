@@ -532,6 +532,12 @@
             <span class="countpill">{$t.attendance.studentsCount(roster.length)}</span>
           </div>
           <p class="hint-top">{$t.attendance.listHint}</p>
+          {#if locked.size > 0}
+            <p class="locknote" role="note">
+              <Icon name="shield" />
+              {$t.attendance.priorPermitNote(locked.size)}
+            </p>
+          {/if}
           <div class="bulk">
             <button type="button" class="btn btn-sm" on:click={markAllPresent}>
               <Icon name="check" /> {$t.attendance.markAllPresent}
