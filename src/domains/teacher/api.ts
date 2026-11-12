@@ -183,6 +183,55 @@ export async function sessionUniform(id: string): Promise<Record<string, boolean
   return r?.Uniform ?? null;
 }
 
+// --- Permisos previos y listas omitidas -----------------------------------
+// El permiso previo lo concede secretaría/administración antes de la
+// clase. La lista lo pinta bloqueado: no se puede marcar presente ni
+// falta porque el permiso manda.
+
+export interface PriorPermit {
+  ID: string;
+  StudentID: string;
+  StudentName: string;
+  ClassGroupID: string;
+  ClassLabel: string;
+  SubjectID: string;
+  SubjectName: string;
+  /** Día cubierto (YYYY-MM-DD). */
+  Date: string;
+  Reason: string;
+  CreatedBy: string;
+  CreatedByName: string;
+  CreatedAt: string;
+}
+
+/** Permisos previos de un salón para un día concreto. */
+export async function groupPermits(groupID: string, day: string): Promise<PriorPermit[]> {
+  const q = `classGroupID=${encodeURIComponent(groupID)}&date=${encodeURIComponent(day)}`;
+  return (await api.get<PriorPermit[]>(`/v1/attendance/permits?${q}`)) ?? [];
+}
+
+/** Bloque de horario cuya clase ya terminó sin llamado a lista. */
+export interface OmittedClass {
+  ScheduleEntryID: string;
+  ClassGroupID: string;
+  GroupSlug: string;
+  ClassLabel: string;
+  SubjectID: string;
+  SubjectName: string;
+  Weekday: number;
+  Start: string;
+  End: string;
+  Omitted: boolean;
+}
+
+/** Bloques del docente que ya pasaron sin llamado, para un día. */
+export async function omittedRollcalls(day: string): Promise<OmittedClass[]> {
+  return (
+    (await api.get<OmittedClass[]>(`/v1/attendance/omitted?date=${encodeURIComponent(day)}`)) ?? []
+  );
+}
+
+
 /** Current marks of one roll call, by student. */
 export async function sessionMarks(id: string): Promise<Record<string, string> | null> {
   const r = await api.get<{ Marks?: Record<string, string> }>(`/v1/sessions/${encodeURIComponent(id)}`);
