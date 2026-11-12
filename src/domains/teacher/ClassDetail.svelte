@@ -609,6 +609,7 @@
                     type="button"
                     class:late={cur === 'late'}
                     aria-pressed={cur === 'late'}
+                    disabled={isLocked}
                     on:click={() => pick(r.StudentID, 'late')}
                   >
                     {$t.studentSummary.markLate}
