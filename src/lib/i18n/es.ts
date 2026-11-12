@@ -54,8 +54,7 @@ export const es = {
         title: 'Horarios por salón',
         body: 'Cada salón con sus docentes y materias, semana a semana.'
       }
-    ],
-    footer: 'Uso institucional. Si no tienes cuenta, pide una a tu colegio.'
+    ]
   },
   cierre: {
     title: 'Cierre de año',

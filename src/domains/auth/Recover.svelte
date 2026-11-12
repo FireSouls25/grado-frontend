@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SiteFooter from '$lib/site/SiteFooter.svelte';
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
   import { push } from 'svelte-spa-router';
@@ -96,6 +97,7 @@
       </button>
     </div>
   {/if}
+  <SiteFooter />
 </div>
 
 <style>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
+  import SiteFooter from '$lib/site/SiteFooter.svelte';
   import { authNotice, session, syncBuild } from './session';
   import { me, login } from '../teacher/api';
   import { ApiError } from '$lib/api/types';
@@ -166,7 +167,7 @@
     </form>
   </div>
 
-  <p class="footer">{$t.login.footer}</p>
+  <SiteFooter />
 </div>
 
 <style>
@@ -360,14 +361,6 @@
   .forgot:hover {
     text-decoration: underline;
   }
-  .footer {
-    margin-top: 20px;
-    color: var(--muted);
-    font-size: 0.85rem;
-    text-align: center;
-    padding-bottom: 8px;
-  }
-
   @media (min-width: 900px) {
     .login {
       max-width: 920px;
