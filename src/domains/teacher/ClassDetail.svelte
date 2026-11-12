@@ -413,6 +413,9 @@
       const noteOf = (m: Set<string>, id: string): string =>
         m.has(id) ? (permNotes[id] ?? '') : '';
       for (const r of roster) {
+        // El permiso previo se aplica solo al abrir la sesión: aquí no se
+        // envía ninguna marca por ese estudiante.
+        if (locked.has(r.StudentID)) continue;
         // Marca equivalente de cada estado (presente = "").
         const wasMark = markOf(presentInit, lateInit, evasionInit, permInit, r.StudentID);
         const isMark = markOf(present, late, evasion, perm, r.StudentID);
