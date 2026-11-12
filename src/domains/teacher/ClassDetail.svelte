@@ -206,6 +206,46 @@
     }
   }
 
+  // Permisos previos del salón para hoy: quien ya está cubierto entra en
+  // la nómina como "Con permiso" y sus marcas quedan bloqueadas.
+  async function loadPermits() {
+    try {
+      const list = await guarded(() => groupPermits(groupID, todayKey || dateKey()));
+      const next = new Set<string>();
+      const reasons: Record<string, string> = {};
+      for (const p of list ?? []) {
+        // Un permiso con materia solo cubre esa clase.
+        if (p.SubjectID && subjectParam && p.SubjectID !== subjectParam) continue;
+        next.add(p.StudentID);
+        reasons[p.StudentID] = p.Reason;
+      }
+      locked = next;
+      lockReasons = reasons;
+      const p = new Set(present);
+      const l = new Set(late);
+      const v = new Set(evasion);
+      const pm = new Set(perm);
+      for (const id of locked) {
+        p.delete(id);
+        l.delete(id);
+        v.delete(id);
+        pm.add(id);
+        permNotes[id] = reasons[id] ?? '';
+      }
+      present = p;
+      late = l;
+      evasion = v;
+      perm = pm;
+      presentInit = new Set(p);
+      lateInit = new Set(l);
+      evasionInit = new Set(v);
+      permInit = new Set(pm);
+      permNotesInit = Object.fromEntries([...pm].map((id) => [id, permNotes[id] ?? '']));
+    } catch {
+      /* sin permisos legibles: la lista sigue como antes */
+    }
+  }
+
   // Nombre del salon y de la materia para no exponer ids internos:
   // el docente ya puede leer salones y el catalogo de materias.
   async function resolveLabels() {
