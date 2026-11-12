@@ -12,7 +12,7 @@
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
-  import { daySchedule, isMissing, type TeacherClass } from './api';
+  import { daySchedule, isMissing, omittedRollcalls, type TeacherClass } from './api';
   import { loadRollcall } from './rollcall';
   import { calendarDate } from '$lib/dates';
   import { schoolDay } from '$lib/schoolDay';
