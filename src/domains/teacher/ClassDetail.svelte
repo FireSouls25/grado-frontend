@@ -814,6 +814,24 @@
     font-size: 0.78rem;
     margin-bottom: 10px;
   }
+  .locknote {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--m-permission-bg);
+    color: var(--m-permission);
+    border: 1px solid var(--m-permission);
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .locknote :global(svg) {
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
   .ledger {
     list-style: none;
     margin: 0;
