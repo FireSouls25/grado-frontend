@@ -15,8 +15,8 @@ const school: SchoolInfo = {
   name: 'Colegio Nuestra Señora de Guadalupe',
   /** Web, correo y teléfono oficiales del colegio (opcionales). */
   web: 'https://www.nuestrasenoradeguadalupe.edu.co/',
-  email: 'iemguadalupe@hotmail.com',
-  phone: '+57 300 163 7201'
+  email: 'iemnuestrasenoradeguadalupe@sempasto.gov.co',
+  phone: '+57 315 691 6745'
 };
 
 export const site = {
