@@ -360,8 +360,8 @@
                 {/if}
               </div>
             </div>
-            <span class={`st ${st}`}>
-              {st === 'done' ? $t.agenda.stateDone : st === 'now' ? $t.agenda.stateNow : $t.agenda.stateNext}
+            <span class={`st ${omitted ? 'omitted' : st}`}>
+              {omitted ? $t.agenda.stateOmitted : st === 'done' ? $t.agenda.stateDone : st === 'now' ? $t.agenda.stateNow : $t.agenda.stateNext}
             </span>
             <div class="rowbtns">
               <button type="button" class={st === 'now' ? 'btn btn-primary btn-sm' : 'btn btn-sm'} on:click={() => openClass(item)}>
@@ -676,8 +676,25 @@
     color: var(--muted);
     margin-left: 2px;
   }
+  .factpill.omitted {
+    background: var(--g-grave-bg);
+    border-color: transparent;
+    color: var(--g-grave-ink);
+  }
+  .statpill.warn {
+    background: var(--g-grave-bg);
+    border-color: transparent;
+    color: var(--g-grave-ink);
+  }
   li.done {
     opacity: 0.65;
+  }
+  li.omitted {
+    opacity: 1;
+  }
+  li.omitted .pip {
+    background: var(--g-grave-ink);
+    border-color: var(--g-grave-ink);
   }
   .st {
     grid-column: 2;
@@ -698,6 +715,12 @@
   }
   .st.done {
     opacity: 0.75;
+  }
+  .st.omitted {
+    background: var(--g-grave-bg);
+    border-color: transparent;
+    color: var(--g-grave-ink);
+    opacity: 1;
   }
   .rowbtns {
     grid-column: 2;
