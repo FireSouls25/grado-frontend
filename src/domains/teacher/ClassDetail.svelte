@@ -276,6 +276,8 @@
   }
 
   function pick(id: string, mark: RollMark) {
+    // El permiso previo manda: sus botones están bloqueados.
+    if (locked.has(id)) return;
     if (mark === '') present.add(id);
     else present.delete(id);
     if (mark === 'late') late.add(id);
