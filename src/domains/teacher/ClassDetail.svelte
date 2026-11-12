@@ -851,6 +851,28 @@
     padding: 10px 14px;
     min-height: 56px;
   }
+  .ledger li.locked {
+    border-color: var(--m-permission);
+    background: var(--m-permission-bg);
+  }
+  .lockchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface);
+    color: var(--m-permission);
+    border: 1px solid var(--m-permission);
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .lockchip :global(svg) {
+    width: 13px;
+    height: 13px;
+    flex: none;
+  }
   .avatar {
     flex: none;
     width: 34px;
