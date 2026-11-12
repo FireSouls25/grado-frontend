@@ -6,6 +6,9 @@
  */
 export interface SchoolInfo {
   name: string;
+  /** Nombre legal completo (responsable del tratamiento). */
+  legalName: string;
+  address: string;
   web: string;
   email: string;
   phone: string;
@@ -13,6 +16,8 @@ export interface SchoolInfo {
 
 const school: SchoolInfo = {
   name: 'Colegio Nuestra Señora de Guadalupe',
+  legalName: 'Institución Educativa Municipal Nuestra Señora de Guadalupe',
+  address: 'Km 7 vía Panamericana al sur, Catambuco, Pasto, Nariño',
   /** Web, correo y teléfono oficiales del colegio (opcionales). */
   web: 'https://www.nuestrasenoradeguadalupe.edu.co/',
   email: 'iemnuestrasenoradeguadalupe@sempasto.gov.co',
