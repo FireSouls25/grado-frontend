@@ -270,6 +270,11 @@
     <div class="stats">
       <span class="statpill num">{$t.agenda.todayValue(baseList.length)}</span>
       <span class="statpill num">{$t.agenda.registeredValue(doneCount, baseList.length)}</span>
+      {#if omittedCount > 0}
+        <span class="statpill warn" title={$t.agenda.omittedTooltip}>
+          {$t.agenda.omittedSummary(omittedCount)}
+        </span>
+      {/if}
     </div>
     <div class="quick-actions">
       <button type="button" class="btn btn-sm" on:click={() => (warnGlobal = true)}>
