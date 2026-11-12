@@ -215,7 +215,11 @@
       )
     : baseList;
 
-  $: doneCount = selectedDay === todayIdx ? baseList.filter((c) => statusOf(c) === 'done').length : 0;
+  $: doneCount =
+    baseList.filter(
+      (c) => statusOf(c) === 'done' && !omittedKeys.has(`${c.GroupID}|${c.Start}`)
+    ).length;
+  $: omittedCount = selectedDateKey && selectedDateKey <= todayKey ? omittedKeys.size : 0;
 
   function openClass(item: AgendaItem) {
     const period = periodOf(item);
