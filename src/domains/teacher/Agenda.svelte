@@ -325,8 +325,9 @@
       <ol class="timeline">
         {#each visible as item (item.GroupID + item.Start)}
           {@const st = statusOf(item)}
+          {@const omitted = omittedKeys.has(`${item.GroupID}|${item.Start}`)}
           {@const rec = rollsOfToday.get(`${item.GroupID}|${item.Start}`) ?? null}
-          <li class={st}>
+          <li class={st} class:omitted>
             <span class="rail" aria-hidden="true"><span class="pip"></span></span>
             <div class="tblock">
               <div>
