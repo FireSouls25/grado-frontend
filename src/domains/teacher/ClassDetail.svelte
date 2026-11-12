@@ -582,6 +582,7 @@
                     type="button"
                     class:present={cur === ''}
                     aria-pressed={cur === ''}
+                    disabled={isLocked}
                     on:click={() => pick(r.StudentID, '')}
                   >
                     {$t.studentSummary.presences}
