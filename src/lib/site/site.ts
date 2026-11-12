@@ -16,7 +16,7 @@ const school: SchoolInfo = {
   /** Web, correo y teléfono oficiales del colegio (opcionales). */
   web: 'https://www.nuestrasenoradeguadalupe.edu.co/',
   email: 'iemguadalupe@hotmail.com',
-  phone: ''
+  phone: '+57 300 163 7201'
 };
 
 export const site = {
