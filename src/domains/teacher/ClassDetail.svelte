@@ -11,7 +11,7 @@
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
-  import { classRoster, isMissing, openSession, recordMark, recordUniform, sessionMarks, sessionUniform, todaySessions } from './api';
+  import { classRoster, groupPermits, isMissing, openSession, recordMark, recordUniform, sessionMarks, sessionUniform, todaySessions } from './api';
   import { groupsByYear, listSubjects } from '../admin/api';
   import { notify } from '$lib/ui/notice';
   import { dateKey, saveRollcall } from './rollcall';
