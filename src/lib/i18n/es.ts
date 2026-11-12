@@ -258,6 +258,11 @@ export const es = {
     stateDone: 'Finalizada',
     stateNow: 'Ahora',
     stateNext: 'Siguiente',
+    stateOmitted: 'Omitida',
+    omittedTag: 'No se llamó lista',
+    omittedTooltip: 'La clase ya terminó y no se registró el llamado a lista.',
+    omittedSummary: (count: number) =>
+      count === 1 ? '1 clase sin lista' : `${count} clases sin lista`,
     openList: 'Abrir lista',
     warnAction: 'Llamado',
     allGroups: 'Todos mis salones',
