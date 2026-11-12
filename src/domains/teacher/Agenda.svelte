@@ -132,6 +132,28 @@
     }
   }
 
+  // Bloques del día ya terminados que no tienen ningún llamado: la
+  // agenda los pinta como omitidos en vez de dejarlos en silencio.
+  async function loadOmitted() {
+    omittedKeys = new Set();
+    const key = currentDayKey();
+    if (!todayKey || key > todayKey) return;
+    try {
+      const list = await omittedRollcalls(key);
+      omittedKeys = new Set((list ?? []).map((o) => `${o.ClassGroupID}|${o.Start}`));
+    } catch {
+      omittedKeys = new Set();
+    }
+  }
+
+  // Clave del día seleccionado en la semana mostrada.
+  function currentDayKey(): string {
+    const base = weekBase ?? new Date();
+    const d = new Date(base);
+    d.setDate(d.getDate() + selectedDay);
+    return keyOf(d);
+  }
+
   onMount(() => {
     load();
     const offReady = loadWhenReady(() => load());
