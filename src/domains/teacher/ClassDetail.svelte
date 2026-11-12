@@ -89,6 +89,11 @@
   let uniformOffInit = new Set<string>();
   let permNotes: Record<string, string> = {};
   let permNotesInit: Record<string, string> = {};
+  // Permiso previo concedido por secretaría/administración antes de la
+  // clase. El estudiante sigue en la nómina, pero queda bloqueado: el
+  // docente no puede marcar presente ni falta porque el permiso manda.
+  let locked = new Set<string>();
+  let lockReasons: Record<string, string> = {};
   let groupLabel = '';
   let subjectName = '';
   let sessionID = '';
