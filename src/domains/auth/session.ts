@@ -155,10 +155,29 @@ function createSession() {
       clearTimer();
       clearToken();
       clearRefresh();
+      forgetUserData();
       set('');
       profile.reset();
     }
   };
+}
+
+/** Claves locales que pertenecen a quien inició sesión. En un equipo
+ *  compartido del colegio, el siguiente usuario no debe heredarlas. El
+ *  tema y el borrador de usuario del login son del dispositivo y se quedan. */
+const USER_KEYS = ['grado.rollcalls.v1', 'grado.notifDismissed', 'grado.notifSnap'];
+const USER_PREFIXES = ['grado.distrib.'];
+
+function forgetUserData(): void {
+  try {
+    for (const k of USER_KEYS) localStorage.removeItem(k);
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && USER_PREFIXES.some((p) => k.startsWith(p))) localStorage.removeItem(k);
+    }
+  } catch {
+    /* almacenamiento bloqueado: no hay nada que borrar */
+  }
 }
 
 export const session = createSession();
