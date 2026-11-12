@@ -381,6 +381,12 @@ export const es = {
     absentLabel: 'Ausentes',
     permissionLabel: 'Con permiso',
     permissionHint: 'Pulsa para alternar entre falta injustificada y falta con permiso.',
+    priorPermitTag: 'Con permiso',
+    priorPermitWithReason: (reason: string) => `Permiso previo: ${reason}`,
+    priorPermitNote: (count: number) =>
+      count === 1
+        ? '1 estudiante ya tiene permiso previo: sus marcas están bloqueadas.'
+        : `${count} estudiantes ya tienen permiso previo: sus marcas están bloqueadas.`,
     lateHint: 'Pulsa para alternar entre falta injustificada y atraso.',
     lateLabel: 'Atrasados',
     uniformLabel: 'Uniforme',
