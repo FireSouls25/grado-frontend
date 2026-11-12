@@ -14,8 +14,8 @@ export interface SchoolInfo {
 const school: SchoolInfo = {
   name: 'Colegio Nuestra Señora de Guadalupe',
   /** Web, correo y teléfono oficiales del colegio (opcionales). */
-  web: '',
-  email: '',
+  web: 'https://www.nuestrasenoradeguadalupe.edu.co/',
+  email: 'iemguadalupe@hotmail.com',
   phone: ''
 };
 
