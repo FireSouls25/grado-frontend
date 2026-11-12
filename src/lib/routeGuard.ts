@@ -29,8 +29,9 @@ export function areaOf(path: string): Area {
 
 const hasRole = (me: Me, ...names: string[]) => names.some((n) => me.roles?.includes(n));
 
-/** Quién entra a cada área. Directivos pueden abrir un salón (la API se
- *  lo permite); un docente nunca entra a la consola de admin. */
+/** Quién entra a cada área. Cada rol tiene su consola: un docente no
+ *  entra a la de admin ni un admin a la del docente (su vista de salones
+ *  y estudiantes está en /admin). Admin y secretaría comparten /admin. */
 export function canEnter(area: Area, me: Me | null): boolean {
   if (area === 'public') return true;
   if (!me) return false;
@@ -40,7 +41,7 @@ export function canEnter(area: Area, me: Me | null): boolean {
     case 'admin':
       return hasRole(me, 'admin', 'owner', 'secretary');
     case 'teacher':
-      return hasRole(me, 'teacher', 'admin', 'owner');
+      return hasRole(me, 'teacher');
     case 'student':
       return hasRole(me, 'student');
   }

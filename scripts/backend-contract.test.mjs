@@ -30,11 +30,12 @@ globalThis.localStorage = {
 };
 
 const entry = `
-import { openSession, recordMark, recordUniform, issueWarnings, todaySessions, sessionMarks } from '${ROOT}/src/domains/teacher/api.ts';
+import { openSession, recordMark, recordUniform, issueWarnings, todaySessions, sessionMarks, updateMyTeacher, raiseAcademicAlerts, recordObservation } from '${ROOT}/src/domains/teacher/api.ts';
+import { areaOf, canEnter, safeNext } from '${ROOT}/src/lib/routeGuard.ts';
 import { hasPermission, canManageUsers, canBlockAccess, canWriteDefenses } from '${ROOT}/src/lib/access.ts';
 import { schoolDay } from '${ROOT}/src/lib/schoolDay.ts';
 import { resolveId, isUuid } from '${ROOT}/src/lib/slug.ts';
-import { issueWarningBatch, correctWarning, recordDefense, recordTeacherDay, studentReport } from '${ROOT}/src/domains/admin/api.ts';
+import { issueWarningBatch, correctWarning, recordDefense, recordTeacherDay, studentReport, updateStudent } from '${ROOT}/src/domains/admin/api.ts';
 const fail = (m) => { console.error('CONTRACT FAIL:', m); process.exitCode = 1; };
 const last = () => globalThis.__calls[globalThis.__calls.length - 1];
 await openSession('gid-1');
@@ -134,6 +135,68 @@ await recordTeacherDay('2026-10-30', [{ teacherID: 't1', status: 'permission', n
   const c = last();
   if (!c.url.endsWith('/v1/teachers/attendance') || c.method !== 'POST') fail('recordTeacherDay ' + c.method + ' ' + c.url);
   if (!c.body?.marks?.[0] || c.body.marks[0].status !== 'permission') fail('recordTeacherDay body: ' + JSON.stringify(c.body));
+}
+
+// Falta con permiso: la marca viaja con su nota (espejo: e2e/teacher_flow_test.go).
+await recordMark('s-1', 'stu-1', 'permission', 'Cita médica');
+{
+  const c = last();
+  if (!c.url.endsWith('/v1/sessions/s-1/marks') || c.method !== 'POST') fail('recordMark permiso ' + c.method + ' ' + c.url);
+  if (JSON.stringify(Object.keys(c.body).sort()) !== '["mark","note","studentID"]' || c.body.mark !== 'permission') fail('recordMark permiso body: ' + JSON.stringify(c.body));
+}
+// Alerta académica (espejo: http/academics_test.go raiseAlertRequest).
+await raiseAcademicAlerts({ studentIDs: ['a', 'b'], reason: 'Bajo rendimiento' });
+{
+  const c = last();
+  if (!c.url.endsWith('/v1/academic-alerts') || c.method !== 'POST') fail('raiseAcademicAlerts ' + c.method + ' ' + c.url);
+  if (JSON.stringify(Object.keys(c.body).sort()) !== '["reason","studentIDs"]') fail('raiseAcademicAlerts body: ' + JSON.stringify(c.body));
+}
+// Observación de convivencia (espejo: observationRequest).
+await recordObservation({ studentID: 'stu-1', situationID: 's1-01', note: 'Nota', classGroupID: 'g' });
+{
+  const c = last();
+  if (!c.url.endsWith('/v1/observations') || c.method !== 'POST') fail('recordObservation ' + c.method + ' ' + c.url);
+  const allowed = ['classGroupID', 'date', 'note', 'situationID', 'studentID'];
+  if (Object.keys(c.body).some((k) => !allowed.includes(k))) fail('recordObservation body: ' + JSON.stringify(c.body));
+}
+// Perfil del docente: la fecha del input (AAAA-MM-DD) sale en RFC 3339
+// (espejo: http/frontendbodies_test.go).
+await updateMyTeacher({ Phone: '3105559999', Birthdate: '1990-05-01', Sex: 'female' });
+{
+  const c = last();
+  if (!c.url.endsWith('/v1/teachers/me') || c.method !== 'PUT') fail('updateMyTeacher ' + c.method + ' ' + c.url);
+  if (c.body?.Birthdate !== '1990-05-01T00:00:00Z') fail('updateMyTeacher Birthdate: ' + JSON.stringify(c.body));
+}
+// Ficha del estudiante: nunca envía ID ni Status (los decide el servidor).
+await updateStudent('stu-1', { ID: 'stu-1', Status: 'active', Names: 'Ana', Surnames: 'Gómez', Birthdate: '2011-03-15T00:00:00Z' });
+{
+  const c = last();
+  if (!c.url.endsWith('/v1/students/stu-1') || c.method !== 'PUT') fail('updateStudent ' + c.method + ' ' + c.url);
+  if ('ID' in c.body || 'Status' in c.body || c.body.Names !== 'Ana') fail('updateStudent body: ' + JSON.stringify(c.body));
+}
+// Acceso por rol a las rutas (espejo de los permisos del backend).
+{
+  const teacher = { roles: ['teacher'], home: '/docente' };
+  const admin = { roles: ['admin'], home: '/admin' };
+  const secretary = { roles: ['secretary'], home: '/admin' };
+  const student = { roles: ['student'], home: '/estudiante' };
+  const expect = (who, path, want, name) => {
+    if (canEnter(areaOf(path), who) !== want) fail('acceso ' + name + ' a ' + path + ': quería ' + want);
+  };
+  expect(teacher, '/admin/usuarios', false, 'docente');
+  expect(teacher, '/clase/g-1', true, 'docente');
+  expect(teacher, '/estudiante', false, 'docente');
+  expect(admin, '/clase/g-1', false, 'admin');
+  expect(admin, '/docente', false, 'admin');
+  expect(admin, '/admin/estudiantes/x', true, 'admin');
+  expect(secretary, '/admin/estudiantes', true, 'secretaría');
+  expect(secretary, '/llamado/g-1', false, 'secretaría');
+  expect(student, '/estudiante', true, 'estudiante');
+  expect(student, '/admin', false, 'estudiante');
+  expect(student, '/perfil', true, 'estudiante');
+  expect(null, '/perfil', false, 'sin sesión');
+  if (safeNext('//evil.example') || safeNext('https://evil.example') || safeNext('/login')) fail('safeNext acepta destinos externos o públicos');
+  if (safeNext('/admin/estudiantes') !== '/admin/estudiantes') fail('safeNext rechaza una ruta interna');
 }
 if (!process.exitCode) console.log('CONTRACT OK: cuerpos del frontend compatibles con el backend');
 `;

@@ -93,7 +93,11 @@ export interface MyTeacherUpdate {
 }
 
 export async function updateMyTeacher(changes: MyTeacherUpdate): Promise<void> {
-  await api.put('/v1/teachers/me', changes);
+  // El input de fecha entrega AAAA-MM-DD; el API guarda instantes RFC 3339
+  // (igual que la ficha del estudiante).
+  const body = { ...changes };
+  if (body.Birthdate && /^\d{4}-\d{2}-\d{2}$/.test(body.Birthdate)) body.Birthdate = `${body.Birthdate}T00:00:00Z`;
+  await api.put('/v1/teachers/me', body);
 }
 
 /** Weekly schedule entries for a weekday. Pending: GET /v1/teachers/me/schedule. */
