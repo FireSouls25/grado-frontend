@@ -926,4 +926,46 @@
     font-size: 0.85rem;
     font-weight: 600;
   }
+  .priorby {
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+  .lockhint {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--m-permission);
+    font-weight: 600;
+  }
+  .permit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .permit-form .muted {
+    margin: 0;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .field input,
+  .field select,
+  .field textarea {
+    font: inherit;
+    font-weight: 400;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    padding: 8px 10px;
+  }
+  .permit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
 </style>
