@@ -64,6 +64,16 @@
   let warnRevs: Record<string, WarningRevision[]> = {};
   let alerts: AcademicAlert[] = [];
   let reviewingAlert: string | null = null;
+  // Permisos previos: secretaría/administración cubren al estudiante antes
+  // de la clase. La lista del docente lo muestra bloqueado.
+  let permits: PriorPermit[] = [];
+  let permitOpen = false;
+  let permitDate = '';
+  let permitGroupID = '';
+  let permitReason = '';
+  let permitSaving = false;
+  let permitError = '';
+  let permitGroups: YearGroup[] = [];
   let warnRevsLoading = false;
   let trailFor: string | null = null;
   let lateNotifying = false;
