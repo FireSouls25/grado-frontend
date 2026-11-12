@@ -591,6 +591,7 @@
                     type="button"
                     class:absent={cur === 'absence'}
                     aria-pressed={cur === 'absence'}
+                    disabled={isLocked}
                     on:click={() => pick(r.StudentID, 'absence')}
                   >
                     {$t.roster.absentShort}
@@ -599,6 +600,7 @@
                     type="button"
                     class:evasion={cur === 'evasion'}
                     aria-pressed={cur === 'evasion'}
+                    disabled={isLocked}
                     on:click={() => pick(r.StudentID, 'evasion')}
                   >
                     {$t.roster.evasion}
