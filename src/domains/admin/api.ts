@@ -555,6 +555,56 @@ export async function recordSessionMark(
   });
 }
 
+// --- Permisos previos ------------------------------------------------------
+// Secretaría y administración cubren a un estudiante antes de la clase.
+// La lista del docente lo muestra bloqueado y el servidor rechaza
+// cualquier marca distinta de "con permiso".
+
+export interface PriorPermit {
+  ID: string;
+  StudentID: string;
+  StudentName: string;
+  ClassGroupID: string;
+  ClassLabel: string;
+  SubjectID: string;
+  SubjectName: string;
+  /** Día cubierto (YYYY-MM-DD). */
+  Date: string;
+  Reason: string;
+  CreatedBy: string;
+  CreatedByName: string;
+  CreatedAt: string;
+}
+
+export interface PriorPermitDraft {
+  studentID: string;
+  classGroupID: string;
+  /** Opcional: sin materia el permiso cubre todo el día del salón. */
+  subjectID?: string;
+  /** Día cubierto (YYYY-MM-DD). */
+  date: string;
+  reason: string;
+}
+
+/** Permisos previos del estudiante, del más reciente al más antiguo. */
+export async function studentPermits(studentID: string): Promise<PriorPermit[]> {
+  return (
+    (await api.get<PriorPermit[]>(
+      `/v1/attendance/permits?studentID=${encodeURIComponent(studentID)}`
+    )) ?? []
+  );
+}
+
+/** Concede un permiso previo con motivo obligatorio. */
+export async function grantPermit(draft: PriorPermitDraft): Promise<PriorPermit> {
+  return api.post<PriorPermit>('/v1/attendance/permits', draft);
+}
+
+/** Revoca un permiso previo registrado por error. */
+export async function revokePermit(id: string): Promise<void> {
+  await api.del(`/v1/attendance/permits/${encodeURIComponent(id)}`);
+}
+
 export interface TeacherDayRevision {
   TeacherID: string;
   TeacherName: string;
