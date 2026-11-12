@@ -681,6 +681,52 @@
         onClose={() => (permFor = null)}
         onSave={savePermReason}
       />
+
+      <Sheet
+        open={permitOpen}
+        title={$t.studentSummary.priorPermitTitle}
+        onClose={() => (permitOpen = false)}
+      >
+        <div class="permit-form">
+          <p class="muted">{$t.studentSummary.priorPermitSubtitle}</p>
+          <label class="field">
+            <span>{$t.studentSummary.priorPermitDate}</span>
+            <input type="date" bind:value={permitDate} />
+          </label>
+          <label class="field">
+            <span>{$t.studentSummary.priorPermitGroup}</span>
+            <select bind:value={permitGroupID}>
+              {#each permitGroups as g (g.GroupID)}
+                <option value={g.GroupID}>{groupLabelOf(g)}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="field">
+            <span>{$t.studentSummary.priorPermitReason}</span>
+            <textarea
+              rows="3"
+              bind:value={permitReason}
+              placeholder={$t.studentSummary.priorPermitReasonPlaceholder}
+            ></textarea>
+          </label>
+          {#if permitError}
+            <p class="error" role="alert">{permitError}</p>
+          {/if}
+          <div class="permit-actions">
+            <button type="button" class="btn" on:click={() => (permitOpen = false)}>
+              {$t.common.cancel}
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              disabled={permitSaving}
+              on:click={savePriorPermit}
+            >
+              {permitSaving ? $t.studentSummary.priorPermitSaving : $t.studentSummary.priorPermitSave}
+            </button>
+          </div>
+        </div>
+      </Sheet>
     {/if}
   </div>
 </AdminShell>
