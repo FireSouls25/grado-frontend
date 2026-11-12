@@ -1,0 +1,270 @@
+/* Política de privacidad: página estática con los mismos tokens, fuentes
+   y temas de la app. Se lee completa sin JavaScript; el script solo marca
+   la sección actual y aplica el tema guardado. */
+@import '../styles/fonts.css';
+@import '../styles/global.css';
+
+body {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.pv {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+}
+
+.pv-top {
+  margin-bottom: 12px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+.back:hover {
+  color: var(--ink);
+}
+
+.pv-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+
+.pv-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 28px 24px;
+}
+.pv-card h1 {
+  font-size: 1.75rem;
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+.pv-card h2 {
+  font-size: 1.15rem;
+  margin: 32px 0 8px;
+  scroll-margin-top: 72px;
+}
+.pv-card p,
+.pv-card li {
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.pv-card p,
+.pv-card ul,
+.pv-card table {
+  margin: 0 0 14px;
+}
+.pv-card strong {
+  color: var(--ink);
+}
+.pv-card ul {
+  padding-left: 1.2em;
+}
+.pv-card li + li {
+  margin-top: 6px;
+}
+.pv-card a,
+footer a {
+  color: var(--accent);
+}
+.meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93rem;
+}
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+}
+th {
+  color: var(--muted);
+  font-weight: 600;
+}
+footer {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+  margin-top: 24px;
+}
+
+/* Índice */
+.toc-side ol,
+.toc-mobile ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: sec;
+}
+.toc-side li,
+.toc-mobile li {
+  counter-increment: sec;
+}
+.toc-side a,
+.toc-mobile a {
+  display: flex;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-weight: 500;
+  text-decoration: none;
+  line-height: 1.35;
+  transition:
+    background var(--t-fast) ease,
+    color var(--t-fast) ease;
+}
+.toc-side a::before,
+.toc-mobile a::before {
+  content: counter(sec);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.2em;
+  color: var(--muted);
+}
+.toc-side a:hover,
+.toc-mobile a:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.toc-side a[aria-current='true'],
+.toc-mobile a[aria-current='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.toc-side a[aria-current='true']::before,
+.toc-mobile a[aria-current='true']::before {
+  color: var(--accent);
+}
+.toc-title {
+  margin: 0 0 8px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Móvil: índice plegable fijo arriba que dice en qué sección vas. */
+.toc-side {
+  display: none;
+}
+.toc-mobile {
+  position: sticky;
+  top: 8px;
+  z-index: 2;
+  margin-bottom: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-float);
+}
+.toc-mobile summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+}
+.toc-mobile summary::-webkit-details-marker {
+  display: none;
+}
+.toc-mobile summary::after {
+  content: '';
+  margin-left: auto;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  transition: transform var(--t-fast) ease;
+}
+.toc-mobile[open] summary::after {
+  transform: rotate(-135deg);
+}
+.toc-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex: none;
+}
+.toc-current {
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toc-mobile nav {
+  /* Se despliega encima del texto: abrir el índice no mueve la página
+     ni cambia la sección marcada. */
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: calc(100% - 6px);
+  padding: 4px 6px 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  box-shadow: var(--shadow-float);
+}
+
+/* Escritorio: índice al lado, siempre visible. */
+@media (min-width: 960px) {
+  .pv {
+    padding-top: 24px;
+  }
+  .pv-grid {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+  }
+  .toc-side {
+    display: block;
+    position: sticky;
+    top: 24px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+  .toc-mobile {
+    display: none;
+  }
+  .pv-card {
+    padding: 36px 40px;
+  }
+  .pv-card h2 {
+    scroll-margin-top: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

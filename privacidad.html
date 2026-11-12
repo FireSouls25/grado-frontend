@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-theme="auto">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,151 +7,59 @@
     <title>Política de privacidad · Observador Estudiantil</title>
     <meta
       name="description"
-      content="Política de tratamiento de datos personales del Observador Estudiantil, sistema institucional de seguimiento estudiantil del Colegio Nuestra Señora de Guadalupe (Colombia)."
+      content="Política de tratamiento de datos personales del Observador Estudiantil, sistema institucional de seguimiento estudiantil del Colegio Nuestra Señora de Guadalupe en Pasto, Colombia."
     />
     <link rel="canonical" href="https://fractalschool.app/privacidad" />
-    <style>
-      :root {
-        --bg: #f4f6f8;
-        --surface: #ffffff;
-        --ink: #17202a;
-        --muted: #5a6672;
-        --line: #dde3e8;
-        --accent: #1b6c80;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #11171c;
-          --surface: #182027;
-          --ink: #e6ecf0;
-          --muted: #9aa7b2;
-          --line: #2a343d;
-          --accent: #5fb4c8;
-        }
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--ink);
-        font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-      }
-      main {
-        max-width: 760px;
-        margin: 0 auto;
-        padding: 32px 16px 48px;
-      }
-      article {
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        padding: 28px 24px;
-      }
-      h1 {
-        font-size: 1.7rem;
-        line-height: 1.25;
-        margin: 0 0 4px;
-      }
-      h2 {
-        font-size: 1.15rem;
-        margin: 28px 0 8px;
-      }
-      p,
-      li {
-        overflow-wrap: anywhere;
-      }
-      ul {
-        padding-left: 1.2em;
-      }
-      li + li {
-        margin-top: 4px;
-      }
-      .meta {
-        color: var(--muted);
-        font-size: 0.9rem;
-        margin: 0 0 20px;
-      }
-      .back {
-        display: inline-block;
-        margin-bottom: 16px;
-        font-weight: 600;
-      }
-      a {
-        color: var(--accent);
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.93rem;
-      }
-      th,
-      td {
-        text-align: left;
-        vertical-align: top;
-        padding: 8px 6px;
-        border-bottom: 1px solid var(--line);
-      }
-      html {
-        scroll-behavior: smooth;
-      }
-      h2 {
-        scroll-margin-top: 16px;
-      }
-      .toc {
-        background: var(--bg);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 14px 18px;
-        margin: 20px 0 8px;
-      }
-      .toc-title {
-        margin: 0 0 6px;
-        font-weight: 700;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--muted);
-      }
-      .toc ol {
-        margin: 0;
-        padding-left: 1.4em;
-        columns: 2 220px;
-        column-gap: 24px;
-      }
-      .toc li {
-        break-inside: avoid;
-        margin: 0 0 4px;
-      }
-      .toc a {
-        text-decoration: none;
-        font-weight: 600;
-      }
-      .toc a:hover {
-        text-decoration: underline;
-      }
-      .top {
-        margin: 24px 0 0;
-        font-size: 0.9rem;
-      }
-      @media (prefers-reduced-motion: reduce) {
-        html {
-          scroll-behavior: auto;
-        }
-      }
-      footer {
-        color: var(--muted);
-        font-size: 0.82rem;
-        text-align: center;
-        margin-top: 24px;
-      }
-    </style>
+    <meta name="theme-color" content="#f4f6f8" />
+    <link rel="stylesheet" href="/src/privacy/privacy.css" />
+    <script type="module" src="/src/privacy/main.ts"></script>
   </head>
   <body>
-    <main>
-      <a class="back" href="/">← Volver al Observador Estudiantil</a>
-      <article>
+    <div class="pv">
+      <header class="pv-top">
+        <a class="back" href="/"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>Volver al Observador Estudiantil</span></a>
+      </header>
+
+      <details class="toc-mobile">
+        <summary>
+          <span class="toc-label">Contenido</span>
+          <span class="toc-current" data-current>Responsable y encargados</span>
+        </summary>
+        <nav aria-label="Contenido de la política">
+          <ol>
+            <li><a href="#responsable">Responsable y encargados</a></li>
+            <li><a href="#datos">Qué datos se tratan</a></li>
+            <li><a href="#finalidades">Finalidades</a></li>
+            <li><a href="#menores">Niños, niñas y adolescentes</a></li>
+            <li><a href="#acceso">Quién puede ver los datos</a></li>
+            <li><a href="#seguridad">Seguridad</a></li>
+            <li><a href="#derechos">Derechos de los titulares</a></li>
+            <li><a href="#conservacion">Conservación</a></li>
+            <li><a href="#cambios">Cambios a esta política</a></li>
+          </ol>
+        </nav>
+      </details>
+
+      <div class="pv-grid">
+        <aside class="toc-side">
+          <nav aria-label="Contenido">
+            <p class="toc-title">Contenido</p>
+            <ol>
+            <li><a href="#responsable">Responsable y encargados</a></li>
+            <li><a href="#datos">Qué datos se tratan</a></li>
+            <li><a href="#finalidades">Finalidades</a></li>
+            <li><a href="#menores">Niños, niñas y adolescentes</a></li>
+            <li><a href="#acceso">Quién puede ver los datos</a></li>
+            <li><a href="#seguridad">Seguridad</a></li>
+            <li><a href="#derechos">Derechos de los titulares</a></li>
+            <li><a href="#conservacion">Conservación</a></li>
+            <li><a href="#cambios">Cambios a esta política</a></li>
+            </ol>
+          </nav>
+        </aside>
+
+        <main>
+          <article class="pv-card">
         <h1>Política de tratamiento de datos personales</h1>
         <p class="meta">Observador Estudiantil · Colegio Nuestra Señora de Guadalupe · Vigente desde el 12 de noviembre de 2026</p>
 
@@ -165,21 +73,6 @@
           No es un servicio abierto al público: no existe registro libre. Las cuentas las crea el colegio únicamente para
           su personal y, cuando corresponde, para sus estudiantes.
         </p>
-
-        <nav class="toc" id="contenido" aria-label="Contenido">
-          <p class="toc-title">Contenido</p>
-          <ol>
-            <li><a href="#responsable">Responsable y encargados</a></li>
-            <li><a href="#datos">Qué datos se tratan</a></li>
-            <li><a href="#finalidades">Finalidades</a></li>
-            <li><a href="#menores">Niños, niñas y adolescentes</a></li>
-            <li><a href="#acceso">Quién puede ver los datos</a></li>
-            <li><a href="#seguridad">Seguridad</a></li>
-            <li><a href="#derechos">Derechos de los titulares</a></li>
-            <li><a href="#conservacion">Conservación</a></li>
-            <li><a href="#cambios">Cambios a esta política</a></li>
-          </ol>
-        </nav>
 
         <h2 id="responsable">1. Responsable y encargados</h2>
         <ul>
@@ -308,9 +201,10 @@
           Cualquier cambio sustancial se publicará en esta página con su nueva fecha de vigencia y se informará al
           colegio.
         </p>
-        <p class="top"><a href="#contenido">↑ Volver al índice</a></p>
-      </article>
-      <footer>© 2026 David Castillo y Luna Mideros · Fractal School · <a href="mailto:contacto@fractalschool.app">contacto@fractalschool.app</a></footer>
-    </main>
+          </article>
+          <footer>© 2026 David Castillo y Luna Mideros · Fractal School · <a href="mailto:contacto@fractalschool.app">contacto@fractalschool.app</a></footer>
+        </main>
+      </div>
+    </div>
   </body>
 </html>

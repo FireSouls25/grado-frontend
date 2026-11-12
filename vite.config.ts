@@ -17,6 +17,14 @@ export default defineConfig({
   },
   envPrefix: ['VITE_'],
   build: {
-    target: process.env.TAURI_PLATFORM ? 'chrome105' : 'esnext'
+    target: process.env.TAURI_PLATFORM ? 'chrome105' : 'esnext',
+    // Dos páginas: la app y la política de privacidad, que es estática
+    // (se lee sin JavaScript) pero comparte tokens, fuentes y temas.
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        privacidad: fileURLToPath(new URL('./privacidad.html', import.meta.url))
+      }
+    }
   }
 });
