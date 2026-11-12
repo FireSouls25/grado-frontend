@@ -198,7 +198,10 @@
   }
 
   function statusOf(item: AgendaItem): 'done' | 'now' | 'next' {
-    if (selectedDay !== todayIdx || todayIdx === -1) return 'next';
+    const key = selectedDateKey;
+    if (!key || !todayKey) return 'next';
+    if (key < todayKey) return 'done';
+    if (key > todayKey) return 'next';
     const now = new Date().getHours() * 60 + new Date().getMinutes();
     if (now > minutesOf(item.End)) return 'done';
     if (now >= minutesOf(item.Start)) return 'now';
