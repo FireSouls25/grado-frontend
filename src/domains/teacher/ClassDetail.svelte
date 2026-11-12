@@ -337,21 +337,21 @@
   // a quien falta; el guardado sigue siendo el de siempre.
   function markAllPresent() {
     const next = new Set<string>();
-    for (const r of roster) next.add(r.StudentID);
+    for (const r of roster) if (!locked.has(r.StudentID)) next.add(r.StudentID);
     present = next;
     late = new Set();
     evasion = new Set();
-    perm = new Set();
-    permNotes = {};
+    perm = new Set(locked);
+    permNotes = Object.fromEntries([...locked].map((id) => [id, lockReasons[id] ?? '']));
     feedback = '';
   }
 
   function markAllAbsent() {
     present = new Set<string>();
-    late = new Set<string>();
-    evasion = new Set<string>();
-    perm = new Set();
-    permNotes = {};
+    late = new Set();
+    evasion = new Set();
+    perm = new Set(locked);
+    permNotes = Object.fromEntries([...locked].map((id) => [id, lockReasons[id] ?? '']));
     feedback = '';
   }
 
