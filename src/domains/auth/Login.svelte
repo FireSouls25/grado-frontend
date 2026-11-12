@@ -9,6 +9,8 @@
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
   import { createCooldown } from './cooldown';
+  import { areaOf, canEnter, safeNext } from '$lib/routeGuard';
+  import { queryParam } from '$lib/nav';
 
   // Draft identifier only (never the password): survives any remount so
   // typed text is never lost. Cleared on successful login.
@@ -70,7 +72,11 @@
         /* ignore */
       }
       const profile = await me();
-      push(result.home || profile.home || '/hoy');
+      const home = result.home || profile.home || '/hoy';
+      // Enlace compartido: si venía de una ruta y le corresponde, vuelve
+      // ahí; si no (p. ej. un docente con un enlace de admin), a su inicio.
+      const next = safeNext(queryParam('', 'next'));
+      push(next && canEnter(areaOf(next), profile) ? next : home);
     } catch (err) {
       // Wrong credentials and unknown accounts share one message: the
       // backend refuses to say which half failed.

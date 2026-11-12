@@ -380,6 +380,7 @@ export const es = {
       'El backend aún no expone la nómina de este salón. Vuelve a intentarlo más tarde.',
     saveHint: 'Marca con el check a quienes asistieron y usa las etiquetas para falta sin justificar, evasión o atraso. Sin marca cuenta como ausente.',
     deniedRedirect: 'Esa lista no es de tus salones; te llevamos a tu agenda.',
+    missingRedirect: 'Ese salón no existe o el enlace está incompleto; te llevamos a tu agenda.',
     markAllPresent: 'Marcar todos presentes',
     markAllAbsent: 'Marcar todos ausentes',
     classDesc:

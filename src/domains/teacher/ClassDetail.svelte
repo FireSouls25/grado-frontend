@@ -138,8 +138,15 @@
       evasion = new Set();
       evasionInit = new Set();
       await resumeToday();
-    } catch {
-      // Backend sin nómina todavía (404 o error): vacío honesto, no lista falsa.
+    } catch (err) {
+      // Enlace a un salón que no existe (o un id/slug mal copiado): no se
+      // deja una pantalla vacía, se vuelve a la agenda con un aviso.
+      if (err instanceof ApiError && (err.status === 404 || err.status === 400)) {
+        notify($t.attendance.missingRedirect);
+        push('/agenda');
+        return;
+      }
+      // Otro error: vacío honesto, no lista falsa.
       roster = [];
       present = new Set();
       presentInit = new Set();

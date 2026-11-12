@@ -12,32 +12,37 @@ import ScheduleTab from './domains/teacher/ScheduleTab.svelte';
 import StudentHome from './domains/student/Home.svelte';
 import wrap from 'svelte-spa-router/wrap';
 import type { Component } from 'svelte';
+import { guard, type Area } from '$lib/routeGuard';
 
 // Hash routing: works from file://, dev server and Tauri webviews alike,
 // with no server fallback needed.
 //
 // Admin routes lazy-load (echarts travels only in the admin chunk, keeping
 // the teacher bundle light for the APK).
+//
+// Cada ruta privada lleva su condición de área: si falla, el componente
+// nunca se crea y App decide (login o inicio propio con aviso).
 const admin = (loader: () => Promise<{ default: Component }>) =>
-  wrap({ asyncComponent: loader });
+  wrap({ asyncComponent: loader, conditions: [guard('admin')] });
+const only = (area: Area, component: Component) => wrap({ component, conditions: [guard(area)] });
 
 export const routes = {
   '/': Login,
   '/login': Login,
   '/recuperar': Recover,
   '/recuperar/:token': ResetPassword,
-  '/ajustes': SettingsPage,
-  '/ayuda': HelpPage,
-  '/perfil': ProfilePage,
-  '/hoy': Agenda,
-  '/docente': Agenda,
-  '/agenda': Agenda,
-  '/mi-agenda': Agenda,
-  '/horario': ScheduleTab,
-  '/observaciones': Observations,
-  '/estudiante': StudentHome,
-  '/clase/:groupID': ClassDetail,
-  '/llamado/:groupID': WarningNew,
+  '/ajustes': only('any', SettingsPage),
+  '/ayuda': only('any', HelpPage),
+  '/perfil': only('any', ProfilePage),
+  '/hoy': only('teacher', Agenda),
+  '/docente': only('teacher', Agenda),
+  '/agenda': only('teacher', Agenda),
+  '/mi-agenda': only('teacher', Agenda),
+  '/horario': only('teacher', ScheduleTab),
+  '/observaciones': only('teacher', Observations),
+  '/estudiante': only('student', StudentHome),
+  '/clase/:groupID': only('teacher', ClassDetail),
+  '/llamado/:groupID': only('teacher', WarningNew),
   '/admin': admin(() => import('./domains/admin/Overview.svelte')),
   '/admin/docentes': admin(() => import('./domains/admin/Teachers.svelte')),
   '/admin/docentes/lista': admin(() => import('./domains/admin/TeacherRoll.svelte')),
