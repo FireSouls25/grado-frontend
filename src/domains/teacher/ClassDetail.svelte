@@ -948,6 +948,10 @@
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
   }
+  .seg button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
   .dot.late {
     background: var(--chip-yellow-ink);
   }
