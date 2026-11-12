@@ -73,6 +73,15 @@
   let loadError: unknown = null;
   let baseList: AgendaItem[] = [];
   let backendMissing = false;
+  // Día del servidor y bloques que ya terminaron sin llamado a lista.
+  let todayKey = '';
+  let omittedKeys = new Set<string>();
+
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  function keyOf(d: Date): string {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+  $: selectedDateKey = weekDays[selectedDay] ? keyOf(weekDays[selectedDay]) : '';
 
   $: weekdayLabel = (d: Date) =>
     d.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', '');
