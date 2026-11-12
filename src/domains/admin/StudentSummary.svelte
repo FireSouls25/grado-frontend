@@ -26,10 +26,16 @@
     sessionDetail,
     mergeTrail,
     warningRevisions,
+    groupsByYear,
+    studentPermits,
+    grantPermit,
+    revokePermit,
     type StudentReport,
     type SessionRevisionRow,
     type WarningRevision,
-    type AcademicAlert
+    type AcademicAlert,
+    type PriorPermit,
+    type YearGroup
   } from './api';
   import WarningCorrectForm from './WarningCorrectForm.svelte';
   import WarningRevisionTrail from './WarningRevisionTrail.svelte';
