@@ -497,6 +497,53 @@
         {/if}
       </section>
 
+      <section class="card" aria-label={$t.studentSummary.priorPermitSection}>
+        <div class="row-head">
+          <h2>{$t.studentSummary.priorPermitSection} ({permits.length})</h2>
+          {#if staffDefense}
+            <button type="button" class="btn btn-sm" on:click={openPermit}>
+              {$t.studentSummary.priorPermitAction}
+            </button>
+          {/if}
+        </div>
+        {#if permits.length === 0}
+          <p class="muted">{$t.studentSummary.priorPermitEmpty}</p>
+        {:else}
+          <ul class="rows">
+            {#each permits as p (p.ID)}
+              <li>
+                <div class="row-top">
+                  <span class="mk absence-permission">{$t.attendance.priorPermitTag}</span>
+                  <div class="meta">
+                    <strong>{momentDay(p.Date)} · {p.ClassLabel}</strong>
+                    <span>{p.SubjectName || $t.studentSummary.priorPermitAllDay}</span>
+                    <small>{p.Reason}</small>
+                    {#if p.CreatedByName}
+                      <small class="priorby">{$t.studentSummary.priorPermitBy(p.CreatedByName)}</small>
+                    {/if}
+                  </div>
+                  {#if staffDefense}
+                    <div class="rowbtns">
+                      <button
+                        type="button"
+                        class="btn btn-sm"
+                        disabled={acting === p.ID}
+                        on:click={() => revokePrior(p)}
+                      >
+                        {$t.studentSummary.priorPermitRevoke}
+                      </button>
+                    </div>
+                  {/if}
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+        {#if staffDefense}
+          <p class="lockhint">{$t.studentSummary.priorPermitLockNote}</p>
+        {/if}
+      </section>
+
       <section class="card" aria-label={$t.academicAlert.title}>
         <div class="row-head">
           <h2>{$t.academicAlert.title} ({openAlerts.length} {$t.academicAlert.openLabel})</h2>
