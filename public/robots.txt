@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# Sistema institucional de acceso restringido: solo la portada y la
+# política de privacidad son públicas.
+Sitemap: https://fractalschool.app/sitemap.xml

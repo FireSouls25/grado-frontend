@@ -1,8 +1,21 @@
 # Cloudflare Pages headers for the Observador Estudiantil web build.
 # Hash routing (#/...) needs no redirects: every route serves /.
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
-/
+# The CSP mirrors the <meta> in index.html plus what only works as a
+# header (frame-ancestors). Keep both in sync with VITE_API_URL.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), serial=(), browsing-topics=()
+  Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.fractalschool.app https://static.cloudflareinsights.com https://cloudflareinsights.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/.well-known/security.txt
+  Content-Type: text/plain; charset=utf-8

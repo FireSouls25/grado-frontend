@@ -1,0 +1,7 @@
+# Reporte de vulnerabilidades del Observador Estudiantil (fractalschool.app).
+# Escríbanos antes de publicar; respondemos en máximo 5 días hábiles.
+Contact: mailto:contacto@fractalschool.app
+Expires: 2027-11-12T00:00:00.000Z
+Preferred-Languages: es, en
+Canonical: https://fractalschool.app/.well-known/security.txt
+Policy: https://fractalschool.app/privacidad
