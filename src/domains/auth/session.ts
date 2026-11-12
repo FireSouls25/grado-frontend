@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import { api } from '$lib/api/client';
-import { clearRefresh, clearToken, getRefresh, getToken, setRefresh, setToken } from '$lib/api/client';
+import { clearRefresh, clearToken, cookieRefresh, getRefresh, getToken, setRefresh, setToken } from '$lib/api/client';
 import { ApiError } from '$lib/api/types';
 import { profile } from '$lib/shell/profile';
 
@@ -90,18 +90,20 @@ export async function refreshNow(): Promise<boolean> {
   if (inflight) return inflight;
   inflight = (async () => {
     const rt = getRefresh();
-    if (!rt) return false;
+    // En la web la cookie HttpOnly lleva el token: se rota sin copia local.
+    if (!rt && !cookieRefresh) return false;
     try {
       const res = await api.post<{
         token: string;
         expiresAt: string;
-        refreshToken: string;
+        refreshToken?: string;
         refreshExpiresAt: string;
-      }>('/v1/refresh', { refreshToken: rt });
+      }>('/v1/refresh', rt ? { refreshToken: rt } : {});
       if (!res.token) return false;
       setToken(res.token);
       setSession(res.token);
       if (res.refreshToken) setRefresh(res.refreshToken);
+      else clearRefresh();
       scheduleProactive(res.expiresAt);
       return true;
     } catch (err) {

@@ -32,8 +32,23 @@ export function clearToken(): void {
   setToken('');
 }
 
-/** Rotating refresh token (transitional JSON copy; the HttpOnly cookie is
- *  authoritative when present). Empty means no session to rotate. */
+/** Web vs app nativa. En la web el refresh token vive solo en la cookie
+ *  HttpOnly (el backend ni lo devuelve en JSON), así que ningún script de
+ *  la página puede leerlo. Tauri corre en otro sitio (tauri.localhost),
+ *  donde esa cookie SameSite no viaja: ahí se guarda la copia local. */
+export const cookieRefresh: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  const { protocol, hostname } = window.location;
+  const tauri = '__TAURI_INTERNALS__' in window || protocol === 'tauri:' || hostname.endsWith('tauri.localhost');
+  return !tauri;
+})();
+
+/** Rutas que leen o escriben la cookie de sesión. */
+const COOKIE_PATHS = ['/v1/login', '/v1/refresh', '/v1/logout'];
+
+/** Rotating refresh token for native clients. In the web it is empty:
+ *  the HttpOnly cookie carries it. A copy left by an older web build is
+ *  returned once so the first rotation migrates it to the cookie. */
 export function getRefresh(): string {
   try {
     return localStorage.getItem(REFRESH_KEY) ?? '';
@@ -44,7 +59,7 @@ export function getRefresh(): string {
 
 export function setRefresh(token: string): void {
   try {
-    if (token) localStorage.setItem(REFRESH_KEY, token);
+    if (token && !cookieRefresh) localStorage.setItem(REFRESH_KEY, token);
     else localStorage.removeItem(REFRESH_KEY);
   } catch {
     /* ignore */
@@ -71,6 +86,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     res = await fetch(`${BASE_URL}${path}`, {
       ...init,
       headers,
+      // La cookie de sesión solo viaja (y solo se acepta) en las rutas
+      // de autenticación; el resto del API va con el bearer.
+      credentials: cookieRefresh && COOKIE_PATHS.includes(path) ? 'include' : 'same-origin',
       signal: init.signal ?? controller.signal
     });
   } catch {

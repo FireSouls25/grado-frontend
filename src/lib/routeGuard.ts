@@ -10,8 +10,8 @@
 //     vuelve a su agenda), porque solo el backend sabe qué salones dicta.
 import { get } from 'svelte/store';
 import { profile } from '$lib/shell/profile';
-import { session } from '../domains/auth/session';
-import type { Me } from '$lib/api/types';
+import { refreshNow, session } from '../domains/auth/session';
+import { ApiError, type Me } from '$lib/api/types';
 
 export type Area = 'public' | 'any' | 'admin' | 'teacher' | 'student';
 
@@ -46,22 +46,34 @@ export function canEnter(area: Area, me: Me | null): boolean {
   }
 }
 
-/** Perfil actual, esperando la carga en curso si la hay. */
+/** Espera a que termine una carga de perfil en curso. */
+function settled(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const stop = profile.subscribe((s) => {
+      if (s.state !== 'loading') {
+        queueMicrotask(() => stop());
+        resolve();
+      }
+    });
+  });
+}
+
+/** Perfil actual, esperando la carga en curso si la hay. Un token de
+ *  acceso vencido (dura 15 min) no es una sesión muerta: se renueva una
+ *  vez con el refresh antes de mandar a nadie al login. */
 export async function currentMe(): Promise<Me | null> {
   if (!get(session)) return null;
   const p = get(profile);
   if (p.state === 'ready' && p.me) return p.me;
-  if (p.state !== 'loading') await profile.refresh();
-  else
-    await new Promise<void>((resolve) => {
-      const stop = profile.subscribe((s) => {
-        if (s.state !== 'loading') {
-          queueMicrotask(() => stop());
-          resolve();
-        }
-      });
-    });
-  return get(profile).me;
+  if (p.state === 'loading') await settled();
+  else await profile.refresh();
+  const after = get(profile);
+  if (after.me) return after.me;
+  if (after.error instanceof ApiError && after.error.status === 401 && (await refreshNow())) {
+    await profile.refresh();
+    return get(profile).me;
+  }
+  return null;
 }
 
 /** Condición para `wrap({ conditions })` del router. */
