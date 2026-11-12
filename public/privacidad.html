@@ -133,10 +133,16 @@
             relación.
           </li>
           <li>
-            <strong>Proveedores de infraestructura:</strong> Amazon Web Services (servidores y base de datos, región
-            us-east-1, Estados Unidos), Cloudflare (red, cifrado TLS y protección del sitio) y Resend (envío de correos
-            de recuperación de contraseña). Cuando el colegio lo active, los avisos a acudientes se enviarán por
-            WhatsApp mediante Meta. Estos proveedores actúan como encargados y no usan los datos para fines propios.
+            <strong>Proveedores de infraestructura</strong>, que actúan como encargados y no usan los datos para fines
+            propios:
+            <ul>
+              <li><strong>Amazon Web Services</strong>: servidor de la aplicación (región us-east-1, Estados Unidos).</li>
+              <li><strong>Neon</strong>: base de datos PostgreSQL, cifrada en reposo.</li>
+              <li><strong>Cloudflare</strong>: red, cifrado TLS y protección del sitio.</li>
+              <li><strong>Resend</strong>: envío de correos de recuperación de contraseña.</li>
+            </ul>
+            Si se incorpora un proveedor nuevo (por ejemplo, avisos a acudientes por WhatsApp), se agregará a esta
+            lista antes de activarlo.
           </li>
         </ul>
 
@@ -212,6 +218,7 @@
           <li>Todo el tráfico va cifrado (HTTPS con TLS 1.3 y HSTS).</li>
           <li>Contraseñas guardadas como hash bcrypt; sesiones con tokens de corta duración y renovación segura.</li>
           <li>Límites de intentos de inicio de sesión y respuestas que no revelan si una cuenta existe.</li>
+          <li>Copia de seguridad semanal de la base de datos.</li>
           <li>Secretos fuera del código, servidor sin puertos abiertos a internet y registros técnicos que no guardan el contenido de las fichas.</li>
           <li>Los incidentes se informan al colegio en menos de 24 horas para que avise a la Superintendencia de Industria y Comercio y a los titulares cuando corresponda.</li>
         </ul>
