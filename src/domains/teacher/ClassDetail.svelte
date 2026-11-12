@@ -552,11 +552,22 @@
               {@const isLate = late.has(r.StudentID)}
               {@const isEvasion = evasion.has(r.StudentID)}
               {@const isPerm = perm.has(r.StudentID)}
+              {@const isLocked = locked.has(r.StudentID)}
               {@const cur = inPresent ? '' : isLate ? 'late' : isEvasion ? 'evasion' : isPerm ? 'absence-permission' : 'absence'}
-              <li>
+              <li class:locked={isLocked}>
                 <span class="who">
                   <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
                   <span class="name"><strong>{r.Surnames}, {r.Names}</strong><small>{r.DocumentID}</small></span>
+                  {#if isLocked}
+                    <span
+                      class="lockchip"
+                      title={lockReasons[r.StudentID]
+                        ? $t.attendance.priorPermitWithReason(lockReasons[r.StudentID])
+                        : $t.attendance.priorPermitTag}
+                    >
+                      <Icon name="shield" /> {$t.attendance.priorPermitTag}
+                    </span>
+                  {/if}
                 </span>
                 <label class="uniform-check" title={$t.attendance.uniformLabel}>
                   <input
