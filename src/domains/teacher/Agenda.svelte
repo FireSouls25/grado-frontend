@@ -93,6 +93,7 @@
     try {
       try {
         const key = await schoolDay();
+        todayKey = key;
         const parsed = calendarDate(key);
         weekBase = parsed ? new Date(parsed) : null;
         const js = parsed?.getDay() ?? -1;
