@@ -244,7 +244,7 @@
   // Resumen local del llamado de hoy por tarjeta (solo si el docente
   // guardó el llamado de ese bloque en este dispositivo hoy).
   $: rollsOfToday =
-    selectedDay === todayIdx && todayIdx !== -1
+    selectedDateKey === todayKey
       ? new Map(visible.map((c) => [`${c.GroupID}|${c.Start}`, loadRollcall(c.GroupID, periodOf(c))]))
       : new Map<string, null>();
 </script>
