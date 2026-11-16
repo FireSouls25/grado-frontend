@@ -30,7 +30,7 @@ globalThis.localStorage = {
 };
 
 const entry = `
-import { openSession, recordMark, recordUniform, issueWarnings, todaySessions, sessionMarks, updateMyTeacher, raiseAcademicAlerts, recordObservation } from '${ROOT}/src/domains/teacher/api.ts';
+import { openSession, recordMark, recordUniform, issueWarnings, todaySessions, sessionMarks, updateMyTeacher, raiseAcademicAlerts, issueSituationWarnings } from '${ROOT}/src/domains/teacher/api.ts';
 import { areaOf, canEnter, safeNext } from '${ROOT}/src/lib/routeGuard.ts';
 import { hasPermission, canManageUsers, canBlockAccess, canWriteDefenses } from '${ROOT}/src/lib/access.ts';
 import { schoolDay } from '${ROOT}/src/lib/schoolDay.ts';
@@ -151,13 +151,16 @@ await raiseAcademicAlerts({ studentIDs: ['a', 'b'], reason: 'Bajo rendimiento' }
   if (!c.url.endsWith('/v1/academic-alerts') || c.method !== 'POST') fail('raiseAcademicAlerts ' + c.method + ' ' + c.url);
   if (JSON.stringify(Object.keys(c.body).sort()) !== '["reason","studentIDs"]') fail('raiseAcademicAlerts body: ' + JSON.stringify(c.body));
 }
-// Observación de convivencia (espejo: observationRequest).
-await recordObservation({ studentID: 'stu-1', situationID: 's1-01', note: 'Nota', classGroupID: 'g' });
+// Llamado con situación del manual (espejo: warningBatchRequest). Un día
+// pasado viaja como happenedAt RFC 3339; el tipo lo decide el servidor.
+await issueSituationWarnings({ classID: 'g', situationID: 's2-15', title: 'Evadirse', note: 'Nota', date: '2026-01-05', studentIDs: ['stu-1'] });
 {
   const c = last();
-  if (!c.url.endsWith('/v1/observations') || c.method !== 'POST') fail('recordObservation ' + c.method + ' ' + c.url);
-  const allowed = ['classGroupID', 'date', 'note', 'situationID', 'studentID'];
-  if (Object.keys(c.body).some((k) => !allowed.includes(k))) fail('recordObservation body: ' + JSON.stringify(c.body));
+  if (!c.url.endsWith('/v1/warnings/batch') || c.method !== 'POST') fail('issueSituationWarnings ' + c.method + ' ' + c.url);
+  const allowed = ['classID', 'description', 'gravity', 'happenedAt', 'situationID', 'studentIDs', 'title'];
+  if (Object.keys(c.body).some((k) => !allowed.includes(k))) fail('issueSituationWarnings body: ' + JSON.stringify(c.body));
+  if (c.body.situationID !== 's2-15' || c.body.description !== 'Nota') fail('issueSituationWarnings campos: ' + JSON.stringify(c.body));
+  if (c.body.happenedAt !== '2026-01-05T12:00:00-05:00') fail('issueSituationWarnings happenedAt: ' + c.body.happenedAt);
 }
 // Perfil del docente: la fecha del input (AAAA-MM-DD) sale en RFC 3339
 // (espejo: http/frontendbodies_test.go).

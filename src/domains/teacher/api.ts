@@ -249,6 +249,50 @@ export async function issueWarnings(draft: WarningDraft): Promise<Warning[]> {
   return (await api.post<Warning[]>('/v1/warnings/batch', draft)) ?? [];
 }
 
+// --- Llamados de atención con el catálogo del manual ---------------------
+// Un llamado es una situación del manual contra uno o varios estudiantes
+// de un salón. El servidor decide el tipo (1, 2 o 3) desde la situación;
+// el título guarda el texto de la situación y la descripción la nota.
+
+export interface SituationWarningDraft {
+  classID: string;
+  situationID: string;
+  /** Texto de la situación del manual, tal como lo verá el resto. */
+  title: string;
+  note?: string;
+  /** yyyy-mm-dd; hoy u omitido usa la hora actual del servidor. */
+  date?: string;
+  studentIDs: string[];
+}
+
+function localToday(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+export async function issueSituationWarnings(draft: SituationWarningDraft): Promise<Warning[]> {
+  const body: Record<string, unknown> = {
+    classID: draft.classID,
+    situationID: draft.situationID,
+    title: draft.title,
+    description: (draft.note ?? '').trim(),
+    studentIDs: draft.studentIDs
+  };
+  // Un día pasado se fija al mediodía de Colombia; hoy usa la hora real.
+  if (draft.date && draft.date !== localToday()) body.happenedAt = `${draft.date}T12:00:00-05:00`;
+  return (await api.post<Warning[]>('/v1/warnings/batch', body)) ?? [];
+}
+
+/** Llamados registrados por quien consulta, del más reciente al más antiguo. */
+export interface MyWarning extends Warning {
+  StudentSlug?: string;
+}
+
+export async function myWarnings(): Promise<MyWarning[]> {
+  return (await api.get<MyWarning[]>('/v1/warnings/mine')) ?? [];
+}
+
 // --- Observaciones de convivencia -----------------------------------------
 // El catálogo es fijo del backend (ids estables s1-01..s3-08); el tipo de
 // cada situación lo decide siempre el servidor y el texto vive en el i18n.
@@ -258,39 +302,7 @@ export interface Situation {
   Kind: 1 | 2 | 3;
 }
 
-export interface ObservationRow {
-  ID: string;
-  StudentID: string;
-  StudentName: string;
-  TeacherID: string;
-  ClassGroupID: string;
-  ClassLabel: string;
-  /** Fecha del hecho, tal como la devuelve el backend (ISO). */
-  Date: string;
-  SituationID: string;
-  Kind: 1 | 2 | 3;
-  Note: string;
-}
-
-export interface ObservationDraft {
-  studentID: string;
-  /** Clase donde ocurrió; opcional en el backend. */
-  classGroupID?: string;
-  situationID: string;
-  note?: string;
-  /** "2006-01-02"-style ISO date (yyyy-mm-dd). Omitted = today. */
-  date?: string;
-}
-
 export async function getObservationCatalog(): Promise<Situation[]> {
   return (await api.get<Situation[]>('/v1/observations/catalog')) ?? [];
 }
 
-/** The caller's own observations, newest day first. */
-export async function myObservations(): Promise<ObservationRow[]> {
-  return (await api.get<ObservationRow[]>('/v1/observations')) ?? [];
-}
-
-export async function recordObservation(draft: ObservationDraft): Promise<ObservationRow> {
-  return api.post<ObservationRow>('/v1/observations', draft);
-}

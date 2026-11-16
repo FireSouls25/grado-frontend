@@ -1077,20 +1077,6 @@ export async function getObservationCatalog(): Promise<Situation[]> {
   return (await api.get<Situation[]>('/v1/observations/catalog')) ?? [];
 }
 
-export interface ObservationDraft {
-  studentID: string;
-  classGroupID?: string;
-  situationID: string;
-  note?: string;
-  date?: string;
-}
-
-/** Una observación por estudiante: el tipo lo decide el servidor desde
- *  la situación. Mismo guardado que el flujo docente. */
-export async function recordObservation(draft: ObservationDraft): Promise<unknown> {
-  return api.post('/v1/observations', draft);
-}
-
 export interface RecentIncident {
   ID: string;
   Title: string;

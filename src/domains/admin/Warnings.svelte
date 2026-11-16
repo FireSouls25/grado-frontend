@@ -23,7 +23,6 @@
     groupsByYear,
     classRoster,
     getObservationCatalog,
-    recordObservation,
     studentWarnings,
     warningRevisions,
     type RecentWarning,
@@ -33,6 +32,7 @@
   } from './api';
   import type { RosterEntry, Warning } from '$lib/api/types';
   import { situationText, kindChip, todayISO } from '../teacher/situations';
+  import { issueSituationWarnings } from '../teacher/api';
   $: roles = $profile.me?.roles ?? [];
   $: staffWrite = canWriteWarnings($profile.me);
 
@@ -315,21 +315,16 @@
     }
     saving = true;
     try {
-      // Una observación por estudiante, igual que el docente: el tipo
-      // lo decide el servidor desde la situación.
-      const jobs: Promise<unknown>[] = [];
-      for (const id of picked) {
-        jobs.push(
-          recordObservation({
-            studentID: id,
-            classGroupID: fGroupID || undefined,
-            situationID,
-            note: note.trim() || undefined,
-            date: date || undefined
-          })
-        );
-      }
-      await Promise.all(jobs);
+      // Un llamado para todos los elegidos del salón, igual que el
+      // docente: el tipo lo decide el servidor desde la situación.
+      await issueSituationWarnings({
+        classID: fGroupID,
+        situationID,
+        title: textOf(situationID) || situationID,
+        note,
+        date,
+        studentIDs: picked
+      });
       creating = false;
       picked = [];
       notify($t.obs.saved);
@@ -506,6 +501,8 @@
           label={$t.obs.fSituation}
           value={situationID}
           options={situationOptions}
+          groupFilter
+          groupAllLabel={$t.obs.filterAll}
           placeholder={$t.obs.pickSituation}
           searchable
           searchPlaceholder={$t.obs.pickSituation}

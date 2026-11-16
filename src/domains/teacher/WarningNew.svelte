@@ -8,7 +8,7 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import TeacherShell from './TeacherShell.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import { classRoster, isMissing, getObservationCatalog, recordObservation } from './api';
+  import { classRoster, isMissing, getObservationCatalog, issueSituationWarnings } from './api';
   import type { Situation } from './api';
   import { resolveId } from '$lib/slug';
   import type { RosterEntry } from '$lib/api/types';
@@ -116,12 +116,13 @@
     if (!valid || saving) return;
     saving = true;
     try {
-      await recordObservation({
-        studentID,
-        classGroupID: groupID || undefined,
+      await issueSituationWarnings({
+        classID: groupID,
         situationID,
-        note: note.trim() || undefined,
-        date: date || undefined
+        title: textOf(situationID) || situationID,
+        note,
+        date,
+        studentIDs: [studentID]
       });
       saved = true;
       feedback = $t.obs.saved;
@@ -168,6 +169,8 @@
             label={$t.obs.fSituation}
             value={situationID}
             options={situationOptions}
+            groupFilter
+            groupAllLabel={$t.obs.filterAll}
             placeholder={$t.obs.pickSituation}
             searchable
             searchPlaceholder={$t.obs.pickSituation}

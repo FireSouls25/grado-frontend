@@ -8,252 +8,54 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import TeacherShell from './TeacherShell.svelte';
-  import {
-    dayScheduleOn,
-    listClasses,
-    listSubjects,
-    classRoster,
-    getObservationCatalog,
-    myObservations,
-    recordObservation,
-    isMissing,
-    type Situation,
-    type ObservationRow,
-    type ClassGroupRow,
-    type SubjectRow
-  } from './api';
+  import WarningNewSheet from './WarningNewSheet.svelte';
+  import { myWarnings, type MyWarning } from './api';
   import { guarded } from '$lib/nav';
-  import { situationText, kindChip, todayISO } from './situations';
-  import Dropdown from '$lib/ui/Dropdown.svelte';
-  import { ApiError } from '$lib/api/types';
-  import type { RosterEntry } from '$lib/api/types';
+  import { foldSearch } from '$lib/search';
+  import { kindChip } from './situations';
 
-  type KindFilter = 0 | 1 | 2 | 3; // 0 = Todas
-
-  // Textos del manual: el id s{tipo}-{n} se resuelve por posición.
-  const situations: string[] = $t.obs.situations;
-  const textOf = (id: string) => situationText(situations, id);
-  $: situationOptions = [1, 2, 3].flatMap((k) =>
-    catalog
-      .filter((s) => s.Kind === k)
-      .map((s) => ({
-        value: s.ID,
-        label: `${s.ID} · ${textOf(s.ID)}`,
-        group: k === 1 ? $t.obs.situationGroupOne : k === 2 ? $t.obs.situationGroupTwo : $t.obs.situationGroupThree
-      }))
-  );
+  // Los llamados de atención del docente: los mismos que ve la
+  // administración en Llamados y en la ficha del estudiante, con su tipo
+  // 1, 2 o 3 según la situación del manual de convivencia.
+  type KindFilter = 0 | 1 | 2 | 3; // 0 = Todos
 
   let loading = true;
   let loadError: unknown = null;
-  let rows: ObservationRow[] = [];
+  let rows: MyWarning[] = [];
   let filter: KindFilter = 0;
-
-  // Formulario de registro (paso el docente por clase del día).
+  let query = '';
   let creating = false;
-  let catalog: Situation[] = [];
-  let classID = '';
-  let studentID = '';
-  let situationID = '';
-  let note = '';
-  let date = todayISO();
-  let loadingRoster = false;
-  let roster: RosterEntry[] = [];
-  let saving = false;
-  let feedback = '';
-  let feedbackError = false;
 
-  interface AgendaClass {
-    GroupID: string;
-    ClassLabel: string;
-    SubjectName: string;
-  }
-  let dayScheduleClasses: AgendaClass[] = [];
+  const kindOf = (g: MyWarning['Gravity']): 1 | 2 | 3 => (g === 'severe' ? 3 : g === 'moderate' ? 2 : 1);
 
-  $: visible =
-    filter === 0 ? rows : rows.filter((r) => r.Kind === filter);
-
-  $: countLabel = $t.obs.count(visible.length);
-
-  $: chosenSituationKind = catalog.find((s) => s.ID === situationID)?.Kind ?? 0;
-
-  $: valid = studentID.length > 0 && situationID.length > 0;
+  $: visible = rows.filter((r) => {
+    if (filter !== 0 && kindOf(r.Gravity) !== filter) return false;
+    const q = foldSearch(query.trim());
+    if (!q) return true;
+    return foldSearch([r.StudentName, r.ClassLabel, r.Title, r.Description].join(' ')).includes(q);
+  });
+  $: countOf = (k: 1 | 2 | 3) => rows.filter((r) => kindOf(r.Gravity) === k).length;
 
   async function load() {
     loading = true;
     loadError = null;
     try {
-      const data = await guarded(() => myObservations());
-      if (data === null) {
-        loading = false;
-        return;
-      }
-      rows = data;
+      const data = await guarded(() => myWarnings());
+      if (data !== null) rows = data;
     } catch (err) {
-      if (err instanceof ApiError && isMissing(err)) {
-        // Backend sin ruta todavía: vacío honesto, no error.
-        rows = [];
-      } else {
-        loadError = err;
-      }
+      loadError = err;
     } finally {
       loading = false;
     }
   }
 
-  async function loadClasses() {
-    try {
-      const today = new Date();
-      const weekday = today.getDay() >= 1 && today.getDay() <= 5 ? today.getDay() : 1;
-      const entries = (await guarded(() => dayScheduleOn(weekday))) ?? [];
-      if (entries.length === 0) {
-        dayScheduleClasses = [];
-        return;
-      }
-      // Etiquetas legibles solo de los catálogos reales del backend.
-      [groups, subs] = await Promise.all([
-        (await guarded(() => listClasses(today.getFullYear()))) ?? [],
-        (await guarded(() => listSubjects())) ?? []
-      ]);
-      // Dedup por salón manteniendo el orden por hora: un docente puede
-      // tener dos bloques con la misma clase el mismo día.
-      const seen = new Map<string, string[]>();
-      for (const e of [...entries].sort((a, b) => a.Start - b.Start)) {
-        const names = seen.get(e.ClassGroupID) ?? [];
-        seen.set(e.ClassGroupID, names);
-        const name = subjectName(e.SubjectID);
-        if (name && !names.includes(name)) names.push(name);
-      }
-      dayScheduleClasses = [...seen.entries()].map(([id, subjects]) => ({
-        GroupID: id,
-        ClassLabel: groupLabel(id),
-        SubjectName: subjects.join(', ')
-      }));
-    } catch {
-      // Sin horario del día igual se puede registrar: la clase es opcional
-      // en el backend, pero ofrecemos primero las reales del docente.
-      dayScheduleClasses = [];
-    }
-  }
-
-  // Catálogos de etiquetas (cargados una sola vez por sesión de página).
-  let groups: ClassGroupRow[] = [];
-  let subs: SubjectRow[] = [];
-  function groupLabel(groupID: string): string {
-    const found = groups.find((g) => g.ID === groupID);
-    return found ? `${found.Grade}-${found.GroupNo}` : '';
-  }
-  function subjectName(subjectID: string): string {
-    const found = subs.find((s) => s.ID === subjectID);
-    return found ? found.Name : '';
-  }
-
-  async function openForm() {
-    creating = true;
-    feedback = '';
-    feedbackError = false;
-    if (catalog.length === 0) {
-      try {
-        catalog = await guarded(() => getObservationCatalog()) ?? [];
-      } catch {
-        catalog = [];
-      }
-    }
-    if (dayScheduleClasses.length === 0) await loadClasses();
-    if (!classID && dayScheduleClasses.length > 0) classID = dayScheduleClasses[0].GroupID;
-    if (classID) await loadRoster();
-  }
-
-  function closeForm() {
-    creating = false;
-    feedback = '';
-    studentID = '';
-    situationID = '';
-    note = '';
-    date = todayISO();
-    roster = [];
-  }
-
-  async function loadRoster() {
-    if (!classID) {
-      roster = [];
-      studentID = '';
-      return;
-    }
-    loadingRoster = true;
-    try {
-      const data = await guarded(() => classRoster(classID));
-      roster = [...(data ?? [])].sort(bySurname);
-    } catch {
-      roster = [];
-    } finally {
-      if (!roster.some((r) => r.StudentID === studentID)) {
-        studentID = roster[0]?.StudentID ?? '';
-      }
-      loadingRoster = false;
-    }
-  }
-
-  function bySurname(a: RosterEntry, b: RosterEntry): number {
-    const x = `${a.Surnames} ${a.Names}`.toLowerCase();
-    const y = `${b.Surnames} ${b.Names}`.toLowerCase();
-    return x < y ? -1 : x > y ? 1 : 0;
-  }
-
-  function studentLabel(r: RosterEntry): string {
-    return `${r.Surnames}, ${r.Names}`;
-  }
-
-  function classLabel(groupID: string): string {
-    const c = dayScheduleClasses.find((x) => x.GroupID === groupID);
-    return c ? c.ClassLabel : '';
-  }
-
-  function moment(isoDate: string): string {
-    const d = new Date(isoDate);
+  function moment(value: string): string {
+    const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '';
     return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  async function save() {
-    if (!situationID) {
-      feedbackError = true;
-      feedback = $t.obs.needSituation;
-      return;
-    }
-    if (!studentID) {
-      feedbackError = true;
-      feedback = $t.obs.needStudent;
-      return;
-    }
-    saving = true;
-    feedback = '';
-    feedbackError = false;
-    try {
-      const created = await recordObservation({
-        studentID,
-        classGroupID: classID || undefined,
-        situationID,
-        note: note.trim() || undefined,
-        date
-      });
-      // El backend devuelve la fila ya doblada con nombres y tipo.
-      rows = [created, ...rows];
-      feedback = $t.obs.saved;
-      studentID = '';
-      situationID = '';
-      note = '';
-    } catch (err) {
-      feedbackError = true;
-      feedback = err instanceof ApiError ? err.message : $t.common.loadError;
-    } finally {
-      saving = false;
-    }
-  }
-
-  onMount(() => {
-    void load();
-    void loadClasses();
-  });
+  onMount(load);
 </script>
 
 <TeacherShell active="observaciones">
@@ -265,16 +67,13 @@
     <h1 class="title">{$t.obs.title}</h1>
     <p class="muted">{$t.obs.subtitle}</p>
     <div class="controlbar">
-      {#if !creating}
-        <button type="button" class="primary" on:click={openForm}>
-          <Icon name="plus" /> {$t.obs.newAction}
-        </button>
-      {/if}
+      <button type="button" class="primary" on:click={() => (creating = true)}>
+        <Icon name="plus" /> {$t.obs.newAction}
+      </button>
     </div>
   </div>
 
   <div class="sheet">
-    <!-- Filtros: tres botones de tipo, tal como pidió el docente. -->
     <div class="filters" role="group" aria-label={$t.obs.filterLabel}>
       <button
         type="button"
@@ -283,7 +82,7 @@
         aria-pressed={filter === 0}
         on:click={() => (filter = 0)}
       >
-        {$t.obs.filterAll}
+        {$t.obs.filterAll} · {rows.length}
       </button>
       {#each [1, 2, 3] as k (k)}
         <button
@@ -293,103 +92,23 @@
           aria-pressed={filter === k}
           on:click={() => (filter = k as KindFilter)}
         >
-          {$t.obs.kindLabel[k]}
+          {$t.obs.kindLabel[k]} · {countOf(k as 1 | 2 | 3)}
         </button>
       {/each}
-      <span class="count" role="status">{countLabel}</span>
+      <span class="count" role="status">{$t.obs.count(visible.length)}</span>
     </div>
 
-    {#if creating}
-      <section class="card form">
-        <div class="formhead">
-          <h2>{$t.obs.formTitle}</h2>
-          <button type="button" class="ghost" on:click={closeForm} aria-label={$t.a11y.close}>
-            <Icon name="close" />
-          </button>
-        </div>
-        <p class="muted">{$t.obs.formNote}</p>
-
-        <label class="field">
-          <span class="label">{$t.obs.fClass}</span>
-          <span class="select-wrap">
-            <select bind:value={classID} aria-label={$t.obs.fClass} on:change={loadRoster}>
-              <option value="">{$t.obs.pickClass}</option>
-              {#each dayScheduleClasses as c (c.GroupID)}
-                <option value={c.GroupID}>{c.ClassLabel} · {c.SubjectName}</option>
-              {/each}
-            </select>
-            <span class="chev" aria-hidden="true"><Icon name="next" /></span>
-          </span>
-        </label>
-
-        <label class="field">
-          <span class="label">{$t.obs.fStudent} *</span>
-          {#if loadingRoster}
-            <Skeleton rows={1} />
-          {:else if roster.length === 0}
-            <p class="muted">{$t.obs.rosterEmpty}</p>
-          {:else}
-            <span class="select-wrap">
-              <select bind:value={studentID} aria-label={$t.obs.fStudent}>
-                {#each roster as r (r.StudentID)}
-                  <option value={r.StudentID}>{studentLabel(r)}</option>
-                {/each}
-              </select>
-              <span class="chev" aria-hidden="true"><Icon name="next" /></span>
-            </span>
-          {/if}
-        </label>
-
-        <Dropdown
-          label={$t.obs.fSituation}
-          value={situationID}
-          options={situationOptions}
-          placeholder={$t.obs.pickSituation}
-          searchable
-          searchPlaceholder={$t.obs.pickSituation}
-          wrap
-          on:select={(e) => (situationID = e.detail)}
-        />
-        {#if chosenSituationKind}
-          <p class="hint">
-            <span class={`chip ${kindChip(chosenSituationKind)}`}>{$t.obs.kindLabel[chosenSituationKind]}</span>
-            <small>{$t.obs.kindIntro[chosenSituationKind]}</small>
-          </p>
-        {/if}
-
-        <label class="field">
-          <span class="label">{$t.obs.fDate}</span>
-          <input type="date" bind:value={date} max={todayISO()} aria-label={$t.obs.fDate} />
-        </label>
-
-        <!-- Nota adicional: burbuja lateral del listado; aquí es texto libre
-             junto a la situación elegida. -->
-        <label class="field">
-          <span class="label">{$t.obs.fNote}</span>
-          <textarea rows={4} bind:value={note} placeholder={$t.obs.notePlaceholder}></textarea>
-        </label>
-
-        {#if feedback}
-          <p class="flash" class:error={feedbackError} role="status">{feedback}</p>
-        {/if}
-
-        <div class="actions">
-          <button type="button" class="ghost" on:click={closeForm}>{$t.obs.cancel}</button>
-          <button type="button" class="primary" disabled={!valid || saving} on:click={save}>
-            {saving ? $t.obs.saving : $t.obs.save}
-          </button>
-        </div>
-      </section>
-    {/if}
-
-    <h2 class="list-title">{$t.obs.title}</h2>
+    <label class="search">
+      <Icon name="search" />
+      <input type="search" placeholder={$t.obs.searchPlaceholder} aria-label={$t.obs.searchPlaceholder} bind:value={query} />
+    </label>
 
     {#if loading}
       <Skeleton rows={4} />
     {:else if loadError}
       <ErrorState error={loadError} onRetry={load} />
     {:else if visible.length === 0}
-      {#if filter !== 0}
+      {#if rows.length > 0}
         <EmptyState icon="book" title={$t.obs.noMatchTitle} body={$t.obs.noMatchBody} />
       {:else}
         <EmptyState icon="book" title={$t.obs.emptyTitle} body={$t.obs.emptyBody} />
@@ -397,17 +116,17 @@
     {:else}
       <ol class="bubbles">
         {#each visible as r (r.ID)}
-          {@const text = textOf(r.SituationID)}
+          {@const k = kindOf(r.Gravity)}
           <li class="bubble">
-            <span class={`chip ${kindChip(r.Kind)}`}>{$t.obs.kindLabel[r.Kind]}</span>
+            <span class={`chip ${kindChip(k)}`}>{$t.obs.kindLabel[k]}</span>
             <div class="btext">
-              <strong>{text || r.SituationID}</strong>
-              <small>{moment(r.Date)} · {r.StudentName}{#if r.ClassLabel} · {r.ClassLabel}{/if}</small>
+              <strong>{r.Title}</strong>
+              <small>{moment(r.HappenedAt)} · {r.StudentName}{#if r.ClassLabel} · {r.ClassLabel}{/if}</small>
             </div>
-            {#if r.Note}
+            {#if r.Description}
               <div class="sidebub">
                 <span class="stag">{$t.obs.noteSideTitle}</span>
-                {r.Note}
+                {r.Description}
               </div>
             {/if}
           </li>
@@ -417,6 +136,18 @@
   </div>
 </div>
 
+{#if creating}
+  <WarningNewSheet
+    open
+    scope="all"
+    originLabel={$t.agenda.allGroups}
+    onClose={() => (creating = false)}
+    onSaved={() => {
+      creating = false;
+      void load();
+    }}
+  />
+{/if}
 </TeacherShell>
 
 <style>
@@ -562,108 +293,24 @@
     text-transform: uppercase;
     margin-right: 6px;
   }
-  /* Formulario */
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-card);
-    padding: 16px;
-  }
-  .formhead {
+  .search {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
-  }
-  .formhead h2 {
-    font-size: 1.05rem;
-    font-weight: 650;
-  }
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 10px;
-  }
-  .field .label {
-    font-size: 0.78rem;
-    font-weight: 650;
-    color: var(--ink-soft);
-  }
-  .field input,
-  .field textarea {
     border: 1px solid var(--line);
     border-radius: 12px;
     background: var(--surface);
+    padding: 0 12px;
+    min-height: 44px;
+    color: var(--muted);
+  }
+  .search input {
+    border: 0;
+    outline: none;
+    background: none;
     color: var(--ink);
-    padding: 10px 12px;
     font: inherit;
     font-size: 0.85rem;
-    min-height: 44px;
-  }
-  .field textarea {
-    resize: vertical;
-    min-height: 96px;
-  }
-  .select-wrap {
-    position: relative;
-    display: block;
-  }
-  .select-wrap select {
     width: 100%;
-    appearance: none;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--surface);
-    color: var(--ink);
-    padding: 10px 36px 10px 12px;
-    font: inherit;
-    font-size: 0.85rem;
-    min-height: 44px;
-  }
-  .chev {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%) rotate(90deg);
-    color: var(--muted);
-    pointer-events: none;
-    display: inline-flex;
-  }
-  .hint {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 2px 0 0;
-  }
-  .hint small {
-    color: var(--muted);
-  }
-  .flash {
-    background: var(--chip-green-bg);
-    color: var(--chip-green-ink);
-    border-radius: 12px;
-    padding: 9px 12px;
-    font-size: 0.8rem;
-  }
-  .flash.error {
-    background: var(--chip-pink-bg);
-    color: var(--chip-pink-ink);
-  }
-  .actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-    margin-top: 12px;
-  }
-  .ghost {
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--ink-soft);
-    border-radius: var(--radius-pill);
-    padding: 9px 14px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    min-height: 44px;
   }
 </style>

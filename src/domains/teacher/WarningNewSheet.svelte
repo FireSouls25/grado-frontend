@@ -5,7 +5,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { t } from '$lib/i18n';
   import { notify } from '$lib/ui/notice';
-  import { classRoster, daySchedule, isMissing, getObservationCatalog, recordObservation } from './api';
+  import { classRoster, daySchedule, isMissing, getObservationCatalog, issueSituationWarnings } from './api';
   import type { RosterEntry } from '$lib/api/types';
   import type { TeacherClass, Situation } from './api';
   import { guarded } from '$lib/nav';
@@ -137,22 +137,26 @@
     if (!valid || saving) return;
     saving = true;
     try {
-      // Una observación por estudiante: el tipo lo decide el servidor
-      // desde la situación; la nota y la fecha viajan con cada una.
-      const jobs: Promise<unknown>[] = [];
+      // Un llamado por salón con todos sus estudiantes elegidos: el tipo
+      // lo decide el servidor desde la situación del manual.
+      const byClass = new Map<string, string[]>();
       for (const r of roster) {
         if (!selected.includes(r.StudentID)) continue;
-        jobs.push(
-          recordObservation({
-            studentID: r.StudentID,
-            classGroupID: r.groupID || groupID || undefined,
-            situationID,
-            note: note.trim() || undefined,
-            date: date || undefined
-          })
-        );
+        const cid = r.groupID || groupID;
+        byClass.set(cid, [...(byClass.get(cid) ?? []), r.StudentID]);
       }
-      await Promise.all(jobs);
+      await Promise.all(
+        [...byClass.entries()].map(([classID, studentIDs]) =>
+          issueSituationWarnings({
+            classID,
+            situationID,
+            title: textOf(situationID) || situationID,
+            note,
+            date,
+            studentIDs
+          })
+        )
+      );
       notify($t.obs.saved);
       selected = [];
       onSaved();
@@ -179,6 +183,8 @@
           label={$t.obs.fSituation}
           value={situationID}
           options={situationOptions}
+          groupFilter
+          groupAllLabel={$t.obs.filterAll}
           placeholder={$t.obs.pickSituation}
           searchable
           searchPlaceholder={$t.obs.pickSituation}

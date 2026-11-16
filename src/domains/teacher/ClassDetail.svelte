@@ -12,7 +12,8 @@
   import WarningNewSheet from './WarningNewSheet.svelte';
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
   import { classRoster, isMissing, openSession, recordMark, recordUniform, sessionMarks, sessionUniform, todaySessions } from './api';
-  import { groupsByYear, listSubjects } from '../admin/api';
+  import { groupsByYear, listSubjects, sessionDetail, recordDefense } from '../admin/api';
+  import Sheet from '$lib/ui/Sheet.svelte';
   import { notify } from '$lib/ui/notice';
   import { dateKey, saveRollcall } from './rollcall';
   import { resolveId } from '$lib/slug';
@@ -138,6 +139,7 @@
       evasion = new Set();
       evasionInit = new Set();
       await resumeToday();
+      void loadDefenses();
     } catch (err) {
       // Enlace a un salón que no existe (o un id/slug mal copiado): no se
       // deja una pantalla vacía, se vuelve a la agenda con un aviso.
@@ -404,6 +406,7 @@
       permNotesInit = Object.fromEntries([...perm].map((id) => [id, permNotes[id] ?? '']));
       uniformOffInit = new Set(uniformOff);
       snapshotRollcall();
+      void loadDefenses();
       notify($t.attendance.saved);
     } catch (err) {
       feedbackError = true;
@@ -415,6 +418,57 @@
 
   let warnOpen = false;
   let alertOpen = false;
+
+  // Descargos: la defensa del estudiante ante una falta ya guardada
+  // (falta, falta con permiso o evasión). El docente la registra en sus
+  // propias clases, igual que secretaría y administración.
+  let defenses: Record<string, string> = {};
+  let defFor: RosterEntry | null = null;
+  let defText = '';
+  let defSaving = false;
+  let defError = '';
+
+  async function loadDefenses() {
+    if (!sessionID) return;
+    try {
+      const d = await guarded(() => sessionDetail(sessionID));
+      defenses = Object.fromEntries(Object.entries(d?.Defenses ?? {}).map(([id, v]) => [id, v.Text]));
+    } catch {
+      // Sin detalle de la llamada el botón sigue disponible, solo vacío.
+    }
+  }
+
+  const savedFault = (id: string) => !!sessionID && !presentInit.has(id) && !lateInit.has(id);
+
+  function openDefense(r: RosterEntry) {
+    defFor = r;
+    defText = defenses[r.StudentID] ?? '';
+    defError = '';
+  }
+
+  async function saveDefense(clear = false) {
+    if (!defFor || defSaving) return;
+    const text = clear ? '' : defText.trim();
+    if (!clear && !text) {
+      defError = $t.studentSummary.defenseReasonPlaceholder;
+      return;
+    }
+    defSaving = true;
+    defError = '';
+    try {
+      await guarded(() => recordDefense(sessionID, defFor!.StudentID, text));
+      const next = { ...defenses };
+      if (text) next[defFor.StudentID] = text;
+      else delete next[defFor.StudentID];
+      defenses = next;
+      defFor = null;
+      notify(clear ? $t.attendance.defenseCleared : $t.studentSummary.defenseSaved);
+    } catch (err) {
+      defError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      defSaving = false;
+    }
+  }
 </script>
 
 <TeacherShell active="agenda">
@@ -550,6 +604,18 @@
                     {$t.studentSummary.markLate}
                   </button>
                 </span>
+                {#if savedFault(r.StudentID)}
+                  <button
+                    type="button"
+                    class="defbtn"
+                    class:has={!!defenses[r.StudentID]}
+                    title={defenses[r.StudentID] || $t.studentSummary.defenseTitle}
+                    on:click={() => openDefense(r)}
+                  >
+                    {#if defenses[r.StudentID]}<Icon name="check" />{/if}
+                    {$t.studentSummary.defenseAction}
+                  </button>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -568,9 +634,74 @@
   </div>
 </div>
 
+{#if defFor}
+  <Sheet open title={$t.studentSummary.defenseTitle} onClose={() => (defFor = null)}>
+    <p class="defwho"><strong>{defFor.Surnames}, {defFor.Names}</strong></p>
+    <p class="hint">{$t.attendance.defenseHint}</p>
+    <label class="deffield">
+      <span>{$t.studentSummary.defenseReasonLabel}</span>
+      <textarea rows={4} maxlength="280" bind:value={defText} placeholder={$t.studentSummary.defenseReasonPlaceholder}></textarea>
+    </label>
+    {#if defError}<p class="flash error" role="alert">{defError}</p>{/if}
+    <div class="actions">
+      {#if defenses[defFor.StudentID]}
+        <button type="button" class="btn" disabled={defSaving} on:click={() => saveDefense(true)}>{$t.attendance.defenseClear}</button>
+      {/if}
+      <button type="button" class="btn" on:click={() => (defFor = null)}>{$t.common.cancel}</button>
+      <button type="button" class="btn btn-primary" disabled={defSaving} on:click={() => saveDefense()}>
+        {defSaving ? '…' : $t.common.save}
+      </button>
+    </div>
+  </Sheet>
+{/if}
 </TeacherShell>
 
 <style>
+  .defbtn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 32px;
+    padding: 4px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-size: 0.74rem;
+    font-weight: 600;
+  }
+  .defbtn.has {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .defbtn :global(svg) {
+    width: 13px;
+    height: 13px;
+  }
+  .defwho {
+    margin-bottom: 4px;
+  }
+  .deffield {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .deffield textarea {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--ink);
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 0.85rem;
+    resize: vertical;
+  }
   .attendance {
     margin: 0 auto;
     max-width: 1400px;
