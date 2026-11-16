@@ -628,6 +628,9 @@
                     >
                       <Icon name="shield" /> {$t.attendance.priorPermitTag}
                     </span>
+                    {#if lockReasons[r.StudentID]}
+                      <small class="lockreason">{$t.attendance.priorPermitWithReason(lockReasons[r.StudentID])} · {$t.attendance.priorPermitNoEdit}</small>
+                    {/if}
                   {/if}
                 </span>
                 <label class="uniform-check" title={$t.attendance.uniformLabel}>
@@ -1009,6 +1012,13 @@
     font-weight: 700;
     white-space: nowrap;
   }
+  .lockreason {
+    flex-basis: 100%;
+    padding-left: 44px;
+    color: var(--m-permission);
+    font-size: 0.74rem;
+    font-weight: 600;
+  }
   .lockchip :global(svg) {
     width: 13px;
     height: 13px;
@@ -1032,7 +1042,8 @@
     min-width: 180px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 4px 10px;
+    flex-wrap: wrap;
   }
   .who .name {
     flex: 1;

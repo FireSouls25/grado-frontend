@@ -225,6 +225,12 @@ export const es = {
     priorPermitGroup: 'Salón',
     priorPermitReason: 'Motivo',
     priorPermitAllDay: 'Todo el día',
+    priorPermitAllDayHint: (n: number) => (n === 1 ? 'Cubre su única clase' : `Cubre sus ${n} clases`),
+    priorPermitToday: 'Hoy',
+    priorPermitOtherDay: 'Otra fecha',
+    priorPermitClasses: 'Clases que cubre',
+    priorPermitLoadingClasses: 'Cargando las clases del día…',
+    priorPermitNoClasses: 'Ese día el salón no tiene clases en el horario. Elige otra fecha.',
     priorPermitReasonPlaceholder: 'Motivo del permiso (cita médica, trámite familiar…)…',
     priorPermitNeedDate: 'Elige la fecha del permiso.',
     priorPermitNeedGroup: 'Elige el salón del permiso.',
@@ -384,6 +390,7 @@ export const es = {
     permissionLabel: 'Con permiso',
     permissionHint: 'Pulsa para alternar entre falta injustificada y falta con permiso.',
     priorPermitTag: 'Con permiso',
+    priorPermitNoEdit: 'lo registró secretaría y no se puede cambiar',
     priorPermitWithReason: (reason: string) => `Permiso previo: ${reason}`,
     priorPermitNote: (count: number) =>
       count === 1

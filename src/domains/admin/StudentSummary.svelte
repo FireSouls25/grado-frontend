@@ -30,6 +30,9 @@
     studentPermits,
     grantPermit,
     revokePermit,
+    scheduleEntries,
+    listSubjects,
+    type ScheduleEntry,
     type StudentReport,
     type SessionRevisionRow,
     type WarningRevision,
@@ -43,6 +46,7 @@
   import PermissionSheet from '$lib/ui/PermissionSheet.svelte';
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
+  import { rangeLabel } from '$lib/schedule';
   import { ApiError } from '$lib/api/types';
   import { calendarDate } from '$lib/dates';
   $: roles = $profileStore.me?.roles ?? [];
@@ -221,12 +225,98 @@
     return g.ClassLabel || `${g.Grade}-${g.GroupNo}`;
   }
 
+  // Permiso previo: el salón sale del estudiante; la fecha se elige con
+  // los próximos días de clase o con el calendario, y las clases de ese
+  // día se marcan una a una o "todo el día".
+  type PermitClass = { subjectID: string; name: string; times: string[] };
+  let permitClasses: PermitClass[] = [];
+  let permitClassesLoading = false;
+  let permitSubjects: string[] = []; // vacío = todo el día
+  let subjectNames: Record<string, string> = {};
+  let weekCache: Record<string, ScheduleEntry[]> = {};
+  const quickReasons = ['Cita médica', 'Calamidad familiar', 'Trámite familiar', 'Actividad institucional'];
+
+  function isoOf(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  /** Próximos días hábiles (lunes a viernes), empezando hoy. */
+  $: upcomingDays = (() => {
+    const out: { iso: string; label: string }[] = [];
+    const d = new Date();
+    while (out.length < 8) {
+      const wd = d.getDay();
+      if (wd >= 1 && wd <= 5) {
+        const iso = isoOf(d);
+        const label =
+          out.length === 0 && iso === isoOf(new Date())
+            ? $t.studentSummary.priorPermitToday
+            : d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
+        out.push({ iso, label });
+      }
+      d.setDate(d.getDate() + 1);
+    }
+    return out;
+  })();
+
+  $: permitGroupLabel = (() => {
+    const g = permitGroups.find((x) => x.GroupID === permitGroupID);
+    return g ? groupLabelOf(g) : '';
+  })();
+
+  function studentGroupID(): string {
+    const cid = profile?.ClassID ?? '';
+    const byID = permitGroups.find((g) => g.GroupID === cid);
+    if (byID) return byID.GroupID;
+    const byLabel = permitGroups.find((g) => groupLabelOf(g) === cid || `${g.Grade}-${g.GroupNo}` === cid);
+    return byLabel?.GroupID ?? '';
+  }
+
+  async function loadPermitClasses() {
+    permitSubjects = [];
+    permitClasses = [];
+    if (!permitGroupID || !permitDate) return;
+    const d = new Date(`${permitDate}T12:00:00`);
+    const weekday = d.getDay();
+    const key = `${permitGroupID}:${weekday}`;
+    permitClassesLoading = true;
+    try {
+      if (!weekCache[key]) {
+        weekCache[key] = (await guarded(() => scheduleEntries({ classGroupID: permitGroupID, weekday }))) ?? [];
+      }
+      if (Object.keys(subjectNames).length === 0) {
+        const subs = (await guarded(() => listSubjects())) ?? [];
+        subjectNames = Object.fromEntries(subs.map((s) => [s.ID, s.Name]));
+      }
+      const bySubject = new Map<string, PermitClass>();
+      for (const e of [...weekCache[key]].sort((a, b) => a.Start - b.Start)) {
+        const c = bySubject.get(e.SubjectID) ?? { subjectID: e.SubjectID, name: subjectNames[e.SubjectID] ?? e.SubjectID, times: [] };
+        c.times.push(rangeLabel(e.Start, e.End));
+        bySubject.set(e.SubjectID, c);
+      }
+      permitClasses = [...bySubject.values()];
+    } catch {
+      permitClasses = [];
+    } finally {
+      permitClassesLoading = false;
+    }
+  }
+
+  function pickPermitDay(iso: string) {
+    permitDate = iso;
+    void loadPermitClasses();
+  }
+
+  function toggleSubject(sid: string) {
+    permitSubjects = permitSubjects.includes(sid) ? permitSubjects.filter((x) => x !== sid) : [...permitSubjects, sid];
+  }
+
   async function openPermit() {
     permitOpen = true;
     permitDate = todayISO();
     permitError = '';
     permitReason = '';
-    permitGroupID = profile?.ClassID ?? '';
+    permitSubjects = [];
     if (permitGroups.length === 0) {
       try {
         permitGroups = (await guarded(() => groupsByYear(currentYear))) ?? [];
@@ -234,7 +324,8 @@
         permitGroups = [];
       }
     }
-    if (!permitGroupID && permitGroups.length > 0) permitGroupID = permitGroups[0].GroupID;
+    permitGroupID = studentGroupID();
+    await loadPermitClasses();
   }
 
   async function savePriorPermit() {
@@ -254,14 +345,19 @@
     if (permitSaving) return;
     permitSaving = true;
     try {
-      await guarded(() =>
-        grantPermit({
-          studentID: id,
-          classGroupID: permitGroupID,
-          date: permitDate,
-          reason: permitReason.trim()
-        })
-      );
+      // Sin clases marcadas el permiso cubre el día; si no, uno por materia.
+      const subjects = permitSubjects.length > 0 ? permitSubjects : [''];
+      for (const subjectID of subjects) {
+        await guarded(() =>
+          grantPermit({
+            studentID: id,
+            classGroupID: permitGroupID,
+            subjectID: subjectID || undefined,
+            date: permitDate,
+            reason: permitReason.trim()
+          })
+        );
+      }
       notify($t.studentSummary.priorPermitSaved);
       permitOpen = false;
       await load();
@@ -690,18 +786,51 @@
       >
         <div class="permit-form">
           <p class="muted">{$t.studentSummary.priorPermitSubtitle}</p>
-          <label class="field">
-            <span>{$t.studentSummary.priorPermitDate}</span>
-            <input type="date" bind:value={permitDate} />
-          </label>
-          <label class="field">
+          <div class="field">
             <span>{$t.studentSummary.priorPermitGroup}</span>
-            <select bind:value={permitGroupID}>
-              {#each permitGroups as g (g.GroupID)}
-                <option value={g.GroupID}>{groupLabelOf(g)}</option>
+            {#if permitGroupLabel && studentGroupID() === permitGroupID}
+              <strong class="pgroup">{permitGroupLabel}</strong>
+            {:else}
+              <select bind:value={permitGroupID} on:change={loadPermitClasses}>
+                <option value="">{$t.studentSummary.priorPermitNeedGroup}</option>
+                {#each permitGroups as g (g.GroupID)}
+                  <option value={g.GroupID}>{groupLabelOf(g)}</option>
+                {/each}
+              </select>
+            {/if}
+          </div>
+          <div class="field">
+            <span>{$t.studentSummary.priorPermitDate}</span>
+            <div class="chips" role="group" aria-label={$t.studentSummary.priorPermitDate}>
+              {#each upcomingDays as d (d.iso)}
+                <button type="button" class="chipbtn" class:on={permitDate === d.iso} aria-pressed={permitDate === d.iso} on:click={() => pickPermitDay(d.iso)}>
+                  {d.label}
+                </button>
               {/each}
-            </select>
-          </label>
+            </div>
+            <input type="date" bind:value={permitDate} on:change={loadPermitClasses} aria-label={$t.studentSummary.priorPermitOtherDay} />
+          </div>
+          <div class="field">
+            <span>{$t.studentSummary.priorPermitClasses}</span>
+            {#if permitClassesLoading}
+              <p class="muted">{$t.studentSummary.priorPermitLoadingClasses}</p>
+            {:else if permitClasses.length === 0}
+              <p class="muted">{$t.studentSummary.priorPermitNoClasses}</p>
+            {:else}
+              <div class="classpick">
+                <button type="button" class="classbtn" class:on={permitSubjects.length === 0} aria-pressed={permitSubjects.length === 0} on:click={() => (permitSubjects = [])}>
+                  <strong>{$t.studentSummary.priorPermitAllDay}</strong>
+                  <small>{$t.studentSummary.priorPermitAllDayHint(permitClasses.length)}</small>
+                </button>
+                {#each permitClasses as c (c.subjectID)}
+                  <button type="button" class="classbtn" class:on={permitSubjects.includes(c.subjectID)} aria-pressed={permitSubjects.includes(c.subjectID)} on:click={() => toggleSubject(c.subjectID)}>
+                    <strong>{c.name}</strong>
+                    <small>{c.times.join(' · ')}</small>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
           <label class="field">
             <span>{$t.studentSummary.priorPermitReason}</span>
             <textarea
@@ -710,6 +839,11 @@
               placeholder={$t.studentSummary.priorPermitReasonPlaceholder}
             ></textarea>
           </label>
+          <div class="chips" role="group" aria-label={$t.studentSummary.priorPermitReason}>
+            {#each quickReasons as r}
+              <button type="button" class="chipbtn" on:click={() => (permitReason = r)}>{r}</button>
+            {/each}
+          </div>
           {#if permitError}
             <p class="error" role="alert">{permitError}</p>
           {/if}
@@ -963,6 +1097,62 @@
     border: 1px solid var(--line);
     border-radius: var(--radius-control);
     padding: 8px 10px;
+  }
+  .pgroup {
+    font-size: 0.95rem;
+    color: var(--ink);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chipbtn {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .chipbtn:hover {
+    background: var(--surface-2);
+  }
+  .chipbtn.on {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .classpick {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 6px;
+  }
+  .classbtn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    text-align: left;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: var(--radius-control);
+    padding: 8px 10px;
+    color: var(--ink);
+  }
+  .classbtn small {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 0.72rem;
+  }
+  .classbtn.on {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .classbtn.on strong {
+    color: var(--accent);
   }
   .permit-actions {
     display: flex;
