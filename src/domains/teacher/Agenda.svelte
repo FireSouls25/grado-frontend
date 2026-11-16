@@ -339,11 +339,6 @@
                 {#if item.Room}
                   <span class="factpill"><Icon name="pin" /> {$t.agenda.roomLabel(item.Room)}</span>
                 {/if}
-                {#if omitted}
-                  <span class="factpill omitted" title={$t.agenda.omittedTooltip}>
-                    <Icon name="warn" /> {$t.agenda.omittedTag}
-                  </span>
-                {/if}
                 {#if rec}
                   <span
                     class="factpill roll"
@@ -360,7 +355,7 @@
                 {/if}
               </div>
             </div>
-            <span class={`st ${omitted ? 'omitted' : st}`}>
+            <span class={`st ${omitted ? 'omitted' : st}`} title={omitted ? $t.agenda.omittedTooltip : undefined}>
               {omitted ? $t.agenda.stateOmitted : st === 'done' ? $t.agenda.stateDone : st === 'now' ? $t.agenda.stateNow : $t.agenda.stateNext}
             </span>
             <div class="rowbtns">
@@ -675,11 +670,6 @@
     text-transform: uppercase;
     color: var(--muted);
     margin-left: 2px;
-  }
-  .factpill.omitted {
-    background: var(--g-grave-bg);
-    border-color: transparent;
-    color: var(--g-grave-ink);
   }
   .statpill.warn {
     background: var(--g-grave-bg);
