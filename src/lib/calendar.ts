@@ -20,8 +20,15 @@ export function isoOf(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/** Día calendario ("YYYY-MM-DD") de un ISO fecha u hora, sin desfase. */
+/** Día calendario ("YYYY-MM-DD") de un ISO fecha u hora, sin desfase.
+ *  Medianoche UTC es un día guardado como fecha: se lee tal cual. Un
+ *  instante con hora real (una lista tomada a las 7 p. m. queda en UTC
+ *  del día siguiente) se lleva a la hora local antes de tomar el día. */
 export function dayOf(value: string): string {
+  if (/T\d{2}:\d{2}/.test(value ?? '') && !/T00:00:00(\.0+)?(Z|[+-]00:?00)$/.test(value)) {
+    const t = new Date(value);
+    if (!Number.isNaN(t.getTime())) return isoOf(t);
+  }
   const d = calendarDate(value);
   return d ? isoOf(d) : '';
 }

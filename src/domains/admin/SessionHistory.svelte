@@ -12,13 +12,14 @@
   import Skeleton from '$lib/ui/Skeleton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Icon from '$lib/ui/Icon.svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
   import SessionCorrectSheet from './SessionCorrectSheet.svelte';
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
   import { notify } from '$lib/ui/notice';
   import { guarded, queryParam, goBack } from '$lib/nav';
   import { mapSettled } from '$lib/async';
   import { rangeLabel } from '$lib/schedule';
-  import { isoOf, mondayOf, addDays, kindOf as kindIn, weekLabel, monthCells, type DayKind } from '$lib/calendar';
+  import { isoOf, dayOf, mondayOf, addDays, kindOf as kindIn, weekLabel, monthCells, type DayKind } from '$lib/calendar';
   import {
     groupsByYear,
     classSessionsHistory,
@@ -328,7 +329,7 @@
     return d.toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   }
   function prettyDay(value: string): string {
-    const d = new Date(`${value.slice(0, 10)}T12:00:00`);
+    const d = new Date(`${dayOf(value)}T12:00:00`);
     if (Number.isNaN(d.getTime())) return value;
     return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
   }
@@ -353,7 +354,7 @@
     try {
       const found = await guarded(() => sessionDetail(id));
       if (!found) return;
-      const d = new Date(`${found.Session.Date.slice(0, 10)}T12:00:00`);
+      const d = new Date(`${dayOf(found.Session.Date)}T12:00:00`);
       if (Number.isNaN(d.getTime())) return;
       pageMonth = new Date(d.getFullYear(), d.getMonth(), 1);
       const gid = found.Session.ClassGroupID ?? groups.find((g) => g.ClassLabel === found.Session.ClassLabel)?.GroupID ?? '';
@@ -542,15 +543,24 @@
                   <p class="muted small">{$t.sessionHistory.monthHint}</p>
                 {/if}
 
-                {#if detailFor?.gid === g.GroupID}
-                  <div class="detail">
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
+
+  <Sheet
+    open={!!detailFor && !correcting}
+    wide
+    title={detail ? `${prettyDay(detail.Session.Date)} · ${detail.Session.ClassLabel}` : $t.troll.shistory.title}
+    onClose={closeDetail}
+  >
+    <div class="detail">
                     {#if detailLoading || !detail}
                       <Skeleton rows={2} />
                     {:else}
-                      <div class="dhead">
-                        <strong>{prettyDay(detail.Session.Date)} · {detail.Session.ClassLabel}</strong>
-                        <button type="button" class="btn btn-sm" aria-label={$t.a11y.close} on:click={closeDetail}><Icon name="close" /></button>
-                      </div>
                       {#if openedAt}<p class="muted small">{$t.troll.shistory.atLabel} {momentTs(openedAt)}</p>{/if}
                       {#if absentLate.length === 0}
                         <p class="muted">{$t.troll.allPresentNote}</p>
@@ -584,14 +594,7 @@
                       {#if showRevisions}<SessionRevisionTrail revisions={mergeTrail(detail)} />{/if}
                     {/if}
                   </div>
-                {/if}
-              </div>
-            {/if}
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </div>
+  </Sheet>
 
   <SessionCorrectSheet
     open={correcting}
@@ -656,8 +659,7 @@
   .tabs :global(svg),
   .nav :global(svg),
   .pill :global(svg),
-  .st :global(svg),
-  .dhead :global(svg) {
+  .st :global(svg) {
     width: 14px;
     height: 14px;
   }
@@ -1090,22 +1092,9 @@
   }
   /* Detalle */
   .detail {
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-card);
-    padding: 12px;
-    background: var(--surface);
     display: flex;
     flex-direction: column;
-    gap: 8px;
-  }
-  .dhead {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .dhead strong {
-    text-transform: capitalize;
+    gap: 10px;
   }
   .sub {
     font-size: 0.8rem;
