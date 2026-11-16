@@ -32,7 +32,7 @@ globalThis.localStorage = {
 const entry = `
 import { openSession, recordMark, recordUniform, issueWarnings, todaySessions, sessionMarks, updateMyTeacher, raiseAcademicAlerts, issueSituationWarnings } from '${ROOT}/src/domains/teacher/api.ts';
 import { areaOf, canEnter, safeNext } from '${ROOT}/src/lib/routeGuard.ts';
-import { hasPermission, canManageUsers, canBlockAccess, canWriteDefenses } from '${ROOT}/src/lib/access.ts';
+import { hasPermission, canManageUsers, canBlockAccess, canWriteDefenses, canManagePermits } from '${ROOT}/src/lib/access.ts';
 import { schoolDay } from '${ROOT}/src/lib/schoolDay.ts';
 import { resolveId, isUuid } from '${ROOT}/src/lib/slug.ts';
 import { issueWarningBatch, correctWarning, recordDefense, recordTeacherDay, studentReport, updateStudent } from '${ROOT}/src/domains/admin/api.ts';
@@ -100,10 +100,12 @@ if (canManageUsers({ permissions: ['record-attendance'] })) fail('canManageUsers
 if (!canManageUsers({ roles: ['admin'] })) fail('respaldo a roles roto (admin)');
 if (!canBlockAccess({ roles: ['secretary'] })) fail('respaldo a roles roto (secretaría)');
 if (!canWriteDefenses({ permissions: ['record-defenses'] })) fail('canWriteDefenses con permiso');
-if (canWriteDefenses({ roles: ['teacher'] })) fail('canWriteDefenses con docente');
+if (!canWriteDefenses({ roles: ['teacher'] })) fail('canWriteDefenses permite al docente (sus salones)');
 if (!canWriteDefenses({ roles: ['secretary'] })) fail('respaldo descargo secretaría');
 if (!canWriteDefenses({ permissions: ['record-defenses'] })) fail('canWriteDefenses con permiso');
-if (canWriteDefenses({ roles: ['teacher'] })) fail('canWriteDefenses niega docente');
+if (canManagePermits({ roles: ['teacher'] })) fail('canManagePermits niega docente');
+if (!canManagePermits({ roles: ['secretary'] })) fail('canManagePermits secretaría');
+if (canManagePermits({ permissions: ['record-defenses'] })) fail('permisos previos no salen de record-defenses');
 await recordUniform('s-1', 'stu-1', false);
 {
   const c = last();
