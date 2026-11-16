@@ -20,7 +20,8 @@
   import { profile } from '$lib/shell/profile';
   import { canManageUsers } from '$lib/access';
   import { mapSettled } from '$lib/async';
-  import { isMissing } from '../teacher/api';
+  import { rangeLabel } from '$lib/schedule';
+  import { isMissing, classRoster } from '../teacher/api';
   import {
     teachers,
     groupsByYear,
@@ -124,6 +125,38 @@
   let todayKnown = false;
   let todayCatalog: { ID: string; Name: string }[] = [];
   let risk: RiskRow[] = [];
+  // Directorio de estudiantes para el buscador: sale de los reportes por
+  // salón y se completa con la nómina (documento incluido) la primera vez
+  // que se enfoca el buscador.
+  type DirEntry = { id: string; slug: string; name: string; doc: string; label: string };
+  const directoryMap = new Map<string, DirEntry>();
+  let directory: DirEntry[] = [];
+  let directoryFull = false;
+  let directoryLoading = false;
+  async function fillDirectory() {
+    if (directoryFull || directoryLoading || groups.length === 0) return;
+    directoryLoading = true;
+    try {
+      const settled = await mapSettled(groups, 5, (g) => classRoster(g.GroupID));
+      settled.forEach((res, i) => {
+        if (res.status !== 'fulfilled' || !Array.isArray(res.value)) return;
+        const label = groups[i].ClassLabel;
+        for (const r of res.value) {
+          directoryMap.set(r.StudentID, {
+            id: r.StudentID,
+            slug: r.Slug || r.StudentID,
+            name: `${r.Surnames}, ${r.Names}`,
+            doc: r.DocumentID,
+            label
+          });
+        }
+      });
+      directory = [...directoryMap.values()];
+      directoryFull = true;
+    } finally {
+      directoryLoading = false;
+    }
+  }
   let warnings: RecentWarning[] = [];
   let summary: DashboardSummary | null = null;
 
@@ -286,8 +319,16 @@
         if (!prev.slug && s.Slug) prev.slug = s.Slug;
         if (typeof s.LateStreak === 'number') prev.lateStreak = Math.max(prev.lateStreak, s.LateStreak);
         byStudent.set(s.StudentID, prev);
+        directoryMap.set(s.StudentID, {
+          id: s.StudentID,
+          slug: s.Slug || s.StudentID,
+          name: `${s.Surnames}, ${s.Names}`,
+          doc: directoryMap.get(s.StudentID)?.doc ?? '',
+          label
+        });
       }
     });
+    directory = [...directoryMap.values()];
     reportsKnown = true;
     salonRates.sort((a, b) => a.rate - b.rate);
     salonTotals = [...salonTotals];
@@ -706,34 +747,126 @@
   $: q = search.trim().toLowerCase();
   $: fq = foldSearch(search.trim());
   $: visibleRisk = risk.filter((r) => (q ? r.name.toLowerCase().includes(q) : true));
-  // Spotlight: coincidencias separadas por categoría sobre lo ya
-  // cargado (riesgo, llamados, docentes, salones, clases de hoy).
-  $: spot = !fq
-    ? null
-    : {
-        students: risk
-          .filter((r) => foldSearch(r.name).includes(fq))
-          .slice(0, 5),
-        warnings: warnings
-          .filter((w) => foldSearch(`${w.StudentName} ${w.Title} ${w.ClassLabel}`).includes(fq))
-          .slice(0, 5),
-        teachers: teacherList
-          .filter((x) => foldSearch(`${x.Names} ${x.Surnames}`).includes(fq))
-          .slice(0, 5),
-        groups: groups
-          .filter((g) => foldSearch(g.ClassLabel).includes(fq))
-          .slice(0, 5),
-        classes: todayClasses
-          .filter((c) => foldSearch(`${c.label} ${c.subject} ${c.teacher}`).includes(fq))
-          .slice(0, 5)
-      };
-  $: spotEmpty =
-    spot !== null &&
-    spot.students.length === 0 &&
-    spot.warnings.length === 0 &&
-    spot.teachers.length === 0 &&
-    spot.groups.length === 0 &&
-    spot.classes.length === 0;
+  // Spotlight: panel flotante bajo el buscador con coincidencias por
+  // categoría. Estudiantes primero (todos los salones, por nombre o
+  // documento), luego llamados, docentes, salones y clases de hoy.
+  type SpotItem = { key: string; primary: string; secondary: string; tag?: string; go: () => void };
+  type SpotSection = { id: string; title: string; icon: 'user' | 'warn' | 'users' | 'list' | 'calendar'; items: SpotItem[]; total: number };
+  let spotOpen = false;
+  let spotActive = 0;
+  let searchBox: HTMLDivElement | null = null;
+  $: riskIDs = new Set(risk.map((r) => r.id));
+  function take<T>(list: T[], n: number) {
+    return { items: list.slice(0, n), total: list.length };
+  }
+  function goTo(path: string) {
+    search = '';
+    spotOpen = false;
+    push(path);
+  }
+  $: spotSections = ((): SpotSection[] => {
+    if (!fq) return [];
+    const out: SpotSection[] = [];
+    const st = take(
+      directory
+        .filter((d) => foldSearch(`${d.name} ${d.doc} ${d.label}`).includes(fq))
+        .sort((x, y) => x.name.localeCompare(y.name, 'es')),
+      6
+    );
+    out.push({
+      id: 'students',
+      title: $t.admin.spotStudents,
+      icon: 'user',
+      total: st.total,
+      items: st.items.map((d) => ({
+        key: `s-${d.id}`,
+        primary: d.name,
+        secondary: [d.label && `${$t.admin.spotGroupPrefix} ${d.label}`, d.doc].filter(Boolean).join(' · '),
+        tag: riskIDs.has(d.id) ? $t.admin.spotRiskTag : undefined,
+        go: () => goTo(`/admin/estudiantes/${encodeURIComponent(d.slug)}/resumen`)
+      }))
+    });
+    const wr = take(warnings.filter((w) => foldSearch(`${w.StudentName} ${w.Title} ${w.ClassLabel}`).includes(fq)), 4);
+    out.push({
+      id: 'warnings',
+      title: $t.admin.spotWarnings,
+      icon: 'warn',
+      total: wr.total,
+      items: wr.items.map((w) => ({
+        key: `w-${w.ID}`,
+        primary: w.Title,
+        secondary: [w.StudentName, w.ClassLabel].filter(Boolean).join(' · '),
+        go: () =>
+          goTo(`/admin/llamados?estudiante=${encodeURIComponent(w.StudentSlug || w.StudentID)}&nombre=${encodeURIComponent(w.StudentName ?? '')}`)
+      }))
+    });
+    const te = take(teacherList.filter((x) => foldSearch(`${x.Names} ${x.Surnames}`).includes(fq)), 4);
+    out.push({
+      id: 'teachers',
+      title: $t.admin.spotTeachers,
+      icon: 'users',
+      total: te.total,
+      items: te.items.map((x) => ({
+        key: `t-${x.ID}`,
+        primary: `${x.Surnames}, ${x.Names}`,
+        secondary: $t.admin.spotTeacherHint,
+        go: () => goTo(`/admin/docentes/${encodeURIComponent(x.Slug || x.ID)}`)
+      }))
+    });
+    const gr = take(groups.filter((g) => foldSearch(g.ClassLabel).includes(fq)), 4);
+    out.push({
+      id: 'groups',
+      title: $t.admin.spotGroups,
+      icon: 'list',
+      total: gr.total,
+      items: gr.items.map((g) => ({
+        key: `g-${g.GroupID}`,
+        primary: `${$t.admin.spotGroupPrefix} ${g.ClassLabel}`,
+        secondary: typeof g.StudentCount === 'number' ? $t.admin.spotGroupCount(g.StudentCount) : '',
+        go: () => goTo(`/admin/estudiantes?salon=${encodeURIComponent(g.GroupID)}`)
+      }))
+    });
+    const cl = take(todayClasses.filter((c) => foldSearch(`${c.label} ${c.subject} ${c.teacher}`).includes(fq)), 4);
+    out.push({
+      id: 'classes',
+      title: $t.admin.spotClasses,
+      icon: 'calendar',
+      total: cl.total,
+      items: cl.items.map((c) => ({
+        key: `c-${c.gid}-${c.start}`,
+        primary: `${c.subject} · ${c.label}`,
+        secondary: [rangeLabel(c.start, c.end), c.teacher].filter(Boolean).join(' · '),
+        go: () => goTo('/admin/horario')
+      }))
+    });
+    return out.filter((sec) => sec.items.length > 0);
+  })();
+  $: spotFlat = spotSections.flatMap((sec) => sec.items);
+  $: spotEmpty = !!fq && spotFlat.length === 0;
+  $: if (fq) spotActive = Math.min(spotActive, Math.max(0, spotFlat.length - 1));
+  $: spotIndex = new Map(spotFlat.map((it, i) => [it.key, i]));
+
+  function onSearchKey(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      search = '';
+      spotOpen = false;
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      spotOpen = true;
+      spotActive = Math.min(spotFlat.length - 1, spotActive + 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      spotActive = Math.max(0, spotActive - 1);
+    } else if (e.key === 'Enter' && spotFlat[spotActive]) {
+      e.preventDefault();
+      spotFlat[spotActive].go();
+    }
+  }
+  function onDocClick(e: MouseEvent) {
+    if (spotOpen && searchBox && !searchBox.contains(e.target as Node)) spotOpen = false;
+  }
+
   $: openTasks = tasks.filter((t) => !t.done).length;
 
   $: scopeOptions = [
@@ -856,6 +989,8 @@
   $: statGroups = summary?.Totals.Groups ?? (groupsKnown ? (groups.length > 0 ? groups.length : null) : null);
 </script>
 
+<svelte:window on:click={onDocClick} />
+
 <AdminShell active="resumen" {year} onYear={changeYear}>
   <main class="main">
     <TopBar title={$t.admin.viewOverview} subtitle={consoleTitle}>
@@ -863,17 +998,73 @@
     </TopBar>
 
     <div class="controlbar">
-      <label class="search">
-        <Icon name="search" />
-        <input
-          type="search"
-          placeholder={$t.admin.consoleSearch}
-          aria-label={$t.admin.consoleSearchLabel}
-          bind:value={search}
-          bind:this={searchEl}
-        />
-        <kbd title={$t.admin.consoleSearchLabel}>/</kbd>
-      </label>
+      <div class="searchwrap" bind:this={searchBox}>
+        <label class="search">
+          <Icon name="search" />
+          <input
+            type="search"
+            placeholder={$t.admin.consoleSearch}
+            aria-label={$t.admin.consoleSearchLabel}
+            aria-controls="spotpanel"
+            autocomplete="off"
+            bind:value={search}
+            bind:this={searchEl}
+            on:focus={() => {
+              spotOpen = true;
+              void fillDirectory();
+            }}
+            on:input={() => {
+              spotOpen = true;
+              spotActive = 0;
+            }}
+            on:keydown={onSearchKey}
+          />
+          <kbd title={$t.admin.consoleSearchLabel}>/</kbd>
+        </label>
+        {#if spotOpen && fq}
+          <div class="spotpanel" id="spotpanel" role="listbox" aria-label={$t.admin.consoleSearchLabel}>
+            {#if spotEmpty}
+              <p class="spotempty">
+                {directoryLoading ? $t.admin.spotLoading : $t.admin.spotEmpty}
+              </p>
+            {:else}
+              {#each spotSections as sec (sec.id)}
+                <div class="spotsec">
+                  <p class="spothead">
+                    <Icon name={sec.icon} />
+                    {sec.title}
+                    <span class="spotcount">{sec.total > sec.items.length ? $t.admin.spotMore(sec.items.length, sec.total) : sec.total}</span>
+                  </p>
+                  <ul class="spotlist">
+                    {#each sec.items as it (it.key)}
+                      {@const idx = spotIndex.get(it.key) ?? -1}
+                      <li>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={idx === spotActive}
+                          class:active={idx === spotActive}
+                          on:mousemove={() => (spotActive = idx)}
+                          on:click={it.go}
+                        >
+                          <span class="spottext">
+                            <strong>{it.primary}</strong>
+                            {#if it.secondary}<small>{it.secondary}</small>{/if}
+                          </span>
+                          {#if it.tag}<span class="spottag">{it.tag}</span>{/if}
+                          <Icon name="next" />
+                        </button>
+                      </li>
+                    {/each}
+                  </ul>
+                </div>
+              {/each}
+              {#if directoryLoading}<p class="spotfoot">{$t.admin.spotLoading}</p>{/if}
+              <p class="spotfoot">{$t.admin.spotKeys}</p>
+            {/if}
+          </div>
+        {/if}
+      </div>
       <div class="period-drop">
         <Dropdown
           label={$t.admin.periodScopeLabel}
@@ -889,79 +1080,6 @@
     </div>
 
     <div class="content">
-      {#if spot !== null}
-        <section class="sheet spot" aria-label={$t.admin.consoleSearchLabel}>
-          {#if spotEmpty}
-            <EmptyState icon="search" title={$t.admin.spotEmpty} body={search} />
-          {:else}
-            {#if spot.students.length > 0}
-              <p class="spothead">{$t.admin.spotStudents}</p>
-              <ul class="spotlist">
-                {#each spot.students as r (r.id)}
-                  <li><button
-                    type="button"
-                    on:click={() => {
-                      search = '';
-                      push(`/admin/estudiantes/${encodeURIComponent(r.slug || r.id)}`);
-                    }}>{r.name}</button></li>
-                {/each}
-              </ul>
-            {/if}
-            {#if spot.warnings.length > 0}
-              <p class="spothead">{$t.admin.spotWarnings}</p>
-              <ul class="spotlist">
-                {#each spot.warnings as w (w.ID)}
-                  <li><button
-                    type="button"
-                    on:click={() => {
-                      search = '';
-                      push('/admin/llamados');
-                    }}>{w.StudentName} · {w.Title} · {w.ClassLabel}</button></li>
-                {/each}
-              </ul>
-            {/if}
-            {#if spot.teachers.length > 0}
-              <p class="spothead">{$t.admin.spotTeachers}</p>
-              <ul class="spotlist">
-                {#each spot.teachers as x (x.ID)}
-                  <li><button
-                    type="button"
-                    on:click={() => {
-                      search = '';
-                      push(`/admin/docentes/${encodeURIComponent(x.Slug || x.ID)}`);
-                    }}>{x.Surnames}, {x.Names}</button></li>
-                {/each}
-              </ul>
-            {/if}
-            {#if spot.groups.length > 0}
-              <p class="spothead">{$t.admin.spotGroups}</p>
-              <ul class="spotlist">
-                {#each spot.groups as g (g.GroupID)}
-                  <li><button
-                    type="button"
-                    on:click={() => {
-                      search = '';
-                      push('/admin/estudiantes');
-                    }}>{g.ClassLabel}</button></li>
-                {/each}
-              </ul>
-            {/if}
-            {#if spot.classes.length > 0}
-              <p class="spothead">{$t.admin.spotClasses}</p>
-              <ul class="spotlist">
-                {#each spot.classes as c (c.gid + c.start)}
-                  <li><button
-                    type="button"
-                    on:click={() => {
-                      search = '';
-                      push('/admin/horario');
-                    }}>{c.label} · {c.subject} · {c.teacher}</button></li>
-                {/each}
-              </ul>
-            {/if}
-          {/if}
-        </section>
-      {/if}
       <div class="feed">
         <div class="sheet">
           {#if state === 'loading'}
@@ -1391,20 +1509,56 @@
     flex-direction: column;
     gap: 16px;
   }
-  /* Spotlight: coincidencias separadas por categoría. */
-  .spot {
-    gap: 6px;
+  /* Spotlight: panel flotante bajo el buscador, encima del contenido. */
+  .searchwrap {
+    position: relative;
+    flex: 1 1 260px;
+    max-width: 420px;
+  }
+  .searchwrap .search {
+    max-width: none;
+  }
+  .spotpanel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: min(560px, calc(100vw - 32px));
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.14);
+    padding: 8px;
+    z-index: 70;
+    animation: spotIn 0.12s var(--ease-out) both;
+  }
+  .spotsec + .spotsec {
+    border-top: 1px solid var(--line);
+    margin-top: 6px;
+    padding-top: 6px;
   }
   .spothead {
-    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--muted);
-    margin: 8px 0 0;
+    margin: 4px 6px;
   }
-  .spothead:first-child {
-    margin-top: 0;
+  .spothead :global(svg) {
+    width: 13px;
+    height: 13px;
+  }
+  .spotcount {
+    margin-left: auto;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
   }
   .spotlist {
     list-style: none;
@@ -1412,18 +1566,82 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
   }
   .spotlist button {
     width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     text-align: left;
-    padding: 8px 10px;
+    padding: 7px 10px;
     border-radius: 8px;
-    font-size: 0.85rem;
     color: var(--ink);
   }
-  .spotlist button:hover {
-    background: var(--surface-2);
+  .spotlist button.active {
+    background: var(--accent-soft);
+  }
+  .spotlist button > :global(svg) {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    color: var(--muted);
+    opacity: 0;
+  }
+  .spotlist button.active > :global(svg) {
+    opacity: 1;
+    color: var(--accent);
+  }
+  .spottext {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .spottext strong {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .spottext small {
+    font-size: 0.74rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .spottag {
+    flex: none;
+    font-size: 0.68rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 2px 8px;
+    background: var(--chip-pink-bg);
+    color: var(--chip-pink-ink);
+  }
+  .spotempty,
+  .spotfoot {
+    color: var(--muted);
+    font-size: 0.78rem;
+    padding: 8px 10px;
+    margin: 0;
+  }
+  .spotfoot {
+    border-top: 1px solid var(--line);
+    margin-top: 6px;
+    font-size: 0.7rem;
+  }
+  @keyframes spotIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
   /* Divided KPI strip: 5 equal cells in one flat container */
   .kpi-strip {
