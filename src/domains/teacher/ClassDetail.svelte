@@ -489,7 +489,12 @@
     }
   }
 
-  const savedFault = (id: string) => !!sessionID && !presentInit.has(id) && !lateInit.has(id);
+  // Faltas ya guardadas (falta, con permiso o evasión): reactivo, para que
+  // el botón responda al guardar sin tener que volver a entrar.
+  $: faultSaved = new Set(
+    sessionID ? roster.filter((r) => !presentInit.has(r.StudentID) && !lateInit.has(r.StudentID)).map((r) => r.StudentID) : []
+  );
+  const isFaultMark = (m: string) => m === 'absence' || m === 'absence-permission' || m === 'evasion';
 
   function openDefense(r: RosterEntry) {
     defFor = r;
@@ -609,6 +614,7 @@
               {@const isPerm = perm.has(r.StudentID)}
               {@const isLocked = locked.has(r.StudentID)}
               {@const cur = inPresent ? '' : isLate ? 'late' : isEvasion ? 'evasion' : isPerm ? 'absence-permission' : 'absence'}
+              {@const canDef = faultSaved.has(r.StudentID) && isFaultMark(cur)}
               <li class:locked={isLocked}>
                 <span class="who">
                   <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
@@ -675,18 +681,22 @@
                     {$t.studentSummary.markLate}
                   </button>
                 </span>
-                {#if savedFault(r.StudentID)}
-                  <button
-                    type="button"
-                    class="defbtn"
-                    class:has={!!defenses[r.StudentID]}
-                    title={defenses[r.StudentID] || $t.studentSummary.defenseTitle}
-                    on:click={() => openDefense(r)}
-                  >
-                    {#if defenses[r.StudentID]}<Icon name="check" />{/if}
-                    {$t.studentSummary.defenseAction}
-                  </button>
-                {/if}
+                <button
+                  type="button"
+                  class="defbtn"
+                  class:off={!canDef}
+                  class:has={canDef && !!defenses[r.StudentID]}
+                  disabled={!canDef}
+                  title={!canDef
+                    ? isFaultMark(cur)
+                      ? $t.attendance.defenseSaveFirst
+                      : $t.attendance.defenseOnlyFaults
+                    : defenses[r.StudentID] || $t.studentSummary.defenseTitle}
+                  on:click={() => openDefense(r)}
+                >
+                  <Icon name="check" />
+                  {$t.studentSummary.defenseAction}
+                </button>
               </li>
             {/each}
           </ul>
@@ -728,8 +738,18 @@
 </TeacherShell>
 
 <style>
+  /* Siempre ocupa su lugar (las columnas no se corren); se activa con una
+     transición cuando la falta ya está guardada. */
   .defbtn {
     flex: none;
+    width: 104px;
+    justify-content: center;
+    transition:
+      opacity 0.2s var(--ease-out),
+      transform 0.2s var(--ease-out),
+      background 0.2s,
+      border-color 0.2s,
+      color 0.2s;
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -750,6 +770,15 @@
   .defbtn :global(svg) {
     width: 13px;
     height: 13px;
+    display: none;
+  }
+  .defbtn.has :global(svg) {
+    display: block;
+  }
+  .defbtn.off {
+    opacity: 0.3;
+    transform: scale(0.94);
+    cursor: not-allowed;
   }
   .defwho {
     margin-bottom: 4px;
@@ -1052,6 +1081,9 @@
     }
     .ledger .seg {
       flex-basis: 100%;
+    }
+    .defbtn {
+      margin-left: auto;
     }
   }
   .seg {
