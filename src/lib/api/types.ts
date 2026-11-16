@@ -128,6 +128,10 @@ export interface Warning {
   Title: string;
   Description: string;
   GroupID: string;
+  /** Descargo del estudiante sobre este llamado (vacío si no hay). */
+  Defense?: string;
+  DefenseBy?: string;
+  DefenseAt?: string;
   // Display names resolved by list endpoints (recent, per-student).
   StudentName?: string;
   ClassLabel?: string;

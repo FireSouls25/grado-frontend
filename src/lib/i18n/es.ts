@@ -183,6 +183,17 @@ export const es = {
     verifyAccount: (username: string, email: string) =>
       email ? `Cuenta: ${username} (${email})` : `Cuenta: ${username}`,
   },
+  warningDefense: {
+    title: 'Descargo del llamado',
+    action: 'Descargo',
+    hint: 'Escribe la versión del estudiante sobre este llamado. Queda junto al llamado, a la vista de coordinación, secretaría y el docente.',
+    placeholder: 'Lo que el estudiante dice sobre lo ocurrido…',
+    needText: 'Escribe el descargo o usa Borrar descargo.',
+    saved: 'Descargo guardado.',
+    cleared: 'Descargo borrado.',
+    clear: 'Borrar descargo',
+    label: (text: string) => `Descargo: ${text}`
+  },
   studentAttendance: {
     title: 'Asistencia',
     weekTab: 'Semana',

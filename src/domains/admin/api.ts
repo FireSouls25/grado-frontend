@@ -1027,6 +1027,9 @@ export interface RecentWarning {
   Title: string;
   Description: string;
   GroupID: string;
+  Defense?: string;
+  DefenseBy?: string;
+  DefenseAt?: string;
 }
 
 // Latest llamados, newest first, with display names resolved by the

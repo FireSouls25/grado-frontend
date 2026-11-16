@@ -16,7 +16,8 @@
   import { resolveId } from '$lib/slug';
   import { guarded, queryParam, goBack } from '$lib/nav';
   import { profile } from '$lib/shell/profile';
-  import { canManageUsers, canWriteWarnings } from '$lib/access';
+  import { canManageUsers, canWriteWarnings, canWriteDefenses } from '$lib/access';
+  import WarningDefenseSheet from '../teacher/WarningDefenseSheet.svelte';
   import { foldSearch } from '$lib/search';
   import {
     warningsRecent,
@@ -35,6 +36,8 @@
   import { issueSituationWarnings } from '../teacher/api';
   $: roles = $profile.me?.roles ?? [];
   $: staffWrite = canWriteWarnings($profile.me);
+  $: staffDefense = canWriteDefenses($profile.me);
+  let defendingID: string | null = null;
 
   const currentYear = new Date().getFullYear();
   let year = currentYear;
@@ -445,6 +448,7 @@
               <strong class="wtitle">{w.Title}</strong>
             </div>
             {#if w.Description}<p class="wdesc">{w.Description}</p>{/if}
+            {#if w.Defense}<p class="wdefense">{$t.warningDefense.label(w.Defense)}</p>{/if}
             <small class="wmeta">
               {#if w.AuthorName}{w.AuthorName} · {/if}{moment(w.HappenedAt)}
             </small>
@@ -454,10 +458,28 @@
                   {$t.warnings.modifyAction}
                 </button>
               {/if}
+              {#if staffDefense}
+                <button type="button" class="mini" class:has={!!w.Defense} on:click={() => (defendingID = defendingID === w.ID ? null : w.ID)}>
+                  {#if w.Defense}<Icon name="check" />{/if}
+                  {$t.warningDefense.action}
+                </button>
+              {/if}
               <button type="button" class="mini" on:click={() => toggleRevs(w.ID)}>
                 {revsOpen[w.ID] ? $t.warnings.hideRevisions : $t.warnings.showRevisions}
               </button>
             </div>
+            {#if defendingID === w.ID}
+              <WarningDefenseSheet
+                inline
+                warningID={w.ID}
+                current={w.Defense ?? ''}
+                onClose={() => (defendingID = null)}
+                onSaved={(text) => {
+                  detailWarnings = detailWarnings.map((x) => (x.ID === w.ID ? { ...x, Defense: text } : x));
+                  defendingID = null;
+                }}
+              />
+            {/if}
             {#if editingID === w.ID}
               <WarningCorrectForm
                 warningId={w.ID}
@@ -568,6 +590,22 @@
 </AdminShell>
 
 <style>
+  .wdefense {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    border-left: 3px solid var(--accent);
+    padding: 2px 0 2px 8px;
+    margin: 4px 0;
+  }
+  .mini.has {
+    background: var(--accent-soft);
+    color: var(--accent);
+    gap: 4px;
+  }
+  .mini :global(svg) {
+    width: 13px;
+    height: 13px;
+  }
   .muted {
     color: var(--muted);
     font-size: 0.85rem;

@@ -9,6 +9,9 @@
   import ErrorState from '$lib/ui/ErrorState.svelte';
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
+  import WarningDefenseSheet from './WarningDefenseSheet.svelte';
+  import { profile } from '$lib/shell/profile';
+  import { canWriteDefenses } from '$lib/access';
   import { myWarnings, type MyWarning } from './api';
   import { guarded } from '$lib/nav';
   import { foldSearch } from '$lib/search';
@@ -25,6 +28,8 @@
   let filter: KindFilter = 0;
   let query = '';
   let creating = false;
+  let defending: MyWarning | null = null;
+  $: canDefense = canWriteDefenses($profile.me);
 
   const kindOf = (g: MyWarning['Gravity']): 1 | 2 | 3 => (g === 'severe' ? 3 : g === 'moderate' ? 2 : 1);
 
@@ -129,6 +134,20 @@
                 {r.Description}
               </div>
             {/if}
+            {#if r.Defense}
+              <div class="sidebub defense">
+                <span class="stag">{$t.warningDefense.action}</span>
+                {r.Defense}
+              </div>
+            {/if}
+            {#if canDefense}
+              <div class="bact">
+                <button type="button" class="defbtn" class:has={!!r.Defense} on:click={() => (defending = r)}>
+                  {#if r.Defense}<Icon name="check" />{/if}
+                  {$t.warningDefense.action}
+                </button>
+              </div>
+            {/if}
           </li>
         {/each}
       </ol>
@@ -136,6 +155,20 @@
   </div>
 </div>
 
+{#if defending}
+  <WarningDefenseSheet
+    warningID={defending.ID}
+    title={defending.Title}
+    subtitle={`${defending.StudentName ?? ''}${defending.ClassLabel ? ` · ${defending.ClassLabel}` : ''}`}
+    current={defending.Defense ?? ''}
+    onClose={() => (defending = null)}
+    onSaved={(text) => {
+      const id = defending?.ID;
+      rows = rows.map((x) => (x.ID === id ? { ...x, Defense: text } : x));
+      defending = null;
+    }}
+  />
+{/if}
 {#if creating}
   <WarningNewSheet
     open
@@ -283,6 +316,36 @@
     font-size: 0.8rem;
     color: var(--ink-soft);
     line-height: 1.35;
+  }
+  .sidebub.defense {
+    border-left: 3px solid var(--accent);
+  }
+  .bact {
+    grid-column: 2;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .defbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    border-radius: var(--radius-pill);
+    padding: 6px 12px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    min-height: 36px;
+  }
+  .defbtn.has {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .defbtn :global(svg) {
+    width: 13px;
+    height: 13px;
   }
   .stag {
     display: inline-block;

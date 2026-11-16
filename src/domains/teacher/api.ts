@@ -338,6 +338,11 @@ export interface MyWarning extends Warning {
   StudentSlug?: string;
 }
 
+/** Descargo del estudiante sobre un llamado; texto vacío lo borra. */
+export async function defendWarning(id: string, text: string): Promise<Warning> {
+  return api.post<Warning>(`/v1/warnings/${encodeURIComponent(id)}/defense`, { text });
+}
+
 export async function myWarnings(): Promise<MyWarning[]> {
   return (await api.get<MyWarning[]>('/v1/warnings/mine')) ?? [];
 }

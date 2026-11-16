@@ -45,6 +45,7 @@
   import SessionCorrectSheet from './SessionCorrectSheet.svelte';
   import PermissionSheet from '$lib/ui/PermissionSheet.svelte';
   import StudentAttendance from './StudentAttendance.svelte';
+  import WarningDefenseSheet from '../teacher/WarningDefenseSheet.svelte';
   import { notify } from '$lib/ui/notice';
   import { rangeLabel } from '$lib/schedule';
   import { ApiError } from '$lib/api/types';
@@ -66,6 +67,7 @@
   let correcting: { sessionID: string; mark: string } | null = null;
   let editingWarning: { id: string; gravity: 'mild' | 'moderate' | 'severe'; title: string; description: string } | null = null;
   let warnRevsFor: string | null = null;
+  let defendingWarning: Warning | null = null;
   let warnRevs: Record<string, WarningRevision[]> = {};
   let alerts: AcademicAlert[] = [];
   let reviewingAlert: string | null = null;
@@ -598,8 +600,14 @@
                     <strong>{w.Title}</strong>
                     <span>{momentDay(w.HappenedAt)}{#if w.ClassLabel} · {w.ClassLabel}{/if}{#if w.AuthorName} · {w.AuthorName}{/if}</span>
                     {#if w.Description}<small>{w.Description}</small>{/if}
+                    {#if w.Defense}<small class="wdefense">{$t.warningDefense.label(w.Defense)}</small>{/if}
                   </div>
                   <div class="rowbtns">
+                    {#if staffDefense}
+                      <button type="button" class={`btn btn-sm ${w.Defense ? 'has' : ''}`} on:click={() => (defendingWarning = w)}>
+                        {$t.warningDefense.action}
+                      </button>
+                    {/if}
                     {#if staffWrite}
                       <button
                         type="button"
@@ -643,6 +651,21 @@
           />
         {/if}
       </Sheet>
+
+      {#if defendingWarning}
+        <WarningDefenseSheet
+          warningID={defendingWarning.ID}
+          title={defendingWarning.Title}
+          subtitle={momentDay(defendingWarning.HappenedAt)}
+          current={defendingWarning.Defense ?? ''}
+          onClose={() => (defendingWarning = null)}
+          onSaved={(text) => {
+            const wid = defendingWarning?.ID;
+            warnings = warnings.map((x) => (x.ID === wid ? { ...x, Defense: text } : x));
+            defendingWarning = null;
+          }}
+        />
+      {/if}
 
       {#if correcting}
         <SessionCorrectSheet
@@ -764,6 +787,15 @@
 </AdminShell>
 
 <style>
+  .wdefense {
+    color: var(--ink-soft) !important;
+    border-left: 3px solid var(--accent);
+    padding-left: 6px;
+  }
+  .rowbtns .btn.has {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
   .sheet {
     background: var(--surface);
     border: 1px solid var(--line);
