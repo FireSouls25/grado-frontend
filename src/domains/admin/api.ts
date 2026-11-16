@@ -457,6 +457,8 @@ export interface ClassSessionCard {
   ID: string;
   Date: string;
   ClassLabel: string;
+  ClassGroupID?: string;
+  SubjectID?: string;
   Period: number;
   Subject: string;
   Teacher: string;
@@ -510,6 +512,7 @@ export interface Defense {
 export interface SessionDetailData {
   Session: {
     ID: string;
+    ClassGroupID?: string;
     Date: string;
     ClassLabel: string;
     Period: number;

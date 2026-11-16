@@ -9,6 +9,7 @@
   import { t } from '$lib/i18n';
   import Icon from '$lib/ui/Icon.svelte';
   import { calendarDate } from '$lib/dates';
+  import { isoOf, dayOf, mondayOf, kindOf as kindIn, type DayKind } from '$lib/calendar';
   import { rangeLabel } from '$lib/schedule';
   import { guarded } from '$lib/nav';
   import SessionRevisionTrail from './SessionRevisionTrail.svelte';
@@ -50,19 +51,6 @@
   let years: SchoolYear[] = [];
   let loading = true;
 
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const isoOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const dayOf = (value: string) => {
-    const d = calendarDate(value);
-    return d ? isoOf(d) : '';
-  };
-  function mondayOf(d: Date): Date {
-    const m = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const wd = m.getDay();
-    m.setDate(m.getDate() - (wd === 0 ? 6 : wd - 1));
-    return m;
-  }
-
   let now = new Date();
   $: todayISO = isoOf(now);
   $: nowMin = now.getHours() * 60 + now.getMinutes();
@@ -92,19 +80,7 @@
   }
 
   // --- Calendario escolar: festivos, días sin clase y vacaciones ----------
-  type DayKind = 'school' | 'holiday' | 'noclass' | 'vacation' | 'outside';
-  function yearOf(iso: string): SchoolYear | undefined {
-    return years.find((y) => dayOf(y.StartDate) <= iso && iso <= dayOf(y.EndDate));
-  }
-  function kindOf(iso: string): DayKind {
-    const y = yearOf(iso);
-    if (!y) return years.length === 0 ? 'school' : 'outside';
-    if ((y.Holidays ?? []).some((h) => dayOf(h) === iso)) return 'holiday';
-    if ((y.NoClassDays ?? []).some((h) => dayOf(h) === iso)) return 'noclass';
-    const ranges = y.PeriodRanges ?? [];
-    if (ranges.length > 0 && !ranges.some((r) => dayOf(r.Start) <= iso && iso <= dayOf(r.End))) return 'vacation';
-    return 'school';
-  }
+  const kindOf = (iso: string): DayKind => kindIn(years, iso);
   function kindLabel(k: DayKind): string {
     if (k === 'holiday') return $t.studentAttendance.holiday;
     if (k === 'noclass') return $t.studentAttendance.noClass;

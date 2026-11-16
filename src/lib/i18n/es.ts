@@ -194,6 +194,32 @@ export const es = {
     clear: 'Borrar descargo',
     label: (text: string) => `Descargo: ${text}`
   },
+  sessionHistory: {
+    week: 'Semana',
+    month: 'Mes',
+    prev: 'Anterior',
+    next: 'Siguiente',
+    thisMonth: 'Este mes',
+    salon: 'Salón',
+    calledShort: 'llamadas',
+    missingShort: 'sin lista',
+    onlyMissing: 'Solo salones con clases sin lista',
+    calledTip: 'Llamadas a lista registradas en el rango',
+    missingTip: 'Clases del horario que ya pasaron sin llamado a lista',
+    pendingTip: 'Clases del horario que aún no llegan',
+    absentTip: 'Faltas y evasiones registradas en el rango',
+    missingCount: (n: number) => (n === 1 ? '1 sin lista' : `${n} sin lista`),
+    absentCount: (n: number) => (n === 1 ? '1 falta' : `${n} faltas`),
+    cellTip: (done: number, total: number, miss: number) =>
+      `${done} de ${total} clases con lista${miss ? ` · ${miss} sin lista` : ''}`,
+    noBlocks: 'Sin clases en el horario.',
+    homeroom: 'Dirección de grupo',
+    monthHint: 'Cada día muestra clases con lista sobre clases del horario. Toca un día para ver su semana.',
+    noGroupsTitle: 'Sin salones para ese año',
+    noGroupsBody: (year: number) => `No hay salones creados en ${year}. Cambia de semana o mes para ver otro año.`,
+    allCalledTitle: 'Todo al día',
+    allCalledBody: 'Ningún salón tiene clases sin lista en este rango.'
+  },
   studentAttendance: {
     title: 'Asistencia',
     weekTab: 'Semana',
