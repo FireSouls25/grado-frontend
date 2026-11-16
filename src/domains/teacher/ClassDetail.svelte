@@ -11,7 +11,7 @@
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
-  import { classRoster, isMissing, openSession, recordMark, recordUniform, sessionMarks, sessionUniform, todaySessions } from './api';
+  import { classRoster, groupPermits, isMissing, openSession, recordMark, recordUniform, sessionMarks, sessionUniform, todaySessions } from './api';
   import { groupsByYear, listSubjects, sessionDetail, recordDefense } from '../admin/api';
   import Sheet from '$lib/ui/Sheet.svelte';
   import { notify } from '$lib/ui/notice';
@@ -90,6 +90,11 @@
   let uniformOffInit = new Set<string>();
   let permNotes: Record<string, string> = {};
   let permNotesInit: Record<string, string> = {};
+  // Permiso previo concedido por secretaría/administración antes de la
+  // clase. El estudiante sigue en la nómina, pero queda bloqueado: el
+  // docente no puede marcar presente ni falta porque el permiso manda.
+  let locked = new Set<string>();
+  let lockReasons: Record<string, string> = {};
   let groupLabel = '';
   let subjectName = '';
   let sessionID = '';
@@ -139,6 +144,7 @@
       evasion = new Set();
       evasionInit = new Set();
       await resumeToday();
+      await loadPermits();
       void loadDefenses();
     } catch (err) {
       // Enlace a un salón que no existe (o un id/slug mal copiado): no se
@@ -209,6 +215,46 @@
     }
   }
 
+  // Permisos previos del salón para hoy: quien ya está cubierto entra en
+  // la nómina como "Con permiso" y sus marcas quedan bloqueadas.
+  async function loadPermits() {
+    try {
+      const list = await guarded(() => groupPermits(groupID, todayKey || dateKey()));
+      const next = new Set<string>();
+      const reasons: Record<string, string> = {};
+      for (const p of list ?? []) {
+        // Un permiso con materia solo cubre esa clase.
+        if (p.SubjectID && subjectParam && p.SubjectID !== subjectParam) continue;
+        next.add(p.StudentID);
+        reasons[p.StudentID] = p.Reason;
+      }
+      locked = next;
+      lockReasons = reasons;
+      const p = new Set(present);
+      const l = new Set(late);
+      const v = new Set(evasion);
+      const pm = new Set(perm);
+      for (const id of locked) {
+        p.delete(id);
+        l.delete(id);
+        v.delete(id);
+        pm.add(id);
+        permNotes[id] = reasons[id] ?? '';
+      }
+      present = p;
+      late = l;
+      evasion = v;
+      perm = pm;
+      presentInit = new Set(p);
+      lateInit = new Set(l);
+      evasionInit = new Set(v);
+      permInit = new Set(pm);
+      permNotesInit = Object.fromEntries([...pm].map((id) => [id, permNotes[id] ?? '']));
+    } catch {
+      /* sin permisos legibles: la lista sigue como antes */
+    }
+  }
+
   // Nombre del salon y de la materia para no exponer ids internos:
   // el docente ya puede leer salones y el catalogo de materias.
   async function resolveLabels() {
@@ -239,6 +285,8 @@
   }
 
   function pick(id: string, mark: RollMark) {
+    // El permiso previo manda: sus botones están bloqueados.
+    if (locked.has(id)) return;
     if (mark === '') present.add(id);
     else present.delete(id);
     if (mark === 'late') late.add(id);
@@ -298,21 +346,21 @@
   // a quien falta; el guardado sigue siendo el de siempre.
   function markAllPresent() {
     const next = new Set<string>();
-    for (const r of roster) next.add(r.StudentID);
+    for (const r of roster) if (!locked.has(r.StudentID)) next.add(r.StudentID);
     present = next;
     late = new Set();
     evasion = new Set();
-    perm = new Set();
-    permNotes = {};
+    perm = new Set(locked);
+    permNotes = Object.fromEntries([...locked].map((id) => [id, lockReasons[id] ?? '']));
     feedback = '';
   }
 
   function markAllAbsent() {
     present = new Set<string>();
-    late = new Set<string>();
-    evasion = new Set<string>();
-    perm = new Set();
-    permNotes = {};
+    late = new Set();
+    evasion = new Set();
+    perm = new Set(locked);
+    permNotes = Object.fromEntries([...locked].map((id) => [id, lockReasons[id] ?? '']));
     feedback = '';
   }
 
@@ -374,6 +422,9 @@
       const noteOf = (m: Set<string>, id: string): string =>
         m.has(id) ? (permNotes[id] ?? '') : '';
       for (const r of roster) {
+        // El permiso previo se aplica solo al abrir la sesión: aquí no se
+        // envía ninguna marca por ese estudiante.
+        if (locked.has(r.StudentID)) continue;
         // Marca equivalente de cada estado (presente = "").
         const wasMark = markOf(presentInit, lateInit, evasionInit, permInit, r.StudentID);
         const isMark = markOf(present, late, evasion, perm, r.StudentID);
@@ -542,6 +593,12 @@
             <span class="countpill">{$t.attendance.studentsCount(roster.length)}</span>
           </div>
           <p class="hint-top">{$t.attendance.listHint}</p>
+          {#if locked.size > 0}
+            <p class="locknote" role="note">
+              <Icon name="shield" />
+              {$t.attendance.priorPermitNote(locked.size)}
+            </p>
+          {/if}
           <div class="bulk">
             <button type="button" class="btn btn-sm" on:click={markAllPresent}>
               <Icon name="check" /> {$t.attendance.markAllPresent}
@@ -556,11 +613,22 @@
               {@const isLate = late.has(r.StudentID)}
               {@const isEvasion = evasion.has(r.StudentID)}
               {@const isPerm = perm.has(r.StudentID)}
+              {@const isLocked = locked.has(r.StudentID)}
               {@const cur = inPresent ? '' : isLate ? 'late' : isEvasion ? 'evasion' : isPerm ? 'absence-permission' : 'absence'}
-              <li>
+              <li class:locked={isLocked}>
                 <span class="who">
                   <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
                   <span class="name"><strong>{r.Surnames}, {r.Names}</strong><small>{r.DocumentID}</small></span>
+                  {#if isLocked}
+                    <span
+                      class="lockchip"
+                      title={lockReasons[r.StudentID]
+                        ? $t.attendance.priorPermitWithReason(lockReasons[r.StudentID])
+                        : $t.attendance.priorPermitTag}
+                    >
+                      <Icon name="shield" /> {$t.attendance.priorPermitTag}
+                    </span>
+                  {/if}
                 </span>
                 <label class="uniform-check" title={$t.attendance.uniformLabel}>
                   <input
@@ -575,6 +643,7 @@
                     type="button"
                     class:present={cur === ''}
                     aria-pressed={cur === ''}
+                    disabled={isLocked}
                     on:click={() => pick(r.StudentID, '')}
                   >
                     {$t.studentSummary.presences}
@@ -583,6 +652,7 @@
                     type="button"
                     class:absent={cur === 'absence'}
                     aria-pressed={cur === 'absence'}
+                    disabled={isLocked}
                     on:click={() => pick(r.StudentID, 'absence')}
                   >
                     {$t.roster.absentShort}
@@ -591,6 +661,7 @@
                     type="button"
                     class:evasion={cur === 'evasion'}
                     aria-pressed={cur === 'evasion'}
+                    disabled={isLocked}
                     on:click={() => pick(r.StudentID, 'evasion')}
                   >
                     {$t.roster.evasion}
@@ -599,6 +670,7 @@
                     type="button"
                     class:late={cur === 'late'}
                     aria-pressed={cur === 'late'}
+                    disabled={isLocked}
                     on:click={() => pick(r.StudentID, 'late')}
                   >
                     {$t.studentSummary.markLate}
@@ -883,6 +955,24 @@
     font-size: 0.78rem;
     margin-bottom: 10px;
   }
+  .locknote {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--m-permission-bg);
+    color: var(--m-permission);
+    border: 1px solid var(--m-permission);
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .locknote :global(svg) {
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
   .ledger {
     list-style: none;
     margin: 0;
@@ -901,6 +991,28 @@
     border-radius: var(--radius-chip);
     padding: 10px 14px;
     min-height: 56px;
+  }
+  .ledger li.locked {
+    border-color: var(--m-permission);
+    background: var(--m-permission-bg);
+  }
+  .lockchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface);
+    color: var(--m-permission);
+    border: 1px solid var(--m-permission);
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .lockchip :global(svg) {
+    width: 13px;
+    height: 13px;
+    flex: none;
   }
   .avatar {
     flex: none;
@@ -991,6 +1103,10 @@
   .seg button.late {
     background: var(--chip-yellow-bg);
     color: var(--chip-yellow-ink);
+  }
+  .seg button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
   .dot.late {
     background: var(--chip-yellow-ink);

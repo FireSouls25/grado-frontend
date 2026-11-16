@@ -12,7 +12,7 @@
   import TeacherShell from './TeacherShell.svelte';
   import WarningNewSheet from './WarningNewSheet.svelte';
   import AcademicAlertSheet from './AcademicAlertSheet.svelte';
-  import { daySchedule, isMissing, type TeacherClass } from './api';
+  import { daySchedule, isMissing, omittedRollcalls, type TeacherClass } from './api';
   import { loadRollcall } from './rollcall';
   import { calendarDate } from '$lib/dates';
   import { schoolDay } from '$lib/schoolDay';
@@ -73,6 +73,15 @@
   let loadError: unknown = null;
   let baseList: AgendaItem[] = [];
   let backendMissing = false;
+  // Día del servidor y bloques que ya terminaron sin llamado a lista.
+  let todayKey = '';
+  let omittedKeys = new Set<string>();
+
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  function keyOf(d: Date): string {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+  $: selectedDateKey = weekDays[selectedDay] ? keyOf(weekDays[selectedDay]) : '';
 
   $: weekdayLabel = (d: Date) =>
     d.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', '');
@@ -84,6 +93,7 @@
     try {
       try {
         const key = await schoolDay();
+        todayKey = key;
         const parsed = calendarDate(key);
         weekBase = parsed ? new Date(parsed) : null;
         const js = parsed?.getDay() ?? -1;
@@ -108,6 +118,7 @@
           Room: c.Room ?? '',
           Grade: c.ClassLabel
         }));
+      await loadOmitted();
     } catch (err) {
       if (err instanceof ApiError && isMissing(err)) {
         // Backend sin ruta todavía: vacío honesto, no error.
@@ -119,6 +130,28 @@
     } finally {
       loading = false;
     }
+  }
+
+  // Bloques del día ya terminados que no tienen ningún llamado: la
+  // agenda los pinta como omitidos en vez de dejarlos en silencio.
+  async function loadOmitted() {
+    omittedKeys = new Set();
+    const key = currentDayKey();
+    if (!todayKey || key > todayKey) return;
+    try {
+      const list = await omittedRollcalls(key);
+      omittedKeys = new Set((list ?? []).map((o) => `${o.ClassGroupID}|${o.Start}`));
+    } catch {
+      omittedKeys = new Set();
+    }
+  }
+
+  // Clave del día seleccionado en la semana mostrada.
+  function currentDayKey(): string {
+    const base = weekBase ?? new Date();
+    const d = new Date(base);
+    d.setDate(d.getDate() + selectedDay);
+    return keyOf(d);
   }
 
   onMount(() => {
@@ -165,7 +198,10 @@
   }
 
   function statusOf(item: AgendaItem): 'done' | 'now' | 'next' {
-    if (selectedDay !== todayIdx || todayIdx === -1) return 'next';
+    const key = selectedDateKey;
+    if (!key || !todayKey) return 'next';
+    if (key < todayKey) return 'done';
+    if (key > todayKey) return 'next';
     const now = new Date().getHours() * 60 + new Date().getMinutes();
     if (now > minutesOf(item.End)) return 'done';
     if (now >= minutesOf(item.Start)) return 'now';
@@ -179,7 +215,11 @@
       )
     : baseList;
 
-  $: doneCount = selectedDay === todayIdx ? baseList.filter((c) => statusOf(c) === 'done').length : 0;
+  $: doneCount =
+    baseList.filter(
+      (c) => statusOf(c) === 'done' && !omittedKeys.has(`${c.GroupID}|${c.Start}`)
+    ).length;
+  $: omittedCount = selectedDateKey && selectedDateKey <= todayKey ? omittedKeys.size : 0;
 
   function openClass(item: AgendaItem) {
     const period = periodOf(item);
@@ -204,7 +244,7 @@
   // Resumen local del llamado de hoy por tarjeta (solo si el docente
   // guardó el llamado de ese bloque en este dispositivo hoy).
   $: rollsOfToday =
-    selectedDay === todayIdx && todayIdx !== -1
+    selectedDateKey === todayKey
       ? new Map(visible.map((c) => [`${c.GroupID}|${c.Start}`, loadRollcall(c.GroupID, periodOf(c))]))
       : new Map<string, null>();
 </script>
@@ -230,6 +270,11 @@
     <div class="stats">
       <span class="statpill num">{$t.agenda.todayValue(baseList.length)}</span>
       <span class="statpill num">{$t.agenda.registeredValue(doneCount, baseList.length)}</span>
+      {#if omittedCount > 0}
+        <span class="statpill warn" title={$t.agenda.omittedTooltip}>
+          {$t.agenda.omittedSummary(omittedCount)}
+        </span>
+      {/if}
     </div>
     <div class="quick-actions">
       <button type="button" class="btn btn-sm" on:click={() => (warnGlobal = true)}>
@@ -280,8 +325,9 @@
       <ol class="timeline">
         {#each visible as item (item.GroupID + item.Start)}
           {@const st = statusOf(item)}
+          {@const omitted = omittedKeys.has(`${item.GroupID}|${item.Start}`)}
           {@const rec = rollsOfToday.get(`${item.GroupID}|${item.Start}`) ?? null}
-          <li class={st}>
+          <li class={st} class:omitted>
             <span class="rail" aria-hidden="true"><span class="pip"></span></span>
             <div class="tblock">
               <div>
@@ -292,6 +338,11 @@
                 <span class="factpill"><Icon name="list" /> {$t.agenda.gradeLabel(item.Grade)}</span>
                 {#if item.Room}
                   <span class="factpill"><Icon name="pin" /> {$t.agenda.roomLabel(item.Room)}</span>
+                {/if}
+                {#if omitted}
+                  <span class="factpill omitted" title={$t.agenda.omittedTooltip}>
+                    <Icon name="warn" /> {$t.agenda.omittedTag}
+                  </span>
                 {/if}
                 {#if rec}
                   <span
@@ -309,8 +360,8 @@
                 {/if}
               </div>
             </div>
-            <span class={`st ${st}`}>
-              {st === 'done' ? $t.agenda.stateDone : st === 'now' ? $t.agenda.stateNow : $t.agenda.stateNext}
+            <span class={`st ${omitted ? 'omitted' : st}`}>
+              {omitted ? $t.agenda.stateOmitted : st === 'done' ? $t.agenda.stateDone : st === 'now' ? $t.agenda.stateNow : $t.agenda.stateNext}
             </span>
             <div class="rowbtns">
               <button type="button" class={st === 'now' ? 'btn btn-primary btn-sm' : 'btn btn-sm'} on:click={() => openClass(item)}>
@@ -625,8 +676,25 @@
     color: var(--muted);
     margin-left: 2px;
   }
+  .factpill.omitted {
+    background: var(--g-grave-bg);
+    border-color: transparent;
+    color: var(--g-grave-ink);
+  }
+  .statpill.warn {
+    background: var(--g-grave-bg);
+    border-color: transparent;
+    color: var(--g-grave-ink);
+  }
   li.done {
     opacity: 0.65;
+  }
+  li.omitted {
+    opacity: 1;
+  }
+  li.omitted .pip {
+    background: var(--g-grave-ink);
+    border-color: var(--g-grave-ink);
   }
   .st {
     grid-column: 2;
@@ -647,6 +715,12 @@
   }
   .st.done {
     opacity: 0.75;
+  }
+  .st.omitted {
+    background: var(--g-grave-bg);
+    border-color: transparent;
+    color: var(--g-grave-ink);
+    opacity: 1;
   }
   .rowbtns {
     grid-column: 2;

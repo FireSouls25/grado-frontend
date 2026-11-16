@@ -26,10 +26,16 @@
     sessionDetail,
     mergeTrail,
     warningRevisions,
+    groupsByYear,
+    studentPermits,
+    grantPermit,
+    revokePermit,
     type StudentReport,
     type SessionRevisionRow,
     type WarningRevision,
-    type AcademicAlert
+    type AcademicAlert,
+    type PriorPermit,
+    type YearGroup
   } from './api';
   import WarningCorrectForm from './WarningCorrectForm.svelte';
   import WarningRevisionTrail from './WarningRevisionTrail.svelte';
@@ -58,6 +64,16 @@
   let warnRevs: Record<string, WarningRevision[]> = {};
   let alerts: AcademicAlert[] = [];
   let reviewingAlert: string | null = null;
+  // Permisos previos: secretaría/administración cubren al estudiante antes
+  // de la clase. La lista del docente lo muestra bloqueado.
+  let permits: PriorPermit[] = [];
+  let permitOpen = false;
+  let permitDate = '';
+  let permitGroupID = '';
+  let permitReason = '';
+  let permitSaving = false;
+  let permitError = '';
+  let permitGroups: YearGroup[] = [];
   let warnRevsLoading = false;
   let trailFor: string | null = null;
   let lateNotifying = false;
@@ -191,6 +207,84 @@
     defenseFor = { sessionID };
   }
 
+  // --- Permisos previos --------------------------------------------------
+  // El alta la hace secretaría/administración (record-defenses). El
+  // permiso deja al estudiante bloqueado en la lista del docente.
+  function todayISO(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function groupLabelOf(g: YearGroup): string {
+    return g.ClassLabel || `${g.Grade}-${g.GroupNo}`;
+  }
+
+  async function openPermit() {
+    permitOpen = true;
+    permitDate = todayISO();
+    permitError = '';
+    permitReason = '';
+    permitGroupID = profile?.ClassID ?? '';
+    if (permitGroups.length === 0) {
+      try {
+        permitGroups = (await guarded(() => groupsByYear(currentYear))) ?? [];
+      } catch {
+        permitGroups = [];
+      }
+    }
+    if (!permitGroupID && permitGroups.length > 0) permitGroupID = permitGroups[0].GroupID;
+  }
+
+  async function savePriorPermit() {
+    permitError = '';
+    if (!permitDate) {
+      permitError = $t.studentSummary.priorPermitNeedDate;
+      return;
+    }
+    if (!permitGroupID) {
+      permitError = $t.studentSummary.priorPermitNeedGroup;
+      return;
+    }
+    if (!permitReason.trim()) {
+      permitError = $t.studentSummary.priorPermitNeedReason;
+      return;
+    }
+    if (permitSaving) return;
+    permitSaving = true;
+    try {
+      await guarded(() =>
+        grantPermit({
+          studentID: id,
+          classGroupID: permitGroupID,
+          date: permitDate,
+          reason: permitReason.trim()
+        })
+      );
+      notify($t.studentSummary.priorPermitSaved);
+      permitOpen = false;
+      await load();
+    } catch (err) {
+      permitError = err instanceof ApiError ? err.message : $t.common.loadError;
+    } finally {
+      permitSaving = false;
+    }
+  }
+
+  async function revokePrior(p: PriorPermit) {
+    if (acting) return;
+    acting = p.ID;
+    try {
+      await guarded(() => revokePermit(p.ID));
+      notify($t.studentSummary.priorPermitRevoked);
+      await load();
+    } catch (err) {
+      notify(err instanceof ApiError ? err.message : $t.common.loadError);
+    } finally {
+      acting = null;
+    }
+  }
+
   async function saveDefense(draft: string) {
     if (!defenseFor || acting) return;
     acting = defenseFor.sessionID + 'defense';
@@ -266,6 +360,13 @@
       report = r;
       warnings = w;
       alerts = (al ?? []).slice().sort((a, b) => (a.CreatedAt < b.CreatedAt ? 1 : -1));
+      // Los permisos previos son un extra: si el endpoint aún no está,
+      // la ficha sigue funcionando sin ellos.
+      try {
+        permits = (await guarded(() => studentPermits(id))) ?? [];
+      } catch {
+        permits = [];
+      }
       state = 'ready';
     } catch (err) {
       loadError = err;
@@ -393,6 +494,53 @@
               </li>
             {/each}
           </ul>
+        {/if}
+      </section>
+
+      <section class="card" aria-label={$t.studentSummary.priorPermitSection}>
+        <div class="row-head">
+          <h2>{$t.studentSummary.priorPermitSection} ({permits.length})</h2>
+          {#if staffDefense}
+            <button type="button" class="btn btn-sm" on:click={openPermit}>
+              {$t.studentSummary.priorPermitAction}
+            </button>
+          {/if}
+        </div>
+        {#if permits.length === 0}
+          <p class="muted">{$t.studentSummary.priorPermitEmpty}</p>
+        {:else}
+          <ul class="rows">
+            {#each permits as p (p.ID)}
+              <li>
+                <div class="row-top">
+                  <span class="mk absence-permission">{$t.attendance.priorPermitTag}</span>
+                  <div class="meta">
+                    <strong>{momentDay(p.Date)} · {p.ClassLabel}</strong>
+                    <span>{p.SubjectName || $t.studentSummary.priorPermitAllDay}</span>
+                    <small>{p.Reason}</small>
+                    {#if p.CreatedByName}
+                      <small class="priorby">{$t.studentSummary.priorPermitBy(p.CreatedByName)}</small>
+                    {/if}
+                  </div>
+                  {#if staffDefense}
+                    <div class="rowbtns">
+                      <button
+                        type="button"
+                        class="btn btn-sm"
+                        disabled={acting === p.ID}
+                        on:click={() => revokePrior(p)}
+                      >
+                        {$t.studentSummary.priorPermitRevoke}
+                      </button>
+                    </div>
+                  {/if}
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+        {#if staffDefense}
+          <p class="lockhint">{$t.studentSummary.priorPermitLockNote}</p>
         {/if}
       </section>
 
@@ -533,6 +681,52 @@
         onClose={() => (permFor = null)}
         onSave={savePermReason}
       />
+
+      <Sheet
+        open={permitOpen}
+        title={$t.studentSummary.priorPermitTitle}
+        onClose={() => (permitOpen = false)}
+      >
+        <div class="permit-form">
+          <p class="muted">{$t.studentSummary.priorPermitSubtitle}</p>
+          <label class="field">
+            <span>{$t.studentSummary.priorPermitDate}</span>
+            <input type="date" bind:value={permitDate} />
+          </label>
+          <label class="field">
+            <span>{$t.studentSummary.priorPermitGroup}</span>
+            <select bind:value={permitGroupID}>
+              {#each permitGroups as g (g.GroupID)}
+                <option value={g.GroupID}>{groupLabelOf(g)}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="field">
+            <span>{$t.studentSummary.priorPermitReason}</span>
+            <textarea
+              rows="3"
+              bind:value={permitReason}
+              placeholder={$t.studentSummary.priorPermitReasonPlaceholder}
+            ></textarea>
+          </label>
+          {#if permitError}
+            <p class="error" role="alert">{permitError}</p>
+          {/if}
+          <div class="permit-actions">
+            <button type="button" class="btn" on:click={() => (permitOpen = false)}>
+              {$t.common.cancel}
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              disabled={permitSaving}
+              on:click={savePriorPermit}
+            >
+              {permitSaving ? $t.studentSummary.priorPermitSaving : $t.studentSummary.priorPermitSave}
+            </button>
+          </div>
+        </div>
+      </Sheet>
     {/if}
   </div>
 </AdminShell>
@@ -731,5 +925,47 @@
     color: var(--danger);
     font-size: 0.85rem;
     font-weight: 600;
+  }
+  .priorby {
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+  .lockhint {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--m-permission);
+    font-weight: 600;
+  }
+  .permit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .permit-form .muted {
+    margin: 0;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .field input,
+  .field select,
+  .field textarea {
+    font: inherit;
+    font-weight: 400;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    padding: 8px 10px;
+  }
+  .permit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
   }
 </style>

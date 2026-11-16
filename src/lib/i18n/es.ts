@@ -215,7 +215,28 @@ export const es = {
     defenseSaved: 'Descargo guardado.',
     defenseWithReason: (reason: string) => `Con descargo: ${reason}`,
     warningsTitle: 'Llamados de atención',
-    warningsEmpty: 'Sin llamados de atención.'
+    warningsEmpty: 'Sin llamados de atención.',
+    priorPermitAction: 'Permiso previo',
+    priorPermitTitle: 'Permiso previo',
+    priorPermitSubtitle: 'Cubre al estudiante antes de la clase: la lista lo mostrará bloqueado.',
+    priorPermitSection: 'Permisos previos',
+    priorPermitEmpty: 'Sin permisos previos registrados.',
+    priorPermitDate: 'Fecha',
+    priorPermitGroup: 'Salón',
+    priorPermitReason: 'Motivo',
+    priorPermitAllDay: 'Todo el día',
+    priorPermitReasonPlaceholder: 'Motivo del permiso (cita médica, trámite familiar…)…',
+    priorPermitNeedDate: 'Elige la fecha del permiso.',
+    priorPermitNeedGroup: 'Elige el salón del permiso.',
+    priorPermitNeedReason: 'El permiso exige un motivo.',
+    priorPermitSave: 'Guardar permiso',
+    priorPermitSaving: 'Guardando…',
+    priorPermitSaved: 'Permiso previo guardado.',
+    priorPermitRevoke: 'Revocar',
+    priorPermitRevoked: 'Permiso previo revocado.',
+    priorPermitBy: (author: string) => `Concedido por ${author}`,
+    priorPermitLockNote:
+      'El docente verá al estudiante en la lista, pero no podrá marcarlo presente ni falta mientras el permiso esté vigente.'
   },
   nav: {
     today: 'Hoy',
@@ -236,6 +257,11 @@ export const es = {
     stateDone: 'Finalizada',
     stateNow: 'Ahora',
     stateNext: 'Siguiente',
+    stateOmitted: 'Omitida',
+    omittedTag: 'No se llamó lista',
+    omittedTooltip: 'La clase ya terminó y no se registró el llamado a lista.',
+    omittedSummary: (count: number) =>
+      count === 1 ? '1 clase sin lista' : `${count} clases sin lista`,
     openList: 'Abrir lista',
     warnAction: 'Llamado',
     allGroups: 'Todos mis salones',
@@ -357,6 +383,12 @@ export const es = {
     absentLabel: 'Ausentes',
     permissionLabel: 'Con permiso',
     permissionHint: 'Pulsa para alternar entre falta injustificada y falta con permiso.',
+    priorPermitTag: 'Con permiso',
+    priorPermitWithReason: (reason: string) => `Permiso previo: ${reason}`,
+    priorPermitNote: (count: number) =>
+      count === 1
+        ? '1 estudiante ya tiene permiso previo: sus marcas están bloqueadas.'
+        : `${count} estudiantes ya tienen permiso previo: sus marcas están bloqueadas.`,
     lateHint: 'Pulsa para alternar entre falta injustificada y atraso.',
     lateLabel: 'Atrasados',
     uniformLabel: 'Uniforme',
