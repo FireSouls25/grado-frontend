@@ -524,6 +524,8 @@ export interface SessionDetailData {
   Revisions: SessionRevisionRow[];
   Uniform?: Record<string, boolean>;
   UniformHistory?: SessionRevisionRow[];
+  /** Permisos puestos por la oficina en esta llamada: id → motivo. */
+  OfficeLocks?: Record<string, string>;
   Defenses?: Record<string, Defense>;
 }
 

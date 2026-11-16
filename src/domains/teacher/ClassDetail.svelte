@@ -484,6 +484,13 @@
     try {
       const d = await guarded(() => sessionDetail(sessionID));
       defenses = Object.fromEntries(Object.entries(d?.Defenses ?? {}).map(([id, v]) => [id, v.Text]));
+      // Permisos que la secretaría puso sobre esta llamada: mandan igual
+      // que un permiso previo (el servidor rechaza cambiarlos).
+      const office = d?.OfficeLocks ?? {};
+      if (Object.keys(office).length > 0) {
+        locked = new Set([...locked, ...Object.keys(office)]);
+        lockReasons = { ...lockReasons, ...Object.fromEntries(Object.entries(office).filter(([, v]) => v)) };
+      }
     } catch {
       // Sin detalle de la llamada el botón sigue disponible, solo vacío.
     }
