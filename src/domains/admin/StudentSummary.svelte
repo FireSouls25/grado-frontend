@@ -44,7 +44,7 @@
   import WarningRevisionTrail from './WarningRevisionTrail.svelte';
   import SessionCorrectSheet from './SessionCorrectSheet.svelte';
   import PermissionSheet from '$lib/ui/PermissionSheet.svelte';
-  import SessionRevisionTrail from './SessionRevisionTrail.svelte';
+  import StudentAttendance from './StudentAttendance.svelte';
   import { notify } from '$lib/ui/notice';
   import { rangeLabel } from '$lib/schedule';
   import { ApiError } from '$lib/api/types';
@@ -79,6 +79,8 @@
   let permitSaving = false;
   let permitError = '';
   let permitGroups: YearGroup[] = [];
+  // Salón actual del estudiante (id), resuelto desde su ficha.
+  let studentGroup = '';
   let warnRevsLoading = false;
   let trailFor: string | null = null;
   let lateNotifying = false;
@@ -111,18 +113,10 @@
 
   $: fullName = profile ? `${profile.Surnames}, ${profile.Names}` : '';
   $: sessions = report?.Sessions ?? [];
-  $: marks = sessions.filter((s) => s.Mark && s.Mark !== '').slice().reverse();
   $: totalSessions = report ? report.Sessions.length : 0;
   $: rate = report && totalSessions > 0 ? Math.round(((report.Presences + report.Excused + report.Lates) / totalSessions) * 100) : null;
   $: sortedWarnings = warnings.slice().sort((a, b) => (b.HappenedAt < a.HappenedAt ? -1 : 1));
 
-  function markName(mark: string): string {
-    if (mark === 'absence') return $t.roster.absentShort;
-    if (mark === 'absence-permission') return $t.roster.permission;
-    if (mark === 'evasion') return $t.studentSummary.markEvasion;
-    if (mark === 'late') return $t.studentSummary.markLate;
-    return mark;
-  }
 
   function gravityName(g: Warning['Gravity']): string {
     if (g === 'severe') return $t.roster.warnGravitySevere;
@@ -142,9 +136,6 @@
   let permFor: { sessionID: string } | null = null;
   let defenseFor: { sessionID: string } | null = null;
 
-  function defenseOf(st: { SessionID: string }): string {
-    return report?.Defenses?.[st.SessionID] ?? '';
-  }
 
   async function togglePermission(sessionID: string, mark: string) {
     if (mark === 'absence') {
@@ -311,21 +302,25 @@
     permitSubjects = permitSubjects.includes(sid) ? permitSubjects.filter((x) => x !== sid) : [...permitSubjects, sid];
   }
 
-  async function openPermit() {
+  async function openPermit(date = '', subjectID = '') {
     permitOpen = true;
-    permitDate = todayISO();
+    permitDate = date || todayISO();
     permitError = '';
     permitReason = '';
     permitSubjects = [];
-    if (permitGroups.length === 0) {
-      try {
-        permitGroups = (await guarded(() => groupsByYear(currentYear))) ?? [];
-      } catch {
-        permitGroups = [];
-      }
-    }
+    await ensureGroups();
     permitGroupID = studentGroupID();
     await loadPermitClasses();
+    if (subjectID && permitClasses.some((c) => c.subjectID === subjectID)) permitSubjects = [subjectID];
+  }
+
+  async function ensureGroups() {
+    if (permitGroups.length > 0) return;
+    try {
+      permitGroups = (await guarded(() => groupsByYear(currentYear))) ?? [];
+    } catch {
+      permitGroups = [];
+    }
   }
 
   async function savePriorPermit() {
@@ -464,6 +459,8 @@
       } catch {
         permits = [];
       }
+      await ensureGroups();
+      studentGroup = studentGroupID();
       state = 'ready';
     } catch (err) {
       loadError = err;
@@ -521,125 +518,25 @@
         {/if}
       </section>
 
-      <section class="card" aria-label={$t.studentSummary.marksTitle}>
-        <div class="row-head">
-          <h2>{$t.studentSummary.marksTitle} ({marks.length})</h2>
-        </div>
-        {#if marks.length === 0}
-          <p class="muted">{$t.studentSummary.marksEmpty}</p>
-        {:else}
-          <ul class="rows">
-            {#each marks as s (s.SessionID + s.Mark)}
-              <li>
-                <div class="row-top">
-                  <span class={`mk ${s.Mark}`}>{markName(s.Mark)}</span>
-                  <span class="meta">
-                    <strong>{momentDay(s.Date)}</strong>
-                    <span>{s.ClassLabel} · {$t.admin.yearLabel} {s.SchoolYear}{#if s.Period} · {$t.troll.shistory.periodLabel(s.Period)}{/if}</span>
-                    {#if s.Mark === 'absence-permission' && s.Note}
-                      <small class="permnote">{$t.studentSummary.permissionWithReason(s.Note)}</small>
-                    {/if}
-                    {#if s.UniformOK === false}
-                      <small class="permnote warn">{$t.attendance.uniformFault}</small>
-                    {/if}
-                    {#if defenseOf(s)}
-                      <small class="permnote defense">{$t.studentSummary.defenseWithReason(defenseOf(s))}</small>
-                    {/if}
-                  </span>
-                  <div class="rowbtns">
-                    {#if s.Mark === 'absence' || s.Mark === 'absence-permission'}
-                      <button
-                        type="button"
-                        class={`btn btn-sm ${s.Mark === 'absence-permission' ? 'perm-on' : ''}`}
-                        disabled={acting === s.SessionID + s.Mark}
-                        on:click={() => togglePermission(s.SessionID, s.Mark)}
-                      >
-                        {s.Mark === 'absence' ? $t.studentSummary.justifyAction : $t.studentSummary.unjustifiedAction}
-                      </button>
-                      {#if staffDefense}
-                        <button
-                          type="button"
-                          class="btn btn-sm"
-                          disabled={!!acting}
-                          on:click={() => openDefense(s.SessionID)}
-                        >
-                          {$t.studentSummary.defenseAction}
-                        </button>
-                      {/if}
-                    {/if}
-                    <button
-                      type="button"
-                      class="btn btn-sm"
-                      on:click={() => (correcting = { sessionID: s.SessionID, mark: s.Mark })}
-                    >
-                      {$t.studentSummary.modifyAction}
-                    </button>
-                    <button type="button" class="btn btn-sm" on:click={() => openTrail(s.SessionID)}>
-                      {trailFor === s.SessionID ? $t.studentSummary.hideChanges : $t.studentSummary.showChanges}
-                    </button>
-                  </div>
-                </div>
-                {#if trailFor === s.SessionID}
-                  {#if trailLoading}
-                    <p class="muted">{$t.common.retrying}</p>
-                  {:else if trailError}
-                    <p class="error" role="alert">{$t.common.loadError}</p>
-                  {:else}
-                    <SessionRevisionTrail revisions={trailRows} studentName={reviseName()} />
-                  {/if}
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
-
-      <section class="card" aria-label={$t.studentSummary.priorPermitSection}>
-        <div class="row-head">
-          <h2>{$t.studentSummary.priorPermitSection} ({permits.length})</h2>
-          {#if staffPermits}
-            <button type="button" class="btn btn-sm" on:click={openPermit}>
-              {$t.studentSummary.priorPermitAction}
-            </button>
-          {/if}
-        </div>
-        {#if permits.length === 0}
-          <p class="muted">{$t.studentSummary.priorPermitEmpty}</p>
-        {:else}
-          <ul class="rows">
-            {#each permits as p (p.ID)}
-              <li>
-                <div class="row-top">
-                  <span class="mk absence-permission">{$t.attendance.priorPermitTag}</span>
-                  <div class="meta">
-                    <strong>{momentDay(p.Date)} · {p.ClassLabel}</strong>
-                    <span>{p.SubjectName || $t.studentSummary.priorPermitAllDay}</span>
-                    <small>{p.Reason}</small>
-                    {#if p.CreatedByName}
-                      <small class="priorby">{$t.studentSummary.priorPermitBy(p.CreatedByName)}</small>
-                    {/if}
-                  </div>
-                  {#if staffPermits}
-                    <div class="rowbtns">
-                      <button
-                        type="button"
-                        class="btn btn-sm"
-                        disabled={acting === p.ID}
-                        on:click={() => revokePrior(p)}
-                      >
-                        {$t.studentSummary.priorPermitRevoke}
-                      </button>
-                    </div>
-                  {/if}
-                </div>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-        {#if staffPermits}
-          <p class="lockhint">{$t.studentSummary.priorPermitLockNote}</p>
-        {/if}
-      </section>
+        <StudentAttendance
+          {report}
+          {permits}
+          groupID={studentGroup}
+          canDefense={staffDefense}
+          canPermits={staffPermits}
+          {acting}
+          studentName={reviseName()}
+          {trailFor}
+          {trailLoading}
+          {trailError}
+          {trailRows}
+          onJustify={togglePermission}
+          onDefense={openDefense}
+          onModify={(sessionID, mark) => (correcting = { sessionID, mark })}
+          onTrail={openTrail}
+          onPermit={(date, subjectID) => openPermit(date, subjectID)}
+          onRevoke={revokePrior}
+        />
 
       <section class="card" aria-label={$t.academicAlert.title}>
         <div class="row-head">
@@ -751,7 +648,7 @@
         <SessionCorrectSheet
           open
           title={$t.troll.shistory.correctTitle}
-          subtitle={momentDay(marks.find((m) => correcting && m.SessionID === correcting.sessionID)?.Date ?? '')}
+          subtitle={momentDay(sessions.find((m) => correcting && m.SessionID === correcting.sessionID)?.Date ?? '')}
           sessionId={correcting ? correcting.sessionID : ''}
           students={correcting ? [{ id, name: reviseName(), current: correcting.mark }] : []}
           onClose={() => (correcting = null)}
@@ -762,7 +659,7 @@
       <PermissionSheet
         open={defenseFor !== null}
         title={$t.studentSummary.defenseTitle}
-        subtitle={(() => { const dm = marks.find((x) => defenseFor && x.SessionID === defenseFor.sessionID); return dm ? `${momentDay(dm.Date)} · ${dm.ClassLabel}` : ''; })()}
+        subtitle={(() => { const dm = sessions.find((x) => defenseFor && x.SessionID === defenseFor.sessionID); return dm ? `${momentDay(dm.Date)} · ${dm.ClassLabel}` : ''; })()}
         reasonLabel={$t.studentSummary.defenseReasonLabel}
         reasonPlaceholder={$t.studentSummary.defenseReasonPlaceholder}
         onClose={() => (defenseFor = null)}
@@ -772,7 +669,7 @@
       <PermissionSheet
         open={permFor !== null}
         title={$t.studentSummary.justifyAction}
-        subtitle={(() => { const pm = marks.find((x) => permFor && x.SessionID === permFor.sessionID); return pm ? `${momentDay(pm.Date)} · ${pm.ClassLabel}` : ''; })()}
+        subtitle={(() => { const pm = sessions.find((x) => permFor && x.SessionID === permFor.sessionID); return pm ? `${momentDay(pm.Date)} · ${pm.ClassLabel}` : ''; })()}
         reasonLabel={$t.troll.shistory.permissionReasonLabel}
         reasonPlaceholder={$t.troll.shistory.permissionReasonPlaceholder}
         onClose={() => (permFor = null)}
@@ -924,13 +821,6 @@
     color: var(--muted);
     font-size: 0.85rem;
   }
-  .permnote.warn {
-    color: var(--g-grave-ink);
-    font-weight: 600;
-  }
-  .permnote.defense {
-    color: var(--accent);
-  }
   .kpis {
     margin: 0;
     display: grid;
@@ -992,22 +882,6 @@
     background: var(--tint);
     color: var(--ink-soft);
   }
-  .mk.absence {
-    background: var(--chip-pink-bg);
-    color: var(--g-grave-ink);
-  }
-  .mk.absence-permission {
-    background: var(--m-permission-bg);
-    color: var(--m-permission);
-  }
-  .mk.evasion {
-    background: var(--chip-purple-bg);
-    color: var(--chip-purple-ink);
-  }
-  .mk.late {
-    background: var(--chip-yellow-bg);
-    color: var(--chip-yellow-ink);
-  }
   .mk.sev-mild {
     background: var(--chip-sky-bg);
     color: var(--chip-sky-ink);
@@ -1040,10 +914,6 @@
     color: var(--ink-soft);
     font-size: 0.8rem;
   }
-  .meta small.permnote {
-    color: var(--m-permission);
-    font-weight: 600;
-  }
   .rowbtns {
     display: flex;
     flex-wrap: wrap;
@@ -1051,24 +921,9 @@
     align-items: center;
     margin-left: auto;
   }
-  .perm-on {
-    background: var(--m-permission-bg);
-    color: var(--m-permission);
-    border-color: transparent;
-  }
   .error {
     color: var(--danger);
     font-size: 0.85rem;
-    font-weight: 600;
-  }
-  .priorby {
-    color: var(--muted);
-    font-size: 0.76rem;
-  }
-  .lockhint {
-    margin: 0;
-    font-size: 0.78rem;
-    color: var(--m-permission);
     font-weight: 600;
   }
   .permit-form {

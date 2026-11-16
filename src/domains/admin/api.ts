@@ -972,6 +972,9 @@ export async function classReport(groupID: string): Promise<ClassReport> {
 
 export interface StudentSessionEntry {
   SessionID: string;
+  /** Salón y materia de la llamada: la ubican en el horario semanal. */
+  ClassGroupID?: string;
+  SubjectID?: string;
   Date: string;
   ClassLabel: string;
   SchoolYear: number;
