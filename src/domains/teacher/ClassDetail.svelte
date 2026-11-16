@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { loadWhenReady } from '$lib/sessionReady';
   import { push } from 'svelte-spa-router';
   import { t } from '$lib/i18n';
@@ -496,7 +496,14 @@
   );
   const isFaultMark = (m: string) => m === 'absence' || m === 'absence-permission' || m === 'evasion';
 
-  function openDefense(r: RosterEntry) {
+  // El descargo va junto a una falta guardada: si la lista tiene cambios
+  // sin guardar, se guarda primero y luego se abre el descargo.
+  async function openDefense(r: RosterEntry) {
+    if (dirty || !faultSaved.has(r.StudentID)) {
+      await save();
+      await tick();
+      if (!faultSaved.has(r.StudentID)) return;
+    }
     defFor = r;
     defText = defenses[r.StudentID] ?? '';
     defError = '';
@@ -614,7 +621,7 @@
               {@const isPerm = perm.has(r.StudentID)}
               {@const isLocked = locked.has(r.StudentID)}
               {@const cur = inPresent ? '' : isLate ? 'late' : isEvasion ? 'evasion' : isPerm ? 'absence-permission' : 'absence'}
-              {@const canDef = faultSaved.has(r.StudentID) && isFaultMark(cur)}
+              {@const canDef = isFaultMark(cur)}
               <li class:locked={isLocked}>
                 <span class="who">
                   <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
@@ -685,13 +692,13 @@
                   type="button"
                   class="defbtn"
                   class:off={!canDef}
-                  class:has={canDef && !!defenses[r.StudentID]}
-                  disabled={!canDef}
+                  class:has={canDef && faultSaved.has(r.StudentID) && !!defenses[r.StudentID]}
+                  disabled={!canDef || saving}
                   title={!canDef
-                    ? isFaultMark(cur)
+                    ? $t.attendance.defenseOnlyFaults
+                    : !faultSaved.has(r.StudentID) || dirty
                       ? $t.attendance.defenseSaveFirst
-                      : $t.attendance.defenseOnlyFaults
-                    : defenses[r.StudentID] || $t.studentSummary.defenseTitle}
+                      : defenses[r.StudentID] || $t.studentSummary.defenseTitle}
                   on:click={() => openDefense(r)}
                 >
                   <Icon name="check" />

@@ -445,7 +445,7 @@ export const es = {
   attendance: {
     defenseHint: 'Solo para faltas ya guardadas: escribe la defensa del estudiante y queda junto a la falta, a la vista de coordinación y secretaría.',
     defenseClear: 'Borrar descargo',
-    defenseSaveFirst: 'Guarda la lista para registrar el descargo de esta falta.',
+    defenseSaveFirst: 'Al abrir el descargo se guarda primero la lista con esta falta.',
     defenseOnlyFaults: 'El descargo solo aplica a faltas, faltas con permiso o evasiones.',
     defenseCleared: 'Descargo borrado.',
     breadcrumbHome: 'Inicio',
