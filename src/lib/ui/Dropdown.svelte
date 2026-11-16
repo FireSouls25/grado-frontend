@@ -24,6 +24,9 @@
   export let wrap = false;
   /** Panel más alto para listas largas (catálogo de materias). */
   export let tall = false;
+  /** Fila de botones para ver un solo grupo (ej. Tipo I, II o III). */
+  export let groupFilter = false;
+  export let groupAllLabel = 'Todos';
 
   const dispatch = createEventDispatcher<{ select: string }>();
 
@@ -37,11 +40,15 @@
   let spacerH = 0;
 
   $: q = query.trim().toLowerCase();
-  $: shown = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
+  let groupSel = '';
+  $: groups = groupFilter ? [...new Set(options.map((o) => o.group ?? '').filter(Boolean))] : [];
+  $: shown = options.filter(
+    (o) => (!q || o.label.toLowerCase().includes(q)) && (!groupSel || (o.group ?? '') === groupSel)
+  );
   $: current = options.find((o) => o.value === value);
   // Cabeceras en orden de aparición; el buscador aplana (sin grupos).
   $: blocks = (() => {
-    if (q) return [{ group: '', items: shown }];
+    if (q || groupSel) return [{ group: '', items: shown }];
     const out: { group: string; items: typeof shown }[] = [];
     for (const o of shown) {
       const g = o.group ?? '';
@@ -52,39 +59,51 @@
     return out;
   })();
 
-  // Sin portales: el panel es absoluto dentro del contenedor con scroll
-  // y se mueve con él. Cuando abajo no cabe, se abre hacia arriba.
+  // Sin portales: el panel es absoluto y flota encima del contenido, sin
+  // empujar nada. Solo dentro de una hoja (diálogo), que es baja y hace
+  // scroll propio, se reserva en el flujo el alto que falta para que la
+  // hoja crezca en vez de dejar las opciones en una franja diminuta.
   function measure() {
     if (!face) return null;
     const f = face.getBoundingClientRect();
     let el = box?.parentElement ?? null;
-    while (el) {
+    while (el && el !== document.body && el !== document.documentElement) {
       const oy = getComputedStyle(el).overflowY;
-      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1) {
+      if (oy === 'auto' || oy === 'scroll' || oy === 'hidden' || oy === 'clip') {
         const r = el.getBoundingClientRect();
-        return { below: r.bottom - f.bottom, above: f.top - r.top };
+        const below = Math.min(r.bottom, window.innerHeight) - f.bottom;
+        const above = f.top - Math.max(r.top, 0);
+        return { below, above, clipped: !!box?.closest('[role="dialog"]') };
       }
       el = el.parentElement;
     }
-    return { below: window.innerHeight - f.bottom, above: f.top };
+    return { below: window.innerHeight - f.bottom, above: f.top, clipped: false };
   }
 
   function openMenu() {
     open = true;
     query = '';
+    groupSel = '';
     highlighted = Math.max(0, shown.findIndex((o) => o.value === value));
     const maxH = tall ? 400 : 260;
+    const gap = 8;
     const space = measure();
-    if (space && space.below < 180 && space.above > space.below) {
+    up = false;
+    popMax = 0;
+    spacerH = 0;
+    if (!space || space.below >= maxH + gap) return;
+    if (space.above > space.below && space.below < 180) {
+      // Abajo casi no cabe y arriba hay más espacio: se abre hacia arriba.
       up = true;
-      popMax = Math.min(maxH, Math.max(140, space.above - 8));
-      spacerH = 0;
+      popMax = Math.min(maxH, Math.max(140, space.above - gap));
+    } else if (space.clipped) {
+      // Dentro de una hoja: se reserva solo lo que falta para que crezca
+      // o haga scroll.
+      spacerH = Math.max(0, maxH + gap - Math.max(0, space.below));
     } else {
-      // Hacia abajo: se reserva el alto del panel en el flujo para que
-      // la hoja crezca (hasta su tope) en vez de recortar las opciones.
-      up = false;
-      popMax = 0;
-      spacerH = maxH;
+      // En la página: flota y se acorta al espacio visible (mínimo 140 px);
+      // la página puede desplazarse para ver el resto.
+      popMax = Math.min(maxH, Math.max(140, space.below - gap));
     }
   }
 
@@ -143,6 +162,21 @@
             <Icon name="search" />
             <input type="search" placeholder={searchPlaceholder} aria-label={searchPlaceholder} bind:value={query} />
           </label>
+        {/if}
+        {#if groups.length > 1}
+          <div class="gfilter" role="group" aria-label={label || placeholder}>
+            {#each ['', ...groups] as g}
+              <button
+                type="button"
+                class:on={groupSel === g}
+                aria-pressed={groupSel === g}
+                on:click={() => {
+                  groupSel = g;
+                  highlighted = 0;
+                }}>{g || groupAllLabel}</button
+              >
+            {/each}
+          </div>
         {/if}
         {#if shown.length === 0}
           <p class="empty">{emptyLabel}</p>
@@ -293,6 +327,37 @@
     width: 100%;
     color: var(--ink);
     font-size: 0.82rem;
+  }
+  .gfilter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 4px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface);
+    padding-bottom: 2px;
+  }
+  .find + .gfilter {
+    top: 40px;
+  }
+  .gfilter button {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface);
+  }
+  .gfilter button:hover {
+    background: var(--surface-2);
+  }
+  .gfilter button.on {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
   }
   .empty {
     color: var(--muted);
