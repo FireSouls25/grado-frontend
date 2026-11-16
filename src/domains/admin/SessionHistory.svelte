@@ -1090,6 +1090,22 @@
   .scount {
     margin-right: 4px;
   }
+  @media (max-width: 560px) {
+    .sbar .tabs {
+      flex-basis: 100%;
+    }
+    .sbar .tabs button {
+      flex: 1;
+      justify-content: center;
+    }
+    .sbar .nav {
+      flex: 1;
+    }
+    .navlabel {
+      min-width: 0;
+      flex: 1;
+    }
+  }
   /* Detalle */
   .detail {
     display: flex;

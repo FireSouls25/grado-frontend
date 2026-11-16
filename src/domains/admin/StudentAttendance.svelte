@@ -756,6 +756,21 @@
       padding-left: 0;
     }
   }
+  /* En pantallas angostas las pestañas van en su propia fila y la
+     navegación (anterior, rango, siguiente) queda junta debajo. */
+  @media (max-width: 560px) {
+    .nav .tabs {
+      flex-basis: 100%;
+    }
+    .nav .tabs button {
+      flex: 1;
+      justify-content: center;
+    }
+    .navlabel {
+      min-width: 0;
+      flex: 1;
+    }
+  }
   /* Calendario */
   .totals {
     display: flex;

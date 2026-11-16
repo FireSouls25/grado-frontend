@@ -115,6 +115,8 @@
     font-weight: 650;
   }
   .count {
+    flex: none;
+    white-space: nowrap;
     font-size: 0.74rem;
     font-weight: 700;
     border-radius: 999px;
