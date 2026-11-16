@@ -39,6 +39,7 @@ export const Perm = {
   viewWarnings: 'view-warnings',
   managePromotions: 'manage-promotions',
   recordDefenses: 'record-defenses',
+  managePermits: 'manage-permits',
   manageOwners: 'manage-owners'
 } as const;
 
@@ -56,6 +57,8 @@ function legacyGrants(perm: string, roles: string[]): boolean {
     case Perm.managePromotions:
       return has('admin', 'secretary');
     case Perm.recordDefenses:
+      return has('admin', 'secretary', 'teacher');
+    case Perm.managePermits:
       return has('admin', 'secretary');
     case Perm.recordAttendance:
       return has('admin', 'teacher', 'secretary');
@@ -97,9 +100,15 @@ export function canPromote(who: Who | undefined | null): boolean {
   return hasPermission(who, Perm.managePromotions);
 }
 
-/** Registrar descargos: admin y secretaría (los docentes no). */
+/** Registrar descargos: admin, secretaría y el docente en sus salones. */
 export function canWriteDefenses(who: Who | undefined | null): boolean {
   return hasPermission(who, Perm.recordDefenses);
+}
+
+/** Conceder o revocar permisos previos: secretaría y admin, nunca el
+ *  docente, porque el permiso bloquea su propia lista. */
+export function canManagePermits(who: Who | undefined | null): boolean {
+  return hasPermission(who, Perm.managePermits);
 }
 
 /** Corregir asistencia: docentes, admin y secretaría. */

@@ -11,7 +11,7 @@
   import AdminShell from './AdminShell.svelte';
   import { guarded, goBack } from '$lib/nav';
   import { profile as profileStore } from '$lib/shell/profile';
-  import { canManageUsers, canWriteWarnings, canWriteDefenses } from '$lib/access';
+  import { canManageUsers, canWriteWarnings, canWriteDefenses, canManagePermits } from '$lib/access';
   import { t } from '$lib/i18n';
   import type { StudentProfile, Warning } from '$lib/api/types';
   import {
@@ -48,6 +48,7 @@
   $: roles = $profileStore.me?.roles ?? [];
   $: staffWrite = canWriteWarnings($profileStore.me);
   $: staffDefense = canWriteDefenses($profileStore.me);
+  $: staffPermits = canManagePermits($profileStore.me);
 
   export let params: { id?: string } = {};
   let id = '';
@@ -500,7 +501,7 @@
       <section class="card" aria-label={$t.studentSummary.priorPermitSection}>
         <div class="row-head">
           <h2>{$t.studentSummary.priorPermitSection} ({permits.length})</h2>
-          {#if staffDefense}
+          {#if staffPermits}
             <button type="button" class="btn btn-sm" on:click={openPermit}>
               {$t.studentSummary.priorPermitAction}
             </button>
@@ -522,7 +523,7 @@
                       <small class="priorby">{$t.studentSummary.priorPermitBy(p.CreatedByName)}</small>
                     {/if}
                   </div>
-                  {#if staffDefense}
+                  {#if staffPermits}
                     <div class="rowbtns">
                       <button
                         type="button"
@@ -539,7 +540,7 @@
             {/each}
           </ul>
         {/if}
-        {#if staffDefense}
+        {#if staffPermits}
           <p class="lockhint">{$t.studentSummary.priorPermitLockNote}</p>
         {/if}
       </section>
