@@ -593,12 +593,6 @@
             <span class="countpill">{$t.attendance.studentsCount(roster.length)}</span>
           </div>
           <p class="hint-top">{$t.attendance.listHint}</p>
-          {#if locked.size > 0}
-            <p class="locknote" role="note">
-              <Icon name="shield" />
-              {$t.attendance.priorPermitNote(locked.size)}
-            </p>
-          {/if}
           <div class="bulk">
             <button type="button" class="btn btn-sm" on:click={markAllPresent}>
               <Icon name="check" /> {$t.attendance.markAllPresent}
@@ -618,20 +612,22 @@
               <li class:locked={isLocked}>
                 <span class="who">
                   <span class="avatar" aria-hidden="true">{initials(r.Names, r.Surnames)}</span>
-                  <span class="name"><strong>{r.Surnames}, {r.Names}</strong><small>{r.DocumentID}</small></span>
-                  {#if isLocked}
-                    <span
-                      class="lockchip"
-                      title={lockReasons[r.StudentID]
-                        ? $t.attendance.priorPermitWithReason(lockReasons[r.StudentID])
-                        : $t.attendance.priorPermitTag}
-                    >
-                      <Icon name="shield" /> {$t.attendance.priorPermitTag}
-                    </span>
-                    {#if lockReasons[r.StudentID]}
-                      <small class="lockreason">{$t.attendance.priorPermitWithReason(lockReasons[r.StudentID])} · {$t.attendance.priorPermitNoEdit}</small>
-                    {/if}
-                  {/if}
+                  <span class="name">
+                    <strong>{r.Surnames}, {r.Names}</strong>
+                    <small class="subline">
+                      {r.DocumentID}
+                      {#if isLocked}
+                        <span
+                          class="lockchip"
+                          title={lockReasons[r.StudentID]
+                            ? $t.attendance.priorPermitWithReason(lockReasons[r.StudentID])
+                            : $t.attendance.priorPermitTag}
+                        >
+                          <Icon name="shield" /> {$t.attendance.priorPermitTag}
+                        </span>
+                      {/if}
+                    </small>
+                  </span>
                 </span>
                 <label class="uniform-check" title={$t.attendance.uniformLabel}>
                   <input
@@ -958,24 +954,6 @@
     font-size: 0.78rem;
     margin-bottom: 10px;
   }
-  .locknote {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--m-permission-bg);
-    color: var(--m-permission);
-    border: 1px solid var(--m-permission);
-    border-radius: var(--radius-control);
-    padding: 8px 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-bottom: 10px;
-  }
-  .locknote :global(svg) {
-    width: 15px;
-    height: 15px;
-    flex: none;
-  }
   .ledger {
     list-style: none;
     margin: 0;
@@ -999,6 +977,12 @@
     border-color: var(--m-permission);
     background: var(--m-permission-bg);
   }
+  .subline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
   .lockchip {
     display: inline-flex;
     align-items: center;
@@ -1007,17 +991,10 @@
     color: var(--m-permission);
     border: 1px solid var(--m-permission);
     border-radius: 999px;
-    padding: 3px 8px;
+    padding: 1px 7px;
     font-size: 0.7rem;
     font-weight: 700;
     white-space: nowrap;
-  }
-  .lockreason {
-    flex-basis: 100%;
-    padding-left: 44px;
-    color: var(--m-permission);
-    font-size: 0.74rem;
-    font-weight: 600;
   }
   .lockchip :global(svg) {
     width: 13px;
@@ -1042,8 +1019,7 @@
     min-width: 180px;
     display: flex;
     align-items: center;
-    gap: 4px 10px;
-    flex-wrap: wrap;
+    gap: 10px;
   }
   .who .name {
     flex: 1;
