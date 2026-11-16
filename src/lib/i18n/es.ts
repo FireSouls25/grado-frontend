@@ -230,7 +230,7 @@ export const es = {
   studentAttendance: {
     title: 'Asistencia',
     weekTab: 'Semana',
-    calendarTab: 'Calendario del año',
+    calendarTab: 'Mes',
     prevWeek: 'Semana anterior',
     nextWeek: 'Semana siguiente',
     thisWeek: 'Esta semana',
@@ -252,7 +252,7 @@ export const es = {
     dayPermitAction: 'Permiso todo el día',
     offSchedule: 'Clase fuera del horario',
     weekdaysShort: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-    calendarHint: 'Toca un día para verlo en la semana, con sus clases y acciones.'
+    calendarHint: 'Toca un día para abrir su semana: ahí ves cada clase y puedes dar permiso, registrar descargos o modificar la marca.'
   },
   studentSummary: {
     titleFallback: 'Estudiante',

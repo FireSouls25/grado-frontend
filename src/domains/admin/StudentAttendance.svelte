@@ -44,7 +44,7 @@
   export let onRevoke: (p: PriorPermit) => void = () => {};
 
   type View = 'week' | 'calendar';
-  let view: View = 'week';
+  let view: View = 'calendar';
 
   let entries: ScheduleEntry[] = [];
   let subjectNames: Record<string, string> = {};
@@ -255,6 +255,20 @@
   function shiftMonth(n: number) {
     monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + n, 1);
   }
+  // Mes y semana se siguen: al cambiar de vista se queda en el mismo rango.
+  function toWeek() {
+    if (view === 'week') return;
+    const same = monthCursor.getMonth() === now.getMonth() && monthCursor.getFullYear() === now.getFullYear();
+    weekStart = mondayOf(same ? now : monthCursor);
+    focusDay = '';
+    view = 'week';
+  }
+  function toMonth() {
+    if (view === 'calendar') return;
+    const mid = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 3);
+    monthCursor = new Date(mid.getFullYear(), mid.getMonth(), 1);
+    view = 'calendar';
+  }
   function openDay(iso: string) {
     const d = calendarDate(iso);
     if (!d) return;
@@ -275,19 +289,20 @@
 </script>
 
 <div class="att">
-  <div class="head">
+  {#snippet tabs()}
     <div class="tabs" role="tablist" aria-label={$t.studentAttendance.title}>
-      <button type="button" role="tab" aria-selected={view === 'week'} class:on={view === 'week'} on:click={() => (view = 'week')}>
-        <Icon name="list" /> {$t.studentAttendance.weekTab}
-      </button>
-      <button type="button" role="tab" aria-selected={view === 'calendar'} class:on={view === 'calendar'} on:click={() => (view = 'calendar')}>
+      <button type="button" role="tab" aria-selected={view === 'calendar'} class:on={view === 'calendar'} on:click={toMonth}>
         <Icon name="calendar" /> {$t.studentAttendance.calendarTab}
       </button>
+      <button type="button" role="tab" aria-selected={view === 'week'} class:on={view === 'week'} on:click={toWeek}>
+        <Icon name="list" /> {$t.studentAttendance.weekTab}
+      </button>
     </div>
-  </div>
+  {/snippet}
 
   {#if view === 'week'}
     <div class="nav">
+      {@render tabs()}
       <button type="button" class="btn btn-sm" aria-label={$t.studentAttendance.prevWeek} on:click={() => shiftWeek(-1)}><Icon name="back" /></button>
       <strong class="navlabel">{weekLabel}</strong>
       <button type="button" class="btn btn-sm" aria-label={$t.studentAttendance.nextWeek} on:click={() => shiftWeek(1)}><Icon name="next" /></button>
@@ -418,6 +433,7 @@
     {/if}
   {:else}
     <div class="nav">
+      {@render tabs()}
       <button type="button" class="btn btn-sm" aria-label={$t.studentAttendance.prevMonth} on:click={() => shiftMonth(-1)}><Icon name="back" /></button>
       <strong class="navlabel month">{monthLabel}</strong>
       <button type="button" class="btn btn-sm" aria-label={$t.studentAttendance.nextMonth} on:click={() => shiftMonth(1)}><Icon name="next" /></button>
@@ -470,13 +486,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-  }
-  .head {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    flex-wrap: wrap;
   }
   .tabs {
     display: inline-flex;
