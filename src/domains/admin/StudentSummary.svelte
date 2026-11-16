@@ -45,6 +45,7 @@
   import SessionCorrectSheet from './SessionCorrectSheet.svelte';
   import PermissionSheet from '$lib/ui/PermissionSheet.svelte';
   import StudentAttendance from './StudentAttendance.svelte';
+  import Section from '$lib/ui/Section.svelte';
   import WarningDefenseSheet from '../teacher/WarningDefenseSheet.svelte';
   import { notify } from '$lib/ui/notice';
   import { rangeLabel } from '$lib/schedule';
@@ -494,8 +495,7 @@
     {:else if state === 'error' || !profile || !report}
       <ErrorState error={loadError} onRetry={load} />
     {:else}
-      <section class="card" aria-label={$t.studentSummary.statsTitle}>
-        <div class="row-head"><h2>{$t.studentSummary.statsTitle}</h2></div>
+      <Section key="summary-stats" icon="list" title={$t.studentSummary.statsTitle}>
         <dl class="kpis">
           <div><dt>{$t.studentSummary.rateLabel}</dt><dd class:low={rate !== null && rate < 85}>{rate === null ? '—' : `${rate}%`}</dd></div>
           <div><dt>{$t.studentSummary.presences}</dt><dd>{report.Presences}</dd></div>
@@ -518,76 +518,40 @@
             {#if lateFeedback}<p class="flash" class:error={lateFeedbackError} role="status">{lateFeedback}</p>{/if}
           </div>
         {/if}
-      </section>
+      </Section>
 
-        <StudentAttendance
-          {report}
-          {permits}
-          groupID={studentGroup}
-          canDefense={staffDefense}
-          canPermits={staffPermits}
-          {acting}
-          studentName={reviseName()}
-          {trailFor}
-          {trailLoading}
-          {trailError}
-          {trailRows}
-          onJustify={togglePermission}
-          onDefense={openDefense}
-          onModify={(sessionID, mark) => (correcting = { sessionID, mark })}
-          onTrail={openTrail}
-          onPermit={(date, subjectID) => openPermit(date, subjectID)}
-          onRevoke={revokePrior}
-        />
+      <Section key="summary-attendance" icon="calendar" title={$t.studentAttendance.title}>
+          <StudentAttendance
+            {report}
+            {permits}
+            groupID={studentGroup}
+            canDefense={staffDefense}
+            canPermits={staffPermits}
+            {acting}
+            studentName={reviseName()}
+            {trailFor}
+            {trailLoading}
+            {trailError}
+            {trailRows}
+            onJustify={togglePermission}
+            onDefense={openDefense}
+            onModify={(sessionID, mark) => (correcting = { sessionID, mark })}
+            onTrail={openTrail}
+            onPermit={(date, subjectID) => openPermit(date, subjectID)}
+            onRevoke={revokePrior}
+          />
+      </Section>
 
-      <section class="card" aria-label={$t.academicAlert.title}>
-        <div class="row-head">
-          <h2>{$t.academicAlert.title} ({openAlerts.length} {$t.academicAlert.openLabel})</h2>
-        </div>
-        {#if alerts.length === 0}
-          <p class="muted">{$t.academicAlert.empty}</p>
-        {:else}
-          <ul class="rows">
-            {#each alerts as a (a.ID)}
-              <li>
-                <div class="row-top">
-                  <span class={`mk ${a.Status === 'open' ? 'sev-severe' : 'sev-mild'}`}>
-                    {a.Status === 'open' ? $t.academicAlert.openLabel : $t.academicAlert.reviewedLabel}
-                  </span>
-                  <div class="meta">
-                    <strong>{a.Reason}</strong>
-                    <span>{momentDay(a.CreatedAt)}</span>
-                  </div>
-                  {#if a.Status === 'open' && canManageUsers($profileStore.me)}
-                    <div class="rowbtns">
-                      <button
-                        type="button"
-                        class="btn btn-sm"
-                        disabled={reviewingAlert === a.ID}
-                        on:click={() => reviewAlert(a.ID)}
-                      >
-                        {$t.academicAlert.reviewAction}
-                      </button>
-                    </div>
-                  {/if}
-                </div>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
-
-      <section class="card" aria-label={$t.studentSummary.warningsTitle}>
-        <div class="row-head">
-          <h2>{$t.studentSummary.warningsTitle} ({sortedWarnings.length})</h2>
-          <button
-            type="button"
-            class="btn btn-sm"
-            on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(rawSlug || id)}&nombre=${encodeURIComponent(reviseName())}`)}
+      <Section key="summary-warnings" icon="warn" tone="warn" title={$t.studentSummary.warningsTitle} count={sortedWarnings.length}>
+        <svelte:fragment slot="actions">
+            <button
+              type="button"
+              class="btn btn-sm"
+              on:click={() => push(`/admin/llamados?estudiante=${encodeURIComponent(rawSlug || id)}&nombre=${encodeURIComponent(reviseName())}`)}
           >
-            {$t.studentSummary.openWarnings}
-          </button>
-        </div>
+              {$t.studentSummary.openWarnings}
+            </button>
+        </svelte:fragment>
         {#if sortedWarnings.length === 0}
           <p class="muted">{$t.studentSummary.warningsEmpty}</p>
         {:else}
@@ -633,7 +597,41 @@
             {/each}
           </ul>
         {/if}
-      </section>
+      </Section>
+
+      <Section key="summary-alerts" icon="bell" tone="alert" title={$t.academicAlert.title} count={`${openAlerts.length} ${$t.academicAlert.openLabel}`}>
+        {#if alerts.length === 0}
+          <p class="muted">{$t.academicAlert.empty}</p>
+        {:else}
+          <ul class="rows">
+            {#each alerts as a (a.ID)}
+              <li>
+                <div class="row-top">
+                  <span class={`mk ${a.Status === 'open' ? 'sev-severe' : 'sev-mild'}`}>
+                    {a.Status === 'open' ? $t.academicAlert.openLabel : $t.academicAlert.reviewedLabel}
+                  </span>
+                  <div class="meta">
+                    <strong>{a.Reason}</strong>
+                    <span>{momentDay(a.CreatedAt)}</span>
+                  </div>
+                  {#if a.Status === 'open' && canManageUsers($profileStore.me)}
+                    <div class="rowbtns">
+                      <button
+                        type="button"
+                        class="btn btn-sm"
+                        disabled={reviewingAlert === a.ID}
+                        on:click={() => reviewAlert(a.ID)}
+                      >
+                        {$t.academicAlert.reviewAction}
+                      </button>
+                    </div>
+                  {/if}
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </Section>
 
       <Sheet
         open={editingWarning !== null}
@@ -803,28 +801,7 @@
     padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-  }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-card);
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .row-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .row-head h2 {
-    margin: 0;
-    font-size: 0.98rem;
-    font-weight: 600;
+    gap: 20px;
   }
   .streakwarn {
     margin: 0;

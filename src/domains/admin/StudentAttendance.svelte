@@ -298,10 +298,9 @@
   }
 </script>
 
-<section class="card att" aria-label={$t.studentAttendance.title}>
+<div class="att">
   <div class="head">
-    <h2>{$t.studentAttendance.title}</h2>
-    <div class="tabs" role="tablist">
+    <div class="tabs" role="tablist" aria-label={$t.studentAttendance.title}>
       <button type="button" role="tab" aria-selected={view === 'week'} class:on={view === 'week'} on:click={() => (view = 'week')}>
         <Icon name="list" /> {$t.studentAttendance.weekTab}
       </button>
@@ -326,7 +325,7 @@
     {:else if !groupID}
       <p class="muted">{$t.studentAttendance.noGroup}</p>
     {:else}
-      <div class="days">
+      <div class="days" style={`--cols:${weekDays.length}`}>
         {#each weekDays as d (d.iso)}
           {@const uncalled = d.blocks.some((b) => b.entry && !b.session && !b.permit)}
           <div class="day" class:today={d.iso === todayISO} class:focus={d.iso === focusDay} class:off={d.kind !== 'school'}>
@@ -363,16 +362,6 @@
                   <li class={`block ${b.state}`} class:called={!!s}>
                     <div class="btop">
                       <span class="time">{b.time || '—'}</span>
-                      <span class="subj">
-                        <strong>{b.subject}</strong>
-                        {#if s}
-                          {#if s.Mark === 'absence-permission' && s.Note}<small class="note perm">{$t.studentSummary.permissionWithReason(s.Note)}</small>{/if}
-                          {#if s.UniformOK === false}<small class="note warn">{$t.attendance.uniformFault}</small>{/if}
-                          {#if defenseOf(s.SessionID)}<small class="note def">{$t.studentSummary.defenseWithReason(defenseOf(s.SessionID))}</small>{/if}
-                        {:else if b.permit}
-                          <small class="note perm">{$t.studentSummary.permissionWithReason(b.permit.Reason)}</small>
-                        {/if}
-                      </span>
                       {#if s}
                         <span class={`mk ${s.Mark || 'present'}`}>{markName(s.Mark)}</span>
                       {:else if covered}
@@ -387,6 +376,16 @@
                         <span class="mk uncalled">{$t.studentAttendance.uncalled}</span>
                       {/if}
                     </div>
+                    <span class="subj">
+                      <strong>{b.subject}</strong>
+                      {#if s}
+                        {#if s.Mark === 'absence-permission' && s.Note}<small class="note perm">{$t.studentSummary.permissionWithReason(s.Note)}</small>{/if}
+                        {#if s.UniformOK === false}<small class="note warn">{$t.attendance.uniformFault}</small>{/if}
+                        {#if defenseOf(s.SessionID)}<small class="note def">{$t.studentSummary.defenseWithReason(defenseOf(s.SessionID))}</small>{/if}
+                      {:else if b.permit}
+                        <small class="note perm">{$t.studentSummary.permissionWithReason(b.permit.Reason)}</small>
+                      {/if}
+                    </span>
                     <div class="bbtns">
                       {#if s}
                         {#if s.Mark === 'absence' || s.Mark === 'absence-permission'}
@@ -488,7 +487,7 @@
     </div>
     <p class="muted small">{$t.studentAttendance.calendarHint}</p>
   {/if}
-</section>
+</div>
 
 <style>
   .att {
@@ -499,12 +498,9 @@
   .head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
-  }
-  .head h2 {
-    font-size: 1rem;
   }
   .tabs {
     display: inline-flex;
@@ -564,15 +560,22 @@
     font-size: 0.8rem;
   }
   .days {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 5), minmax(190px, 1fr));
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
   }
   .day {
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
-    padding: 10px 12px;
+    padding: 10px;
     background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    scroll-snap-align: start;
   }
   .day.today {
     border-color: var(--accent);
@@ -587,9 +590,11 @@
   .dayhead {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
     margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
   }
   .dayhead strong {
     font-size: 0.88rem;
@@ -659,21 +664,21 @@
   .btop {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 6px;
     flex-wrap: wrap;
   }
   .time {
-    flex: none;
-    width: 92px;
-    font-size: 0.76rem;
+    font-size: 0.72rem;
     font-variant-numeric: tabular-nums;
     color: var(--muted);
+    font-weight: 600;
   }
   .subj {
-    flex: 1 1 160px;
     min-width: 0;
     display: flex;
     flex-direction: column;
+    gap: 2px;
   }
   .subj strong {
     font-size: 0.86rem;
@@ -693,12 +698,16 @@
   }
   .bbtns {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     flex-wrap: wrap;
-    padding-left: 102px;
   }
   .bbtns:empty {
     display: none;
+  }
+  .bbtns :global(.btn) {
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    min-height: 28px;
   }
   .bbtns :global(svg) {
     width: 13px;
@@ -709,10 +718,12 @@
     color: var(--m-permission);
   }
   .trail {
-    padding-left: 102px;
+    border-top: 1px dashed var(--line);
+    padding-top: 6px;
   }
   .mk {
     flex: none;
+    white-space: nowrap;
     display: inline-flex;
     align-items: center;
     gap: 4px;
