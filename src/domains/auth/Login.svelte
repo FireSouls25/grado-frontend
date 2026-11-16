@@ -96,6 +96,7 @@
 </script>
 
 <div class="page login">
+  <div class="stage">
   <div class="split">
     <div class="hero">
       <div class="mark" aria-hidden="true">O</div>
@@ -172,6 +173,7 @@
       <a class="forgot" href="#/recuperar">{$t.login.forgot}</a>
     </form>
   </div>
+  </div>
 
   <SiteFooter />
 </div>
@@ -179,11 +181,16 @@
 <style>
   .login {
     max-width: 560px;
-    min-height: 100svh;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+  /* El acceso ocupa toda la pantalla y queda centrado en vertical; el
+     pie de página va debajo, a un poco de scroll. */
+  .stage {
+    min-height: calc(100svh - 32px - env(safe-area-inset-top));
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding-block: 16px;
   }
   .split {
     display: flex;
@@ -375,7 +382,6 @@
       flex-direction: row;
       align-items: stretch;
       gap: 0;
-      margin-top: 24px;
       border-radius: var(--radius-sheet);
       overflow: hidden;
       border: 1px solid var(--line);
